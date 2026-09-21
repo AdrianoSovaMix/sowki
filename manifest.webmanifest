@@ -1,0 +1,6 @@
+{
+"name":"Sówki","short_name":"Sówki","description":"Aplikacja grupy Sówki",
+"start_url":"./","scope":"./","display":"standalone","background_color":"#fff8fb",
+"theme_color":"#d81b60","lang":"pl",
+"icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

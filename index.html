@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d81b60">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sówki">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Sówki</title>
+<style>
+*{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:#fff8fb;color:#29252a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.app{max-width:760px;margin:auto;min-height:100vh;padding:env(safe-area-inset-top) 16px calc(92px + env(safe-area-inset-bottom))}
+.hero{padding:24px 8px 18px;text-align:center;background:linear-gradient(135deg,#fff0f6,#fff);border-radius:0 0 28px 28px}
+.owl{font-size:52px} .hero h1{margin:0;color:#d81b60;font-size:36px;letter-spacing:2px} .hero small{font-weight:700;letter-spacing:3px}
+.card,.tile{background:white;border:1px solid #f1e7eb;box-shadow:0 6px 20px #6e405014;border-radius:20px}
+.important{display:flex;align-items:center;gap:14px;padding:18px;margin:14px 0} .important .ico{font-size:32px} .important b{font-size:18px} .important p{margin:4px 0 0;color:#6c6368}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px} .tile{padding:18px;min-height:135px;text-decoration:none;color:inherit;display:flex;flex-direction:column;justify-content:center;cursor:pointer}
+.tile .ico{font-size:34px} .tile b{font-size:19px;margin-top:7px} .tile span{color:#6c6368;margin-top:4px;line-height:1.35}
+.pink{background:#fff0f6}.green{background:#effbf5}.blue{background:#eff7ff}.yellow{background:#fff9df}.purple{background:#f6efff}.orange{background:#fff1e9}
+.quote{text-align:center;margin:14px 0;padding:16px;border-radius:18px;background:#fff0f6;color:#bd416b;font-style:italic}
+.page{display:none} .page.active{display:block} .topbar{display:flex;align-items:center;gap:12px;padding:18px 4px} .back{border:0;background:#fff;border-radius:50%;width:42px;height:42px;font-size:23px;box-shadow:0 3px 12px #00000012;cursor:pointer} .topbar h2{margin:0;font-size:24px}
+.legend{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 12px} .pill{background:#fff;border:1px solid #eee;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:650} .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.frame{overflow:hidden;border-radius:18px;background:#fff;border:1px solid #eee;box-shadow:0 4px 16px #0000000d} .frame iframe{display:block;width:100%;height:680px;border:0}
+.login{padding:24px;text-align:center} .lock{font-size:48px} .login h3{font-size:24px;margin:8px 0} .login p{color:#6c6368;line-height:1.5} input{width:100%;padding:15px;border:1px solid #ccc;border-radius:12px;text-align:center;font-size:16px;outline:none} input:focus{border-color:#d81b60;box-shadow:0 0 0 3px #d81b6018}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:15px;margin-top:10px;background:#d81b60;color:white;font-size:15px;font-weight:800;text-decoration:none;text-align:center;cursor:pointer} .btn.excel{background:#107c41} .error{display:none;color:#b42318;background:#fff0f0;border-radius:10px;padding:10px;margin-top:10px}
+.status{display:inline-block;background:#effbf5;color:#27834c;padding:8px 13px;border-radius:999px;font-size:12px;font-weight:700;margin:0 0 12px}
+.mobileExcel{display:none;padding:24px;text-align:center} .mobileExcel .x{margin:auto;width:66px;height:66px;border-radius:15px;background:#107c41;color:white;display:grid;place-items:center;font-size:36px;font-weight:800}
+.placeholder{padding:28px;text-align:center} .placeholder .ico{font-size:52px} .placeholder p{color:#6c6368;line-height:1.5}
+nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(760px,100%);display:flex;justify-content:space-around;background:#fff;border-top:1px solid #eee;padding:10px 5px calc(10px + env(safe-area-inset-bottom));z-index:10} nav button{border:0;background:none;color:#777;text-align:center;font-size:11px;cursor:pointer} nav button.active{color:#d81b60;font-weight:700} nav i{font-style:normal;display:block;font-size:22px;margin-bottom:2px}
+@media(max-width:600px){.grid{grid-template-columns:1fr 1fr} .tile{min-height:125px;padding:15px} .tile b{font-size:17px} .tile span{font-size:13px} .frame.calendar iframe{height:650px} .desktopExcel{display:none} .mobileExcel{display:block}}
+@media(max-width:370px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="app">
+<section id="home" class="page active">
+<header class="hero"><div class="owl">🦉</div><h1>SÓWKI</h1><small>GRUPA PANI KASI</small></header>
+<div class="card important"><div class="ico">📣</div><div><b>Ważne informacje</b><p>Wszystko, co najważniejsze dla naszej grupy, w jednym miejscu.</p></div></div>
+<div class="grid">
+<div class="tile pink" onclick="showPage('calendar')"><div class="ico">📅</div><b>Kalendarz</b><span>Wydarzenia, urodziny, święta i dyżury</span></div>
+<div class="tile green" onclick="showPage('payments')"><div class="ico">💰</div><b>Rozliczenia</b><span>Wpłaty i wydatki grupy</span></div>
+<div class="tile blue" onclick="showPage('surveys')"><div class="ico">📋</div><b>Ankiety</b><span>Aktualne głosowania rodziców</span></div>
+<div class="tile yellow" onclick="showPage('menu')"><div class="ico">🍴</div><b>Jadłospis</b><span>Aktualny jadłospis przedszkola</span></div>
+<div class="tile purple" onclick="showPage('photos')"><div class="ico">🖼️</div><b>Zdjęcia</b><span>Materiały udostępnione rodzicom</span></div>
+<div class="tile orange" onclick="showPage('docs')"><div class="ico">📄</div><b>Dokumenty</b><span>Ważne pliki i informacje</span></div>
+</div><div class="quote">„Małe kroki czynią wielkie rzeczy”</div>
+</section>
+
+<section id="calendar" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Kalendarz</h2></div>
+<div class="legend"><span class="pill"><i class="dot" style="background:#d81b60"></i>Ogólne wydarzenia</span><span class="pill"><i class="dot" style="background:#0b8043"></i>Urodziny</span><span class="pill"><i class="dot" style="background:#f6bf26"></i>Święta i dni wolne</span><span class="pill"><i class="dot" style="background:#616161"></i>Dyżury</span></div>
+<div class="frame calendar"><iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=2&ctz=Europe%2FWarsaw&showPrint=0&showTz=0&showCalendars=0&title=Przedszkole%20Grupa%20Pani%20Kasi&src=ZWQ2YTg1ZWU2NzEyYWY4ZjQxMGE4MmZlNzA5YzkzNTAxNzYxMTRjZjRmN2NkNjhkYzVkMzM1MzJiYzk2ZWE2ZkBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=NzQ1MDA2NzRhYzYxMDU4OTVlYzg2MGFjNTQ0YWU1MGI5OGIwN2IyY2NmZDY2ODdlYTM0MDczYWQyZTJiMjllMUBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=ODkxNjM4MzAyNTdmNjk2ZTQ0MDE3MmJhMjRmMmYyZGM2MGYzNDEwNmQxNDdjNTEyMWNmMGFlNTA2MmRkMzI0ZkBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=cGwucG9saXNoI2hvbGlkYXlAZ3JvdXAudi5jYWxlbmRhci5nb29nbGUuY29t&color=%23616161&color=%23d81b60&color=%230b8043&color=%23f6bf26" scrolling="no"></iframe></div></section>
+
+<section id="payments" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Rozliczenia</h2></div>
+<div id="payLogin" class="card login"><div class="lock">🔒</div><h3>Rozliczenia grupy</h3><p>Wpisz hasło przekazane rodzicom, aby przejść do aktualnego arkusza.</p><input id="payPass" type="password" placeholder="Wpisz hasło"><button class="btn" onclick="unlock()">Otwórz rozliczenia</button><div id="payError" class="error">Nieprawidłowe hasło.</div></div>
+<div id="payContent" style="display:none"><div class="status">● Arkusz aktualizowany na bieżąco</div><div class="frame desktopExcel"><iframe src="https://1drv.ms/x/c/33eff04408f33c11/IQRrDW0alyzxQJSy91EQBK8ZAU4lngG0Fi1laO_zujcVTvY" scrolling="no"></iframe></div><div class="card mobileExcel"><div class="x">X</div><h3>Arkusz rozliczeń</h3><p>Na telefonie otwórz arkusz w pełnym widoku.</p><a class="btn excel" href="https://1drv.ms/x/c/33eff04408f33c11/IQBrDW0alyzxQJSy91EQBK8ZAeTfh0EdNF_VFVPGFR4kI6c?e=UYKfOV" target="_blank" rel="noopener">Otwórz arkusz</a></div></div></section>
+
+<section id="surveys" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Ankiety</h2></div><div class="card placeholder"><div class="ico">📋</div><h3>Ankiety</h3><p>Sekcja jest gotowa do podłączenia aktualnych ankiet Microsoft Forms.</p></div></section><section id="menu" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Jadłospis</h2></div><div class="card placeholder"><div class="ico">🍴</div><h3>Jadłospis</h3><p>Tutaj podłączymy aktualny jadłospis przedszkola.</p></div></section><section id="photos" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Zdjęcia</h2></div><div class="card placeholder"><div class="ico">🖼️</div><h3>Zdjęcia</h3><p>Tutaj możemy przygotować bezpieczny dostęp do zdjęć dla rodziców.</p></div></section><section id="docs" class="page"><div class="topbar"><button class="back" onclick="showPage('home')">‹</button><h2>Dokumenty</h2></div><div class="card placeholder"><div class="ico">📄</div><h3>Dokumenty</h3><p>Tutaj umieścimy ważne dokumenty i informacje dla rodziców.</p></div></section>
+</main>
+<nav><button id="navHome" class="active" onclick="showPage('home')"><i>⌂</i>Start</button><button onclick="showPage('calendar')"><i>▣</i>Kalendarz</button><button onclick="showPage('home')"><i>👥</i>Grupa</button><button onclick="showPage('home')"><i>🔔</i>Powiadomienia</button><button onclick="showPage('docs')"><i>☰</i>Więcej</button></nav>
+<script>
+function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));if(id==='home')document.getElementById('navHome').classList.add('active');window.scrollTo(0,0)}
+function unlock(){const ok=document.getElementById('payPass').value==='SowkiGrupa3';document.getElementById('payError').style.display=ok?'none':'block';if(ok){document.getElementById('payLogin').style.display='none';document.getElementById('payContent').style.display='block'}}
+document.getElementById('payPass').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()})
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
+</script>
+</body></html>
