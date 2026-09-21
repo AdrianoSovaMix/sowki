@@ -3,7 +3,8 @@ qa("[data-go]").forEach(b=>b.onclick=()=>{qa(".page").forEach(x=>x.classList.rem
 async function sign(path){if(!path)return"";if(path.startsWith("http"))return path;const {data}=await sb.storage.from(cfg.bucket).createSignedUrl(path,3600);return data?.signedUrl||""}
 async function load(){let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order");q("#notices").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${esc(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
 r=await sb.from("events").select("*").eq("published",true).order("event_date",{ascending:false}).limit(5);let a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${esc(x.content||"")}</p></div>`)}q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
-r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false});a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<a target="_blank" href="${u}"><img src="${u}"></a>`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
+r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false});a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
+qa("[data-menu-photo]").forEach(img=>img.onclick=()=>openMenuPreview(img.dataset.menuPhoto));
 r=await sb.from("surveys").select("*").eq("published",true).order("ends_at",{ascending:false});q("#surveys").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><h3>${esc(x.title)}</h3><p>${esc(x.description||"")}</p><a class="primary" target="_blank" href="${esc(x.form_url)}">Wypełnij ankietę</a></div>`).join(""):empty("Brak ankiet.")}
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
@@ -14,3 +15,17 @@ async function render(table,id){const d=D[table],{data,error}=await sb.from(tabl
 function field(f,e){let[n,l,t]=f,v=e?.[n]??"";if(t==="textarea")return`<label>${l}</label><textarea name="${n}">${esc(v)}</textarea>`;if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;if(t==="datetime-local"&&v)v=String(v).slice(0,16);return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`}
 async function save(ev){ev.preventDefault();const table=q("#editor").dataset.table,d=D[table],fd=new FormData(ev.target),id=fd.get("id"),o={};d.fields.forEach(x=>{let[n,,t]=x;if(t==="file")return;if(t==="checkbox")o[n]=fd.get(n)==="on";else{o[n]=fd.get(n)||null;if(t==="number"&&o[n])o[n]=+o[n]}});const file=fd.get("file");if(file?.size){let folder=table==="events"?"events":"menus",path=`${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`,u=await sb.storage.from(cfg.bucket).upload(path,file,{contentType:file.type});if(u.error){alert(u.error.message);return}o.image_url=path}let r=id?await sb.from(table).update(o).eq("id",id):await sb.from(table).insert(o);if(r.error){alert(r.error.message);return}render(table);load()}
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+function openMenuPreview(url){
+  let d=q("#menuPreview");
+  if(!d){
+    d=document.createElement("dialog");
+    d.id="menuPreview";
+    d.className="photo-preview";
+    d.innerHTML=`<button class="preview-close" aria-label="Zamknij">✕</button><div class="preview-stage"><img alt="Powiększony jadłospis"></div><div class="preview-hint">Przesuwaj obraz palcem • użyj gestu powiększania</div>`;
+    document.body.appendChild(d);
+    d.querySelector(".preview-close").onclick=()=>d.close();
+    d.onclick=e=>{if(e.target===d)d.close()};
+  }
+  d.querySelector("img").src=url;
+  d.showModal();
+}
