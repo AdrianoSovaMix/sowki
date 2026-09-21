@@ -1,6 +1,1 @@
-{
-"name":"Sówki","short_name":"Sówki","description":"Aplikacja grupy Sówki",
-"start_url":"./","scope":"./","display":"standalone","background_color":"#fff8fb",
-"theme_color":"#d81b60","lang":"pl",
-"icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
-}
+{"name": "Sówki – Grupa Pani Kasi", "short_name": "Sówki", "start_url": "./", "display": "standalone", "background_color": "#fff8fb", "theme_color": "#d81b60", "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}]}
