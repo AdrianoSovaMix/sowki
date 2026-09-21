@@ -24,3 +24,12 @@
 .album-cover{display:block;width:100%;height:auto;max-height:430px;object-fit:cover;border-radius:14px;margin-bottom:12px}
 .album-download{margin-top:8px}
 @media(max-width:560px){nav button{font-size:18px}nav small{font-size:8px}}
+
+/* v0.3.4 – edytor formatowanego tekstu */
+.rich-wrap{border:1px solid #d9ccd2;border-radius:12px;background:#fff;overflow:hidden}
+.rich-toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:7px;background:#faf4f7;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
+.rich-toolbar button,.colorpick{min-width:36px;height:34px;border:1px solid #e0d2d8;background:#fff;border-radius:8px;padding:0 9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font:inherit}
+.colorpick{gap:3px}.colorpick input{width:22px;height:22px;padding:0;border:0;background:transparent}
+.rich-editor{min-height:135px;padding:12px;outline:none;line-height:1.5;white-space:normal}
+.rich-editor p{margin:.45em 0}.rich-editor ul,.rich-editor ol{padding-left:24px}
+.rich-content p{margin:.45em 0}.rich-content ul,.rich-content ol{padding-left:24px}
