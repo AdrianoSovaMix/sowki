@@ -33,3 +33,17 @@
 .rich-editor{min-height:135px;padding:12px;outline:none;line-height:1.5;white-space:normal}
 .rich-editor p{margin:.45em 0}.rich-editor ul,.rich-editor ol{padding-left:24px}
 .rich-content p{margin:.45em 0}.rich-content ul,.rich-content ol{padding-left:24px}
+
+
+/* v0.3.5 – zdjęcia wydarzeń zawsze w pełnych proporcjach, bez kadrowania */
+#events .item img,
+#events article img {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  border-radius: 14px;
+  background: #fff;
+}
