@@ -129,7 +129,7 @@ installLater.onclick=()=>{localStorage.setItem("sowki_install_prompt_seen","1");
 if(isIOS)setTimeout(maybeShowInstall,900);
 
 // v0.5.0.2 — Web Push + notification center; registration via register-push Edge Function
-const VAPID_PUBLIC_KEY="BHH5eUz42nnXiQYm-zJBt_ukbYgRHrse_cJwjvOa4A7ibUhGbKN4jQDMNh7QHA-z80oLZPQyfeLzd5JIRESQnI8";
+const VAPID_PUBLIC_KEY="BNy7_B7IKR3OSyGqMqbSyWjONg4zOTynJpt1H4YA2otklr_6ULOebeZFqShyzkHY2GlqKI-Pv9-wcrUdxNFxAMc";
 function b64ToUint8Array(base64){const pad='='.repeat((4-base64.length%4)%4),b64=(base64+pad).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
 async function getPushRegistration(){if(!('serviceWorker' in navigator))throw new Error('Ta przeglądarka nie obsługuje Service Worker.');return await navigator.serviceWorker.ready}
 async function enablePush(){
