@@ -110,3 +110,19 @@ async function loadGallery(){
  for(const x of data||[]){let u=await sign(x.image_url);out.push(`<article class="item">${u?`<img class="album-cover" src="${u}" alt="">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`)}
  q("#galleryAlbums").innerHTML=out.join("")||empty("Nie ma jeszcze albumów.");
 }
+
+// PWA installation helper
+let deferredInstallPrompt=null;
+const installDlg=q("#installDlg"), installBtn=q("#installPwa"), installLater=q("#installLater");
+const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+function maybeShowInstall(){
+  if(isStandalone()||localStorage.getItem("sowki_install_prompt_seen"))return;
+  if(isIOS){q("#installAndroid").hidden=true;q("#installIos").hidden=false;installDlg.showModal();return;}
+  if(deferredInstallPrompt)installDlg.showModal();
+}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;setTimeout(maybeShowInstall,500)});
+window.addEventListener("appinstalled",()=>{localStorage.setItem("sowki_install_prompt_seen","1");deferredInstallPrompt=null;if(installDlg.open)installDlg.close()});
+installBtn.onclick=async()=>{if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;localStorage.setItem("sowki_install_prompt_seen","1");deferredInstallPrompt=null;installDlg.close()};
+installLater.onclick=()=>{localStorage.setItem("sowki_install_prompt_seen","1");installDlg.close()};
+if(isIOS)setTimeout(maybeShowInstall,900);
