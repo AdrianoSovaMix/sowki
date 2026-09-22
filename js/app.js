@@ -128,7 +128,7 @@ installBtn.onclick=async()=>{if(!deferredInstallPrompt)return;deferredInstallPro
 installLater.onclick=()=>{localStorage.setItem("sowki_install_prompt_seen","1");installDlg.close()};
 if(isIOS)setTimeout(maybeShowInstall,900);
 
-// v0.5.0.1 — Web Push + notification center
+// v0.5.0.2 — Web Push + notification center; registration via register-push Edge Function
 const VAPID_PUBLIC_KEY="BHH5eUz42nnXiQYm-zJBt_ukbYgRHrse_cJwjvOa4A7ibUhGbKN4jQDMNh7QHA-z80oLZPQyfeLzd5JIRESQnI8";
 function b64ToUint8Array(base64){const pad='='.repeat((4-base64.length%4)%4),b64=(base64+pad).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
 async function getPushRegistration(){if(!('serviceWorker' in navigator))throw new Error('Ta przeglądarka nie obsługuje Service Worker.');return await navigator.serviceWorker.ready}
@@ -138,9 +138,19 @@ async function enablePush(){
  const perm=await Notification.requestPermission(); if(perm!=='granted'){q('#pushStatus').innerHTML='<b>🔕 Powiadomienia nie zostały włączone.</b><p>Możesz zmienić zgodę później w ustawieniach przeglądarki/telefonu.</p>';return}
  const reg=await getPushRegistration();let sub=await reg.pushManager.getSubscription();
  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8Array(VAPID_PUBLIC_KEY)});
- const j=sub.toJSON(); const {error}=await sb.from('push_subscriptions').upsert({endpoint:j.endpoint,p256dh:j.keys?.p256dh,auth:j.keys?.auth,user_agent:navigator.userAgent,last_seen_at:new Date().toISOString()},{onConflict:'endpoint'});
- if(error){q('#pushStatus').innerHTML='<b>⚠️ Nie udało się zapisać telefonu.</b><p>'+esc(error.message)+'</p>';return}
- q('#pushStatus').innerHTML='<b>✅ Powiadomienia są włączone na tym urządzeniu.</b><p>Najważniejsze wiadomości z grupy mogą pojawiać się bezpośrednio na telefonie.</p>';
+ const j=sub.toJSON();
+ const {data:registerData,error:registerError}=await sb.functions.invoke('register-push',{body:{
+   subscription:j,
+   endpoint:j.endpoint,
+   p256dh:j.keys?.p256dh||'',
+   auth:j.keys?.auth||'',
+   user_agent:navigator.userAgent
+ }});
+ if(registerError||registerData?.error){
+   const msg=registerData?.error||registerError?.message||'Nieznany błąd rejestracji.';
+   q('#pushStatus').innerHTML='<b>⚠️ Nie udało się zapisać telefonu.</b><p>'+esc(msg)+'</p>';return
+ }
+ q('#pushStatus').innerHTML='<b>✅ Powiadomienia są włączone na tym urządzeniu.</b><p>Telefon został zapisany. Najważniejsze wiadomości z grupy mogą pojawiać się bezpośrednio na telefonie.</p>';
 }
 async function refreshPushStatus(){if(!q('#pushStatus'))return;if(!('Notification' in window)){q('#pushStatus').innerHTML='<b>⚠️ Ta przeglądarka nie obsługuje powiadomień push.</b>';return}if(Notification.permission==='granted')q('#pushStatus').innerHTML='<b>✅ Powiadomienia są dozwolone.</b>';else if(Notification.permission==='denied')q('#pushStatus').innerHTML='<b>🔕 Powiadomienia są zablokowane w ustawieniach urządzenia.</b>';else q('#pushStatus').innerHTML='<b>🔔 Powiadomienia nie są jeszcze włączone.</b><p>Kliknij „Włącz powiadomienia”, aby otrzymywać ważne informacje z grupy.</p>'}
 function notifReadKey(){return 'sowki_notifications_last_read'}
