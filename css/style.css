@@ -58,9 +58,9 @@ nav .home{width:66px;height:66px;margin-top:-17px}
 .announcement-photo{display:block;width:100%;height:auto!important;max-height:none!important;object-fit:contain!important;border-radius:14px;background:#fff;cursor:zoom-in}
 .survey-card{padding:0;overflow:hidden}.survey-card>h3,.survey-card>.date,.survey-card>.survey-desc{margin-left:15px;margin-right:15px}.survey-card>h3{margin-top:15px}.survey-desc{margin-bottom:12px}
 .survey-fallback{padding:9px 12px;text-align:center;background:#f6f7fa;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12px}.survey-fallback a{display:inline-block;margin-left:5px;background:#3478f6;color:#fff;text-decoration:none;font-weight:700;padding:7px 10px;border-radius:8px}
-.survey-frame{display:block;width:100%;height:1800px;min-height:1800px;border:0;background:#fff;overflow:hidden}
+.survey-frame{display:block;width:100%;height:8000px;min-height:8000px;border:0;background:#fff;overflow:hidden}
 .archive{margin-top:18px}.archive>summary{cursor:pointer;font-weight:800;padding:12px 4px}.secondary{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:9px 12px;text-decoration:none;color:var(--p);font-weight:700;margin-top:5px}
-@media(max-width:560px){nav{height:74px}nav button{font-size:17px}nav small{font-size:7.5px;letter-spacing:-.2px}nav .home{width:62px;height:62px}.survey-frame{height:2100px;min-height:2100px}}
+@media(max-width:560px){nav{height:74px}nav button{font-size:17px}nav small{font-size:7.5px;letter-spacing:-.2px}nav .home{width:62px;height:62px}.survey-frame{height:10000px;min-height:10000px}}
 
 .survey-top-note{margin:0 0 14px;padding:13px 15px;border:1px solid #f0c36d;border-radius:14px;background:#fff8df;line-height:1.45}.survey-done-box{padding:12px 15px;background:#eef9f0;border-bottom:1px solid #d6ead9;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.survey-done-btn{border:0;border-radius:10px;background:#198754;color:#fff;font-weight:700;padding:10px 13px;cursor:pointer}.survey-all-done{text-align:center;padding:24px 18px}.survey-all-done h3{margin-top:0;color:#198754}
 
@@ -74,3 +74,12 @@ nav .home{width:66px;height:66px;margin-top:-17px}
 .app-header #admin{justify-self:end;background:#fff5f8;font-size:17px;width:42px;height:42px;padding:0}
 @media(max-width:420px){.app-header{grid-template-columns:42px 1fr 42px;padding-left:8px;padding-right:8px}.header-brand{gap:7px}.header-brand img{width:43px;height:43px;border-radius:12px}.header-brand b{font-size:22px}.header-brand small{font-size:11px}}
 .install-dialog{border:0;border-radius:22px;padding:0;max-width:440px;width:calc(100% - 28px);box-shadow:0 24px 70px #0005}.install-dialog::backdrop{background:#0007}.install-card{padding:24px;text-align:center}.install-icon{width:112px;height:112px;border-radius:25%;display:block;margin:0 auto 14px}.install-card h2{margin:6px 0 12px}.install-card p{line-height:1.5}.install-card .primary,.install-card .secondary{width:100%;margin-top:10px}.install-card .info-card{text-align:left;margin:12px 0}
+
+/* v0.4.6 - header branding */
+.header-brand{white-space:nowrap}
+.header-brand .brand-leaves{font-size:25px;line-height:1;display:inline-block}
+.header-brand .brand-leaves.right{transform:scaleX(-1)}
+.header-brand .brand-heart{color:#ef3764;font-size:17px;line-height:1}
+.header-brand img{box-shadow:none}
+@media(max-width:520px){.header-brand .brand-leaves{font-size:20px}.header-brand .brand-heart{font-size:14px}.header-brand{gap:5px}}
+@media(max-width:390px){.header-brand .brand-leaves{font-size:17px}.header-brand .brand-heart{display:none}.header-brand b{font-size:20px}.header-brand small{font-size:10px}.header-brand img{width:40px;height:40px}}
