@@ -60,16 +60,6 @@ function surveyEmbedUrl(url){
  if(!url)return "";
  try{const u=new URL(url);u.searchParams.set("embed","true");return u.toString()}catch{return url+(url.includes("?")?"&":"?")+"embed=true"}
 }
-function surveyDoneKey(id){return `sowki_survey_${id}_completed`}
-function surveyIsDone(id){return localStorage.getItem(surveyDoneKey(id))==="1"}
-function bindSurveyDone(){
- qa("[data-survey-done]").forEach(b=>b.onclick=()=>{
-   const id=b.dataset.surveyDone, now=!surveyIsDone(id);
-   if(now)localStorage.setItem(surveyDoneKey(id),"1");else localStorage.removeItem(surveyDoneKey(id));
-   b.textContent=now?"✅ Oznaczono jako wypełnioną":"☐ Oznacz jako wypełnioną";
-   b.classList.toggle("done",now);
- });
-}
 async function load(){
  let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order");q("#notices").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
  r=await sb.from("events").select("*").eq("published",true).order("event_date",{ascending:false}).limit(5);let a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
@@ -79,9 +69,10 @@ async function load(){
  r=await sb.from("surveys").select("*").eq("published",true).order("ends_at",{ascending:true});
  const now=new Date(), active=[], archive=[];
  for(const x of r.data||[]){const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;(en&&en<now?archive:(!st||st<=now?active:archive)).push(x)}
- q("#surveys").innerHTML=active.length?active.map(x=>{const done=surveyIsDone(x.id),embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card"><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${new Date(x.ends_at).toLocaleString("pl-PL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>`:""}<div class="survey-desc">${richDisplay(x.description||"")}</div><div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen title="${esc(x.title)}"></iframe><button type="button" class="survey-done ${done?"done":""}" data-survey-done="${x.id}">${done?"✅ Oznaczono jako wypełnioną":"☐ Oznacz jako wypełnioną"}</button><small class="survey-note">Status jest zapamiętywany tylko na tym urządzeniu i nie potwierdza wysłania odpowiedzi w Microsoft Forms.</small></article>`}).join(""):empty("Brak aktywnych ankiet.");
+ const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
+ q("#surveys").innerHTML=pending.length?`<div class="survey-top-note"><b>📌 Wypełniłeś już którąś z poniższych ankiet?</b><br>Po wysłaniu odpowiedzi kliknij przy niej <b>„✅ Wypełniłem/am tę ankietę”</b>. Ankieta zostanie ukryta na tym urządzeniu, aby nie wypełnić jej ponownie.</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${new Date(x.ends_at).toLocaleString("pl-PL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>`:""}<div class="survey-desc">${richDisplay(x.description||"")}</div><div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join(""):`<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
+ qa("[data-survey-done]").forEach(b=>b.onclick=()=>{localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");load()});
  q("#surveyArchive").innerHTML=archive.length?`<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archive.map(x=>`<div class="item"><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Zakończona: ${new Date(x.ends_at).toLocaleString("pl-PL")}</div>`:""}<a class="secondary" target="_blank" rel="noopener" href="${esc(x.form_url)}">Otwórz formularz ↗</a></div>`).join("")}</details>`:"";
- bindSurveyDone();
 }
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
