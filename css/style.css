@@ -63,3 +63,13 @@ nav .home{width:66px;height:66px;margin-top:-17px}
 @media(max-width:560px){nav{height:74px}nav button{font-size:17px}nav small{font-size:7.5px;letter-spacing:-.2px}nav .home{width:62px;height:62px}.survey-frame{height:2100px;min-height:2100px}}
 
 .survey-top-note{margin:0 0 14px;padding:13px 15px;border:1px solid #f0c36d;border-radius:14px;background:#fff8df;line-height:1.45}.survey-done-box{padding:12px 15px;background:#eef9f0;border-bottom:1px solid #d6ead9;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.survey-done-btn{border:0;border-radius:10px;background:#198754;color:#fff;font-weight:700;padding:10px 13px;cursor:pointer}.survey-all-done{text-align:center;padding:24px 18px}.survey-all-done h3{margin-top:0;color:#198754}
+
+/* v0.4.3 branding */
+.app-header{display:grid;grid-template-columns:46px 1fr 46px;align-items:center;padding:7px 14px;min-height:64px}
+.header-brand{justify-self:center;display:flex;align-items:center;gap:9px;text-align:left}
+.header-brand img{width:48px;height:48px;border-radius:13px;display:block;box-shadow:0 2px 8px #0002}
+.header-brand b{font-size:24px;line-height:1;color:#082f5b;letter-spacing:.2px}
+.header-brand small{display:block;margin-top:4px;color:#d81b60;font-weight:700;font-size:12px;line-height:1}
+.header-spacer{width:46px}
+.app-header #admin{justify-self:end;background:#fff5f8;font-size:17px;width:42px;height:42px;padding:0}
+@media(max-width:420px){.app-header{grid-template-columns:42px 1fr 42px;padding-left:8px;padding-right:8px}.header-brand{gap:7px}.header-brand img{width:43px;height:43px;border-radius:12px}.header-brand b{font-size:22px}.header-brand small{font-size:11px}}
