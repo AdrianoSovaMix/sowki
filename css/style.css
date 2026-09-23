@@ -1003,3 +1003,88 @@ nav .home:not(.nav-active){
   background:#ffeaf2 !important;
   box-shadow:inset 0 0 0 2px rgba(216,27,96,.18) !important;
 }
+
+
+/* =========================================================
+   v0.5.1.6
+   - 6 zwykłych ikon przesuniętych wyżej w białej belce
+   - aktywna zakładka ma różowy pasek POD ikoną
+   - więcej oddechu od dolnej krawędzi na Androidzie/Samsungu
+   ========================================================= */
+
+/* Większy minimalny odstęp od dołu na urządzeniach bez safe-area */
+:root{
+  --sowki-bottom-inset:max(14px, env(safe-area-inset-bottom));
+}
+
+nav{
+  height:calc(94px + var(--sowki-bottom-inset)) !important;
+  padding-bottom:calc(8px + var(--sowki-bottom-inset)) !important;
+}
+
+/* Podnosimy 6 zwykłych pozycji, wykorzystując pustą przestrzeń nad nimi */
+nav > button:not(.home){
+  transform:translateY(-8px) !important;
+  gap:8px !important;
+}
+
+/* Pasek aktywnej zakładki nie jest już nad ikoną */
+nav > button:not(.home).nav-active::before{
+  content:none !important;
+  display:none !important;
+}
+
+/* Różowy pasek POD ikoną, przed podpisem */
+nav > button:not(.home).nav-active::after{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  top:52px !important;
+  transform:translateX(-50%) !important;
+  width:26px !important;
+  height:3px !important;
+  border-radius:999px !important;
+  background:#d81b60 !important;
+  box-shadow:0 1px 3px rgba(216,27,96,.18) !important;
+  pointer-events:none !important;
+}
+
+/* Aktywna ikona tylko delikatnie uniesiona */
+nav > button:not(.home).nav-active > img{
+  transform:translateY(-1px) scale(1.06) !important;
+}
+
+/* Na telefonach podnosimy ikony jeszcze trochę */
+@media(max-width:560px){
+  body{
+    padding-bottom:calc(118px + var(--sowki-bottom-inset)) !important;
+  }
+
+  nav{
+    height:calc(92px + var(--sowki-bottom-inset)) !important;
+    padding-bottom:calc(8px + var(--sowki-bottom-inset)) !important;
+  }
+
+  nav > button:not(.home){
+    transform:translateY(-10px) !important;
+    gap:8px !important;
+  }
+
+  nav > button:not(.home).nav-active::after{
+    top:49px !important;
+    width:24px !important;
+  }
+}
+
+/* Dla bardzo wąskich ekranów zachowujemy trochę większy oddech */
+@media(max-width:390px){
+  nav > button:not(.home){
+    transform:translateY(-9px) !important;
+    gap:7px !important;
+  }
+
+  nav > button:not(.home).nav-active::after{
+    top:46px !important;
+    width:22px !important;
+  }
+}
