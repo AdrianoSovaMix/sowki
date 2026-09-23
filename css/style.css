@@ -705,3 +705,222 @@ nav .home small{
     flex-basis:35px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.1.4 — START dokładnie w stylu nowego przykładu:
+   duże różowe koło, biała obwódka, bez dodatkowego wcięcia.
+   ========================================================= */
+
+nav{
+  height:calc(92px + env(safe-area-inset-bottom)) !important;
+  display:grid !important;
+  grid-template-columns:
+    repeat(3, minmax(0,1fr))
+    94px
+    repeat(3, minmax(0,1fr)) !important;
+  align-items:end !important;
+  gap:0 !important;
+  padding:8px 4px calc(7px + env(safe-area-inset-bottom)) !important;
+  overflow:visible !important;
+
+  background:#fff !important;
+  border-top:1px solid #eadde3 !important;
+  border-radius:22px 22px 0 0 !important;
+  box-shadow:0 -5px 20px rgba(38,18,32,.08) !important;
+}
+
+/* W tej wersji nie ma żadnego notcha ani wycięcia */
+nav::before,
+nav::after{
+  content:none !important;
+  display:none !important;
+}
+
+/* 6 zwykłych pozycji menu */
+nav > button:not(.home){
+  position:relative !important;
+  inset:auto !important;
+  transform:none !important;
+
+  width:100% !important;
+  height:70px !important;
+  min-width:0 !important;
+  margin:0 !important;
+  padding:4px 1px 3px !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:5px !important;
+
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  z-index:2 !important;
+}
+
+nav > button:not(.home) > img{
+  width:39px !important;
+  height:39px !important;
+  flex:0 0 39px !important;
+  object-fit:contain !important;
+}
+
+nav > button:not(.home) small{
+  display:block !important;
+  margin:0 !important;
+  font-size:9px !important;
+  line-height:1.05 !important;
+  font-weight:800 !important;
+  letter-spacing:-.2px !important;
+  color:#18233d !important;
+  white-space:nowrap !important;
+}
+
+/* Kasujemy wcześniejsze odsunięcia przy Kalendarzu/Ankietach */
+nav > :nth-child(3),
+nav > :nth-child(5){
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+
+/* START — osobna środkowa kolumna i jedno duże koło */
+nav .home{
+  position:relative !important;
+  grid-column:4 !important;
+  grid-row:1 !important;
+  left:auto !important;
+  right:auto !important;
+  bottom:auto !important;
+  top:-38px !important;
+  transform:none !important;
+
+  justify-self:center !important;
+  align-self:end !important;
+
+  width:88px !important;
+  height:88px !important;
+  margin:0 !important;
+  padding:7px 2px 7px !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:0 !important;
+
+  border-radius:50% !important;
+  border:6px solid #fff !important;
+  background:linear-gradient(180deg,#f52d79 0%,#e31763 100%) !important;
+  box-shadow:
+    0 8px 20px rgba(216,27,96,.30),
+    0 0 0 1px rgba(216,27,96,.08) !important;
+
+  z-index:4 !important;
+}
+
+nav .home > img{
+  width:48px !important;
+  height:48px !important;
+  flex:0 0 48px !important;
+  object-fit:contain !important;
+  margin:0 !important;
+}
+
+nav .home small{
+  margin-top:-2px !important;
+  color:#fff !important;
+  font-size:10px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+  letter-spacing:.15px !important;
+  white-space:nowrap !important;
+}
+
+/* Rezerwa pod wyższy pasek na telefonie */
+@media(max-width:560px){
+  body{
+    padding-bottom:calc(112px + env(safe-area-inset-bottom)) !important;
+  }
+
+  nav{
+    height:calc(90px + env(safe-area-inset-bottom)) !important;
+    grid-template-columns:
+      repeat(3, minmax(0,1fr))
+      90px
+      repeat(3, minmax(0,1fr)) !important;
+    padding-left:2px !important;
+    padding-right:2px !important;
+  }
+
+  nav > button:not(.home){
+    height:67px !important;
+    gap:4px !important;
+  }
+
+  nav > button:not(.home) > img{
+    width:37px !important;
+    height:37px !important;
+    flex-basis:37px !important;
+  }
+
+  nav > button:not(.home) small{
+    font-size:8.3px !important;
+    letter-spacing:-.3px !important;
+  }
+
+  nav .home{
+    top:-36px !important;
+    width:84px !important;
+    height:84px !important;
+    border-width:6px !important;
+  }
+
+  nav .home > img{
+    width:45px !important;
+    height:45px !important;
+    flex-basis:45px !important;
+  }
+
+  nav .home small{
+    font-size:9.4px !important;
+  }
+}
+
+/* Bardzo wąskie ekrany */
+@media(max-width:390px){
+  nav{
+    grid-template-columns:
+      repeat(3, minmax(0,1fr))
+      84px
+      repeat(3, minmax(0,1fr)) !important;
+  }
+
+  nav > button:not(.home) > img{
+    width:34px !important;
+    height:34px !important;
+    flex-basis:34px !important;
+  }
+
+  nav > button:not(.home) small{
+    font-size:7.6px !important;
+  }
+
+  nav .home{
+    width:80px !important;
+    height:80px !important;
+    top:-34px !important;
+  }
+
+  nav .home > img{
+    width:42px !important;
+    height:42px !important;
+    flex-basis:42px !important;
+  }
+
+  nav .home small{
+    font-size:9px !important;
+  }
+}
