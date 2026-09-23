@@ -104,3 +104,18 @@ nav .home small{font-size:9px;font-weight:800;color:#fff}
 nav button>img{display:block;width:30px;height:30px;object-fit:contain;flex:0 0 30px}
 nav .home>img{width:34px;height:34px;flex-basis:34px}
 @media(max-width:560px){nav button>img{width:28px;height:28px;flex-basis:28px}nav .home>img{width:33px;height:33px;flex-basis:33px}}
+
+
+/* v0.5.0.5 – sześć równych pozycji + mocniej uniesiony START */
+body{padding-bottom:112px}
+nav{height:88px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:9px 4px calc(7px + env(safe-area-inset-bottom));align-items:center;overflow:visible}
+nav button{min-width:0;padding:3px 1px;gap:5px;font-size:24px;font-weight:600}
+nav button>img{display:block;width:34px;height:34px;flex:0 0 34px;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(40,20,35,.10))}
+nav small{font-size:9px;font-weight:700;line-height:1.05;color:#4e4650;white-space:nowrap}
+nav .home{position:absolute;left:50%;top:-54px;transform:translateX(-50%);width:78px;height:78px;margin:0;padding:8px 2px 7px;border-radius:50%;background:linear-gradient(145deg,#ef2c75,#d81b60);border:5px solid #fff;box-shadow:0 9px 24px rgba(216,27,96,.38);z-index:12;display:flex;align-items:center;justify-content:center;gap:1px}
+nav .home>img{width:38px;height:38px;flex:0 0 38px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.16))}
+nav .home small{font-size:9px;font-weight:900;color:#fff;letter-spacing:.15px}
+@media(max-width:560px){body{padding-bottom:110px}nav{height:86px;padding-left:2px;padding-right:2px}nav button{gap:4px}nav button>img{width:31px;height:31px;flex-basis:31px}nav small{font-size:8.5px;letter-spacing:-.28px}nav .home{width:76px;height:76px;top:-52px}nav .home>img{width:37px;height:37px;flex-basis:37px}nav .home small{font-size:8.5px}}
+
+/* v0.5.0.7 – ikony dokładnie ze wskazanego wzoru; START wysoko, 6 ikon równo */
+nav button>img{width:38px;height:38px;flex-basis:38px}nav .home{top:-62px;width:82px;height:82px}nav .home>img{width:42px;height:42px;flex-basis:42px}@media(max-width:560px){nav button>img{width:35px;height:35px;flex-basis:35px}nav .home{top:-60px;width:80px;height:80px}nav .home>img{width:41px;height:41px;flex-basis:41px}}
