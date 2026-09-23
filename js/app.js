@@ -54,7 +54,7 @@ function bindRichEditors(){
 }
 
 const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)],cfg=window.SOWKI,sb=supabase.createClient(cfg.url,cfg.key);const esc=s=>(s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));const date=d=>d?new Date(d+"T12:00:00").toLocaleDateString("pl-PL"):"";const empty=t=>`<div class="item muted">${t}</div>`;
-qa("[data-go]").forEach(b=>b.onclick=()=>{qa(".page").forEach(x=>x.classList.remove("active"));q("#"+b.dataset.go).classList.add("active");scrollTo(0,0)});
+qa("[data-go]").forEach(b=>b.onclick=()=>showPage(b.dataset.go));
 async function sign(path){if(!path)return"";if(path.startsWith("http"))return path;const {data}=await sb.storage.from(cfg.bucket).createSignedUrl(path,3600);return data?.signedUrl||""}
 function surveyEmbedUrl(url){
  if(!url)return "";
@@ -101,7 +101,24 @@ function openMenuPreview(url){
   d.showModal();
 }
 
-function showPage(id){qa(".page").forEach(x=>x.classList.remove("active"));q("#"+id).classList.add("active");scrollTo(0,0)}
+function setActiveNav(id){
+ qa("nav [data-go]").forEach(b=>{
+   const active=b.dataset.go===id;
+   b.classList.toggle("nav-active",active);
+   if(active)b.setAttribute("aria-current","page");
+   else b.removeAttribute("aria-current");
+ });
+ const bell=q("#notificationsBell");
+ if(bell)bell.classList.toggle("page-active",id==="notificationsPage");
+}
+function showPage(id){
+ qa(".page").forEach(x=>x.classList.remove("active"));
+ const page=q("#"+id);
+ if(page)page.classList.add("active");
+ setActiveNav(id);
+ scrollTo(0,0);
+}
+setActiveNav(q(".page.active")?.id||"home");
 q("#galleryUnlock").onclick=()=>{if(q("#galleryPass").value==="SowkiGrupa3"){q("#galleryGate").hidden=true;q("#galleryAlbums").hidden=false;q("#galleryErr").textContent="";loadGallery()}else q("#galleryErr").textContent="Nieprawidłowe hasło"};
 q("#galleryPass").onkeydown=e=>{if(e.key==="Enter")q("#galleryUnlock").click()};
 async function loadGallery(){

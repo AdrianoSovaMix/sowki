@@ -924,3 +924,82 @@ nav .home small{
     font-size:9px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.1.5
+   1. Minimalny bezpieczny odstęp od dołu także na Androidzie.
+   2. Wyraźne oznaczenie aktualnie otwartej zakładki.
+   ========================================================= */
+
+:root{
+  /* iPhone użyje własnego safe-area; Android dostaje minimum 10px */
+  --sowki-bottom-inset:max(10px, env(safe-area-inset-bottom));
+}
+
+/* Zachowujemy wygląd iPhone'a, ale na Androidzie dodajemy oddech od krawędzi */
+nav{
+  height:calc(92px + var(--sowki-bottom-inset)) !important;
+  padding-bottom:calc(7px + var(--sowki-bottom-inset)) !important;
+}
+
+@media(max-width:560px){
+  body{
+    padding-bottom:calc(112px + var(--sowki-bottom-inset)) !important;
+  }
+
+  nav{
+    height:calc(90px + var(--sowki-bottom-inset)) !important;
+  }
+}
+
+/* ===== Oznaczenie aktywnej zakładki ===== */
+
+/* Zwykłe pozycje: delikatne różowe tło, pasek i różowy podpis */
+nav > button:not(.home).nav-active{
+  background:linear-gradient(180deg,rgba(216,27,96,.10),rgba(216,27,96,.025)) !important;
+  border-radius:14px !important;
+  box-shadow:inset 0 0 0 1px rgba(216,27,96,.12) !important;
+}
+
+nav > button:not(.home).nav-active::before{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  top:0 !important;
+  transform:translateX(-50%) !important;
+  width:24px !important;
+  height:3px !important;
+  border-radius:999px !important;
+  background:#d81b60 !important;
+}
+
+nav > button:not(.home).nav-active > img{
+  transform:translateY(-2px) scale(1.06) !important;
+  filter:drop-shadow(0 3px 4px rgba(216,27,96,.16)) !important;
+}
+
+nav > button:not(.home).nav-active small{
+  color:#d81b60 !important;
+  font-weight:900 !important;
+}
+
+/* START jest mocniej zaznaczony tylko wtedy, gdy faktycznie jesteśmy na stronie głównej */
+nav .home.nav-active{
+  opacity:1 !important;
+  filter:none !important;
+  box-shadow:
+    0 8px 20px rgba(216,27,96,.32),
+    0 0 0 3px rgba(216,27,96,.16) !important;
+}
+
+nav .home:not(.nav-active){
+  opacity:.86 !important;
+  filter:saturate(.78) !important;
+}
+
+/* Dzwonek również pokazuje, że otwarta jest strona Powiadomienia */
+#notificationsBell.page-active{
+  background:#ffeaf2 !important;
+  box-shadow:inset 0 0 0 2px rgba(216,27,96,.18) !important;
+}
