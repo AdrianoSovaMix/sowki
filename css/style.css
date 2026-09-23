@@ -89,3 +89,13 @@ nav .home{width:66px;height:66px;margin-top:-17px}
 #notificationBadge{position:absolute;right:-4px;top:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#d81b60;color:#fff;font-size:11px;font-weight:800;line-height:19px;text-align:center;border:2px solid #fff}
 .notification-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.notification-head h1{margin-right:auto}.notification-item{cursor:pointer}.notification-item.unread{border-left:5px solid var(--p);background:#fffafd}.notification-meta{font-size:12px;color:var(--muted);margin-bottom:6px}.notification-target{font-size:12px;font-weight:700;color:var(--p)}
 @media(max-width:520px){.notification-head{align-items:flex-start;flex-direction:column}.notification-head .primary{width:100%}}
+
+
+/* v0.5.0.3 – większa dolna nawigacja i wyżej wysunięty START */
+body{padding-bottom:106px}
+nav{height:88px;padding:8px 5px calc(6px + env(safe-area-inset-bottom));align-items:center;overflow:visible}
+nav button{font-size:25px;line-height:1;gap:5px;padding:5px 2px;font-weight:600;color:#5f5961}
+nav small{font-size:9.5px;line-height:1.05;font-weight:650;letter-spacing:-.15px;overflow:visible;text-overflow:clip}
+nav .home{width:72px;height:72px;margin-top:-31px;padding:8px 2px;gap:2px;font-size:27px;border-width:5px;box-shadow:0 8px 22px #d81b6060}
+nav .home small{font-size:9px;font-weight:800;color:#fff}
+@media(max-width:560px){body{padding-bottom:104px}nav{height:86px;padding-left:3px;padding-right:3px}nav button{font-size:23px;gap:5px}nav small{font-size:8.5px;letter-spacing:-.3px}nav .home{width:70px;height:70px;margin-top:-30px;font-size:26px}nav .home small{font-size:8.5px}}
