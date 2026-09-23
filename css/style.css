@@ -119,3 +119,19 @@ nav .home small{font-size:9px;font-weight:900;color:#fff;letter-spacing:.15px}
 
 /* v0.5.0.7 – ikony dokładnie ze wskazanego wzoru; START wysoko, 6 ikon równo */
 nav button>img{width:38px;height:38px;flex-basis:38px}nav .home{top:-62px;width:82px;height:82px}nav .home>img{width:42px;height:42px;flex-basis:42px}@media(max-width:560px){nav button>img{width:35px;height:35px;flex-basis:35px}nav .home{top:-60px;width:80px;height:80px}nav .home>img{width:41px;height:41px;flex-basis:41px}}
+
+/* v0.5.0.8 – START bez efektu „kółko w kółku” */
+nav .home>img{
+  width:46px;
+  height:46px;
+  flex-basis:46px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.13));
+}
+@media(max-width:560px){
+  nav .home>img{
+    width:44px;
+    height:44px;
+    flex-basis:44px;
+  }
+}
