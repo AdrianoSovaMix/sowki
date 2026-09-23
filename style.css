@@ -1,0 +1,487 @@
+:root{--p:#d81b60;--bg:#fff8fb;--line:#eadde3;--muted:#716b73}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#29252a;padding-bottom:88px}header{position:sticky;top:0;z-index:5;background:#fffffff2;border-bottom:1px solid var(--line);padding:12px 18px;display:flex;justify-content:space-between;align-items:center}header b{display:block;font-size:22px}header small{color:var(--muted)}header button{border:0;border-radius:12px;padding:11px}main{max-width:850px;margin:auto;padding:16px}.page{display:none}.page.active{display:block}.hero,.card,.item{background:white;border:1px solid var(--line);border-radius:19px;padding:15px;box-shadow:0 5px 18px #5b153010}.hero{display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,#fff,#ffe4ef)}.hero>span{font-size:46px}.hero h1{margin:0;font-size:23px}.hero p{margin:5px 0;color:var(--muted)}h1{font-size:26px}h2{font-size:19px;margin-top:24px}.item{margin:10px 0}.item h3{margin:4px 0 7px}.item p{white-space:pre-line}.date{color:var(--p);font-size:12px;font-weight:700}.muted{color:var(--muted)}.item img{width:100%;max-height:420px;object-fit:cover;border-radius:13px;margin-bottom:10px}.primary{display:inline-block;background:var(--p);color:white!important;border:0;border-radius:11px;padding:11px 14px;text-decoration:none;font-weight:700}.bigframe{width:100%;height:68vh;border:1px solid var(--line);border-radius:17px;background:#fff}.legend{margin-bottom:12px}.ok{color:#107c41;font-weight:700}.row{display:flex;gap:8px}input,textarea{width:100%;padding:11px;border:1px solid #d9ccd2;border-radius:10px;font:inherit}textarea{min-height:110px}label{display:block;font-size:13px;font-weight:700;margin:10px 0 5px}.row button{background:var(--p);color:white;border:0;border-radius:10px;padding:0 16px}.err{color:#b42318}.mobile{display:none;text-align:center}nav{position:fixed;bottom:0;left:0;right:0;height:76px;background:white;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);z-index:10}nav button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;color:#686168}nav small{font-size:10px}nav .home{width:68px;height:68px;border-radius:50%;background:var(--p);color:white;justify-self:center;margin-top:-18px;border:5px solid white;box-shadow:0 6px 18px #d81b6050}dialog{width:min(720px,calc(100% - 20px));max-height:88vh;overflow:auto;border:0;border-radius:22px;padding:20px;box-shadow:0 20px 70px #0005}dialog::backdrop{background:#2d152080}.x{float:right;border:0;border-radius:50%;width:35px;height:35px}.panelhead{display:flex;justify-content:space-between;align-items:center}.tabs{display:flex;gap:6px;overflow:auto;margin:14px 0}.tabs button{white-space:nowrap;border:1px solid var(--line);border-radius:20px;background:white;padding:8px}.form{background:#fff5f8;padding:13px;border-radius:15px;margin-bottom:14px}.adminitem{display:flex;justify-content:space-between;gap:8px;padding:10px;border-bottom:1px solid var(--line)}.actions{white-space:nowrap}.check{display:flex;gap:7px;align-items:center}.check input{width:auto}@media(max-width:768px){.desktop{display:none}.mobile{display:block}.hero{align-items:flex-start}}
+.menu-photo{display:block;width:100%;height:auto!important;max-height:none!important;object-fit:contain!important;border-radius:14px;margin:10px 0 0;cursor:zoom-in;background:#fff}
+.photo-preview{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border-radius:0!important;background:#111!important;overflow:hidden!important}
+.photo-preview::backdrop{background:#111}
+.preview-close{position:fixed!important;right:14px;top:calc(14px + env(safe-area-inset-top));z-index:100;background:#fff!important;color:#111;border:0;width:44px;height:44px;border-radius:50%;font-size:19px;box-shadow:0 3px 12px #0007}
+.preview-stage{width:100%;height:calc(100dvh - 42px);overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:70px 8px 20px;-webkit-overflow-scrolling:touch}
+.preview-stage img{display:block;max-width:none;width:auto;min-width:100%;height:auto;object-fit:contain;touch-action:pinch-zoom}
+.preview-hint{position:fixed;left:0;right:0;bottom:0;padding:10px;text-align:center;color:#ddd;background:#111;font-size:12px}
+@media(min-width:769px){.preview-stage img{min-width:0;max-width:95%;height:auto}}
+
+/* v0.3.2 – zachowanie podziału tekstu wpisanego w panelu administratora */
+.item p,
+.item .muted,
+#notices .muted,
+#events p,
+#surveys p {
+  white-space: pre-wrap;
+}
+
+.more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.more-card{border:1px solid var(--line);background:#fff;border-radius:19px;padding:22px;text-align:left;box-shadow:0 5px 18px #5b153010}
+.more-card span{display:block;font-size:34px;margin-bottom:8px}.more-card b{display:block;font-size:17px}.more-card small{display:block;color:var(--muted);margin-top:5px}
+.backbtn{border:0;background:transparent;color:var(--p);font-weight:700;padding:4px 0 8px}
+.album-cover{display:block;width:100%;height:auto;max-height:430px;object-fit:cover;border-radius:14px;margin-bottom:12px}
+.album-download{margin-top:8px}
+@media(max-width:560px){nav button{font-size:18px}nav small{font-size:8px}}
+
+/* v0.3.4 – edytor formatowanego tekstu */
+.rich-wrap{border:1px solid #d9ccd2;border-radius:12px;background:#fff;overflow:hidden}
+.rich-toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:7px;background:#faf4f7;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
+.rich-toolbar button,.colorpick{min-width:36px;height:34px;border:1px solid #e0d2d8;background:#fff;border-radius:8px;padding:0 9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font:inherit}
+.colorpick{gap:3px}.colorpick input{width:22px;height:22px;padding:0;border:0;background:transparent}
+.rich-editor{min-height:135px;padding:12px;outline:none;line-height:1.5;white-space:normal}
+.rich-editor p{margin:.45em 0}.rich-editor ul,.rich-editor ol{padding-left:24px}
+.rich-content p{margin:.45em 0}.rich-content ul,.rich-content ol{padding-left:24px}
+
+
+/* v0.3.5 – zdjęcia wydarzeń zawsze w pełnych proporcjach, bez kadrowania */
+#events .item img,
+#events article img {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  border-radius: 14px;
+  background: #fff;
+}
+
+/* v0.4.0 – 7-elementowe menu, ogłoszenia i osadzone ankiety */
+nav{grid-template-columns:repeat(7,1fr);height:78px}
+nav button{min-width:0;padding:3px 1px}
+nav small{font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+nav .home{width:66px;height:66px;margin-top:-17px}
+.info-card{background:linear-gradient(135deg,#fff,#fff0f6);border:1px solid var(--line);border-radius:19px;padding:16px;margin-bottom:14px;box-shadow:0 5px 18px #5b153010}
+.info-card b{font-size:17px}.info-card p{margin:7px 0 0;color:var(--muted);line-height:1.5}
+.announcement-photo{display:block;width:100%;height:auto!important;max-height:none!important;object-fit:contain!important;border-radius:14px;background:#fff;cursor:zoom-in}
+.survey-card{padding:0;overflow:hidden}.survey-card>h3,.survey-card>.date,.survey-card>.survey-desc{margin-left:15px;margin-right:15px}.survey-card>h3{margin-top:15px}.survey-desc{margin-bottom:12px}
+.survey-fallback{padding:9px 12px;text-align:center;background:#f6f7fa;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12px}.survey-fallback a{display:inline-block;margin-left:5px;background:#3478f6;color:#fff;text-decoration:none;font-weight:700;padding:7px 10px;border-radius:8px}
+.survey-frame{display:block;width:100%;height:8000px;min-height:8000px;border:0;background:#fff;overflow:hidden}
+.archive{margin-top:18px}.archive>summary{cursor:pointer;font-weight:800;padding:12px 4px}.secondary{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:9px 12px;text-decoration:none;color:var(--p);font-weight:700;margin-top:5px}
+@media(max-width:560px){nav{height:74px}nav button{font-size:17px}nav small{font-size:7.5px;letter-spacing:-.2px}nav .home{width:62px;height:62px}.survey-frame{height:10000px;min-height:10000px}}
+
+.survey-top-note{margin:0 0 14px;padding:13px 15px;border:1px solid #f0c36d;border-radius:14px;background:#fff8df;line-height:1.45}.survey-done-box{padding:12px 15px;background:#eef9f0;border-bottom:1px solid #d6ead9;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.survey-done-btn{border:0;border-radius:10px;background:#198754;color:#fff;font-weight:700;padding:10px 13px;cursor:pointer}.survey-all-done{text-align:center;padding:24px 18px}.survey-all-done h3{margin-top:0;color:#198754}
+
+/* v0.4.3 branding */
+.app-header{display:grid;grid-template-columns:46px 1fr 46px;align-items:center;padding:7px 14px;min-height:64px}
+.header-brand{justify-self:center;display:flex;align-items:center;gap:9px;text-align:left}
+.header-brand img{width:48px;height:48px;border-radius:13px;display:block;box-shadow:0 2px 8px #0002}
+.header-brand b{font-size:24px;line-height:1;color:#082f5b;letter-spacing:.2px}
+.header-brand small{display:block;margin-top:4px;color:#d81b60;font-weight:700;font-size:12px;line-height:1}
+.header-spacer{width:46px}
+.app-header #admin{justify-self:end;background:#fff5f8;font-size:17px;width:42px;height:42px;padding:0}
+@media(max-width:420px){.app-header{grid-template-columns:42px 1fr 42px;padding-left:8px;padding-right:8px}.header-brand{gap:7px}.header-brand img{width:43px;height:43px;border-radius:12px}.header-brand b{font-size:22px}.header-brand small{font-size:11px}}
+.install-dialog{border:0;border-radius:22px;padding:0;max-width:440px;width:calc(100% - 28px);box-shadow:0 24px 70px #0005}.install-dialog::backdrop{background:#0007}.install-card{padding:24px;text-align:center}.install-icon{width:112px;height:112px;border-radius:25%;display:block;margin:0 auto 14px}.install-card h2{margin:6px 0 12px}.install-card p{line-height:1.5}.install-card .primary,.install-card .secondary{width:100%;margin-top:10px}.install-card .info-card{text-align:left;margin:12px 0}
+
+/* v0.4.6 - header branding */
+.header-brand{white-space:nowrap}
+.header-brand .brand-leaves{font-size:25px;line-height:1;display:inline-block}
+.header-brand .brand-leaves.right{transform:scaleX(-1)}
+.header-brand .brand-heart{color:#ef3764;font-size:17px;line-height:1}
+.header-brand img{box-shadow:none}
+@media(max-width:520px){.header-brand .brand-leaves{font-size:20px}.header-brand .brand-heart{font-size:14px}.header-brand{gap:5px}}
+@media(max-width:390px){.header-brand .brand-leaves{font-size:17px}.header-brand .brand-heart{display:none}.header-brand b{font-size:20px}.header-brand small{font-size:10px}.header-brand img{width:40px;height:40px}}
+
+/* v0.5.0 notifications */
+.bell-btn{justify-self:start;position:relative;background:#fff5f8!important;font-size:20px!important;width:42px;height:42px;padding:0!important}
+#notificationBadge{position:absolute;right:-4px;top:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#d81b60;color:#fff;font-size:11px;font-weight:800;line-height:19px;text-align:center;border:2px solid #fff}
+.notification-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.notification-head h1{margin-right:auto}.notification-item{cursor:pointer}.notification-item.unread{border-left:5px solid var(--p);background:#fffafd}.notification-meta{font-size:12px;color:var(--muted);margin-bottom:6px}.notification-target{font-size:12px;font-weight:700;color:var(--p)}
+@media(max-width:520px){.notification-head{align-items:flex-start;flex-direction:column}.notification-head .primary{width:100%}}
+
+
+/* v0.5.0.3 – większa dolna nawigacja i wyżej wysunięty START */
+body{padding-bottom:106px}
+nav{height:88px;padding:8px 5px calc(6px + env(safe-area-inset-bottom));align-items:center;overflow:visible}
+nav button{font-size:25px;line-height:1;gap:5px;padding:5px 2px;font-weight:600;color:#5f5961}
+nav small{font-size:9.5px;line-height:1.05;font-weight:650;letter-spacing:-.15px;overflow:visible;text-overflow:clip}
+nav .home{width:72px;height:72px;margin-top:-31px;padding:8px 2px;gap:2px;font-size:27px;border-width:5px;box-shadow:0 8px 22px #d81b6060}
+nav .home small{font-size:9px;font-weight:800;color:#fff}
+@media(max-width:560px){body{padding-bottom:104px}nav{height:86px;padding-left:3px;padding-right:3px}nav button{font-size:23px;gap:5px}nav small{font-size:8.5px;letter-spacing:-.3px}nav .home{width:70px;height:70px;margin-top:-30px;font-size:26px}nav .home small{font-size:8.5px}}
+
+/* v0.5.0.4 – własne, identyczne ikony SVG na iOS / Android / Windows */
+nav button>img{display:block;width:30px;height:30px;object-fit:contain;flex:0 0 30px}
+nav .home>img{width:34px;height:34px;flex-basis:34px}
+@media(max-width:560px){nav button>img{width:28px;height:28px;flex-basis:28px}nav .home>img{width:33px;height:33px;flex-basis:33px}}
+
+
+/* v0.5.0.5 – sześć równych pozycji + mocniej uniesiony START */
+body{padding-bottom:112px}
+nav{height:88px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:9px 4px calc(7px + env(safe-area-inset-bottom));align-items:center;overflow:visible}
+nav button{min-width:0;padding:3px 1px;gap:5px;font-size:24px;font-weight:600}
+nav button>img{display:block;width:34px;height:34px;flex:0 0 34px;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(40,20,35,.10))}
+nav small{font-size:9px;font-weight:700;line-height:1.05;color:#4e4650;white-space:nowrap}
+nav .home{position:absolute;left:50%;top:-54px;transform:translateX(-50%);width:78px;height:78px;margin:0;padding:8px 2px 7px;border-radius:50%;background:linear-gradient(145deg,#ef2c75,#d81b60);border:5px solid #fff;box-shadow:0 9px 24px rgba(216,27,96,.38);z-index:12;display:flex;align-items:center;justify-content:center;gap:1px}
+nav .home>img{width:38px;height:38px;flex:0 0 38px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.16))}
+nav .home small{font-size:9px;font-weight:900;color:#fff;letter-spacing:.15px}
+@media(max-width:560px){body{padding-bottom:110px}nav{height:86px;padding-left:2px;padding-right:2px}nav button{gap:4px}nav button>img{width:31px;height:31px;flex-basis:31px}nav small{font-size:8.5px;letter-spacing:-.28px}nav .home{width:76px;height:76px;top:-52px}nav .home>img{width:37px;height:37px;flex-basis:37px}nav .home small{font-size:8.5px}}
+
+/* v0.5.0.7 – ikony dokładnie ze wskazanego wzoru; START wysoko, 6 ikon równo */
+nav button>img{width:38px;height:38px;flex-basis:38px}nav .home{top:-62px;width:82px;height:82px}nav .home>img{width:42px;height:42px;flex-basis:42px}@media(max-width:560px){nav button>img{width:35px;height:35px;flex-basis:35px}nav .home{top:-60px;width:80px;height:80px}nav .home>img{width:41px;height:41px;flex-basis:41px}}
+
+/* v0.5.0.8 – START bez efektu „kółko w kółku” */
+nav .home>img{
+  width:46px;
+  height:46px;
+  flex-basis:46px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.13));
+}
+@media(max-width:560px){
+  nav .home>img{
+    width:44px;
+    height:44px;
+    flex-basis:44px;
+  }
+}
+
+/* v0.5.0.9 – START ponownie połączony z belką menu */
+nav{
+  overflow:visible;
+}
+
+/* delikatne "gniazdo" łączące okrąg START z białą belką */
+nav::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-25px;
+  transform:translateX(-50%);
+  width:92px;
+  height:50px;
+  border-radius:50px 50px 0 0;
+  background:#fff;
+  border:1px solid #eadce3;
+  border-bottom:0;
+  box-shadow:0 -3px 12px rgba(80,25,50,.06);
+  z-index:10;
+  pointer-events:none;
+}
+
+nav .home{
+  top:-38px;
+  width:80px;
+  height:80px;
+  border-width:5px;
+  z-index:12;
+  box-shadow:0 7px 18px rgba(216,27,96,.32);
+}
+
+nav .home>img{
+  width:46px;
+  height:46px;
+  flex-basis:46px;
+}
+
+nav .home small{
+  font-size:9px;
+}
+
+@media(max-width:560px){
+  nav::before{
+    top:-23px;
+    width:88px;
+    height:47px;
+  }
+  nav .home{
+    top:-36px;
+    width:78px;
+    height:78px;
+  }
+  nav .home>img{
+    width:44px;
+    height:44px;
+    flex-basis:44px;
+  }
+}
+
+/* v0.5.1.0 – wariant 4: START osadzony w półokrągłym wcięciu belki */
+nav{
+  overflow:visible;
+  padding-left:8px;
+  padding-right:8px;
+}
+
+/* Usuwamy poprzednie "gniazdo" */
+nav::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-1px;
+  transform:translateX(-50%);
+  width:96px;
+  height:48px;
+  background:var(--bg, #fff8fb);
+  border-radius:0 0 52px 52px;
+  border:0;
+  box-shadow:none;
+  z-index:9;
+  pointer-events:none;
+}
+
+/* START siedzi w samym wcięciu, a nie nad ikonami */
+nav .home{
+  top:-29px;
+  width:74px;
+  height:74px;
+  border:4px solid #fff;
+  z-index:12;
+  box-shadow:0 5px 15px rgba(216,27,96,.26);
+}
+
+/* Sam domek w środku */
+nav .home>img{
+  width:40px;
+  height:40px;
+  flex-basis:40px;
+  object-fit:contain;
+}
+
+/* Podpis START trochę mniejszy, żeby zmieścił się czysto */
+nav .home small{
+  font-size:8.5px;
+  line-height:1;
+  margin-top:-2px;
+}
+
+/* Więcej miejsca pomiędzy trzema ikonami po każdej stronie */
+nav > button:not(.home),
+nav > [data-go]:not(.home){
+  min-width:0;
+}
+
+/* Na telefonie utrzymujemy ten sam układ i nie powiększamy START */
+@media(max-width:560px){
+  nav::before{
+    width:92px;
+    height:46px;
+    border-radius:0 0 50px 50px;
+  }
+
+  nav .home{
+    top:-27px;
+    width:72px;
+    height:72px;
+  }
+
+  nav .home>img{
+    width:39px;
+    height:39px;
+    flex-basis:39px;
+  }
+}
+
+/* v0.5.1.1 – wariant 1: klasyczne wcięcie w belce */
+
+nav{
+  overflow:visible;
+}
+
+/* Wycinamy klasyczne półokrągłe miejsce pod START.
+   Tło wcięcia ma kolor strony, dzięki czemu START wygląda jak osadzony w belce. */
+nav::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-1px;
+  transform:translateX(-50%);
+  width:100px;
+  height:50px;
+  background:#fff8fb;
+  border-radius:0 0 56px 56px;
+  z-index:9;
+  pointer-events:none;
+  border:0;
+  box-shadow:none;
+}
+
+/* Delikatny łuk/border po bokach wcięcia */
+nav::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-1px;
+  transform:translateX(-50%);
+  width:102px;
+  height:52px;
+  border-radius:0 0 58px 58px;
+  border:1px solid #eadce3;
+  border-top:0;
+  z-index:8;
+  pointer-events:none;
+  box-sizing:border-box;
+}
+
+/* START jest większy, ale nie nachodzi na sąsiednie ikony */
+nav .home{
+  top:-38px;
+  width:78px;
+  height:78px;
+  border:5px solid #fff;
+  z-index:12;
+  box-shadow:0 6px 16px rgba(216,27,96,.28);
+}
+
+/* Domek */
+nav .home>img{
+  width:42px;
+  height:42px;
+  flex-basis:42px;
+  object-fit:contain;
+}
+
+/* napis START wewnątrz przycisku */
+nav .home small{
+  font-size:9px;
+  line-height:1;
+  margin-top:-1px;
+}
+
+/* Zachowujemy równe rozmieszczenie 3+3 */
+nav > button:not(.home),
+nav > [data-go]:not(.home){
+  min-width:0;
+}
+
+@media(max-width:560px){
+  nav::before{
+    width:94px;
+    height:47px;
+    border-radius:0 0 53px 53px;
+  }
+
+  nav::after{
+    width:96px;
+    height:49px;
+    border-radius:0 0 55px 55px;
+  }
+
+  nav .home{
+    top:-36px;
+    width:76px;
+    height:76px;
+  }
+
+  nav .home>img{
+    width:40px;
+    height:40px;
+    flex-basis:40px;
+  }
+}
+
+/* v0.5.1.2 – klasyczne wcięcie dokładnie jak we wzorze */
+nav{
+  overflow:visible !important;
+  background:#fff !important;
+  border-top:1px solid #eadce3 !important;
+  box-shadow:0 -4px 18px rgba(35,18,35,.08) !important;
+}
+
+/* Prawdziwe okrągłe wycięcie: koło w kolorze tła strony "wycina" belkę */
+nav::before{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  top:-44px !important;
+  transform:translateX(-50%) !important;
+  width:96px !important;
+  height:96px !important;
+  border-radius:50% !important;
+  background:#fff8fb !important;
+  border:0 !important;
+  box-shadow:none !important;
+  z-index:8 !important;
+  pointer-events:none !important;
+}
+
+/* Delikatna obwódka wcięcia, jak na wzorze */
+nav::after{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  top:-45px !important;
+  transform:translateX(-50%) !important;
+  width:98px !important;
+  height:98px !important;
+  border-radius:50% !important;
+  background:transparent !important;
+  border:1px solid #eadce3 !important;
+  box-shadow:none !important;
+  z-index:9 !important;
+  pointer-events:none !important;
+}
+
+/* START – osadzony w okrągłym wycięciu */
+nav .home{
+  top:-37px !important;
+  width:80px !important;
+  height:80px !important;
+  border:4px solid #fff !important;
+  border-radius:50% !important;
+  z-index:12 !important;
+  box-shadow:0 6px 18px rgba(216,27,96,.28) !important;
+  background:linear-gradient(180deg,#ef2f77 0%,#d81b60 100%) !important;
+}
+
+/* kolorowy domek w środku */
+nav .home>img{
+  width:42px !important;
+  height:42px !important;
+  flex-basis:42px !important;
+  object-fit:contain !important;
+  margin-top:1px !important;
+}
+
+/* napis START */
+nav .home small{
+  font-size:9px !important;
+  line-height:1 !important;
+  margin-top:-2px !important;
+  color:#fff !important;
+  font-weight:800 !important;
+}
+
+/* Równe rozmieszczenie trzech ikon po obu stronach */
+nav > button:not(.home),
+nav > [data-go]:not(.home){
+  min-width:0 !important;
+  flex:1 1 0 !important;
+}
+
+/* Odsuwamy środkowe ikony od wycięcia, żeby nic nie wchodziło pod START */
+nav > :nth-child(3){
+  margin-right:42px !important;
+}
+nav > :nth-child(5){
+  margin-left:42px !important;
+}
+
+@media(max-width:560px){
+  nav::before{
+    top:-42px !important;
+    width:92px !important;
+    height:92px !important;
+  }
+  nav::after{
+    top:-43px !important;
+    width:94px !important;
+    height:94px !important;
+  }
+  nav .home{
+    top:-35px !important;
+    width:76px !important;
+    height:76px !important;
+  }
+  nav .home>img{
+    width:40px !important;
+    height:40px !important;
+    flex-basis:40px !important;
+  }
+  nav > :nth-child(3){
+    margin-right:36px !important;
+  }
+  nav > :nth-child(5){
+    margin-left:36px !important;
+  }
+}

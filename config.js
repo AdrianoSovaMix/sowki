@@ -1,0 +1,1 @@
+window.SOWKI={url:"https://wztxwoernzjjarprrzjl.supabase.co",key:"sb_publishable_4a9Y97xC6e8JlF_mXO71EQ_5eR_BnSH",bucket:"sowki-media"};
