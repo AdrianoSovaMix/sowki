@@ -99,3 +99,8 @@ nav small{font-size:9.5px;line-height:1.05;font-weight:650;letter-spacing:-.15px
 nav .home{width:72px;height:72px;margin-top:-31px;padding:8px 2px;gap:2px;font-size:27px;border-width:5px;box-shadow:0 8px 22px #d81b6060}
 nav .home small{font-size:9px;font-weight:800;color:#fff}
 @media(max-width:560px){body{padding-bottom:104px}nav{height:86px;padding-left:3px;padding-right:3px}nav button{font-size:23px;gap:5px}nav small{font-size:8.5px;letter-spacing:-.3px}nav .home{width:70px;height:70px;margin-top:-30px;font-size:26px}nav .home small{font-size:8.5px}}
+
+/* v0.5.0.4 – własne, identyczne ikony SVG na iOS / Android / Windows */
+nav button>img{display:block;width:30px;height:30px;object-fit:contain;flex:0 0 30px}
+nav .home>img{width:34px;height:34px;flex-basis:34px}
+@media(max-width:560px){nav button>img{width:28px;height:28px;flex-basis:28px}nav .home>img{width:33px;height:33px;flex-basis:33px}}
