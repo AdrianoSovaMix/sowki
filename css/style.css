@@ -195,3 +195,79 @@ nav .home small{
     flex-basis:44px;
   }
 }
+
+/* v0.5.1.0 – wariant 4: START osadzony w półokrągłym wcięciu belki */
+nav{
+  overflow:visible;
+  padding-left:8px;
+  padding-right:8px;
+}
+
+/* Usuwamy poprzednie "gniazdo" */
+nav::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-1px;
+  transform:translateX(-50%);
+  width:96px;
+  height:48px;
+  background:var(--bg, #fff8fb);
+  border-radius:0 0 52px 52px;
+  border:0;
+  box-shadow:none;
+  z-index:9;
+  pointer-events:none;
+}
+
+/* START siedzi w samym wcięciu, a nie nad ikonami */
+nav .home{
+  top:-29px;
+  width:74px;
+  height:74px;
+  border:4px solid #fff;
+  z-index:12;
+  box-shadow:0 5px 15px rgba(216,27,96,.26);
+}
+
+/* Sam domek w środku */
+nav .home>img{
+  width:40px;
+  height:40px;
+  flex-basis:40px;
+  object-fit:contain;
+}
+
+/* Podpis START trochę mniejszy, żeby zmieścił się czysto */
+nav .home small{
+  font-size:8.5px;
+  line-height:1;
+  margin-top:-2px;
+}
+
+/* Więcej miejsca pomiędzy trzema ikonami po każdej stronie */
+nav > button:not(.home),
+nav > [data-go]:not(.home){
+  min-width:0;
+}
+
+/* Na telefonie utrzymujemy ten sam układ i nie powiększamy START */
+@media(max-width:560px){
+  nav::before{
+    width:92px;
+    height:46px;
+    border-radius:0 0 50px 50px;
+  }
+
+  nav .home{
+    top:-27px;
+    width:72px;
+    height:72px;
+  }
+
+  nav .home>img{
+    width:39px;
+    height:39px;
+    flex-basis:39px;
+  }
+}
