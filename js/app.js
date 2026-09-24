@@ -145,7 +145,21 @@ function setActiveAdminTab(table){
 qa("[data-tab]").forEach(b=>b.onclick=()=>render(b.dataset.tab));
 const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["starts_at","Początek (czas Warszawa)","datetime-local"],["ends_at","Koniec (czas Warszawa)","datetime-local"],["published","Opublikuj od razu na stronie","checkbox"]]},
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
-notifications:{title:"Powiadomienia",fields:[["title","Tytuł","text"],["body","Treść powiadomienia","textarea"],["target_page","Po kliknięciu przejdź do (np. announcementsPage, surveysPage, calendar)","text"],["published","Widoczne w centrum powiadomień","checkbox"]]},
+notifications:{title:"Powiadomienia",fields:[
+["title","Tytuł","text"],
+["body","Treść powiadomienia","textarea"],
+["target_page","Po kliknięciu przejdź do","select",[
+["","Brak – nie przechodź do żadnej karty"],
+["home","START"],
+["announcementsPage","Ogłoszenia"],
+["menu","Jadłospis"],
+["calendar","Kalendarz"],
+["surveysPage","Ankiety"],
+["gallery","Galeria"],
+["payments","Rozliczenia"]
+]],
+["published","Dodaj do centrum powiadomień","checkbox"]
+]},
 gallery_albums:{title:"Galeria",fields:[["title","Tytuł albumu","text"],["description","Opis","textarea"],["event_date","Data","date"],["download_url","Link OneDrive do pobrania","url"],["file","Zdjęcie okładkowe","file"],["published","Opublikuj od razu na stronie","checkbox"]]}};
 function adminMeta(table,x){
   if(table==="menus"){
@@ -268,7 +282,15 @@ async function render(table,id){
   });
   qa("[data-move]").forEach(b=>b.onclick=()=>moveAdminItem(table,b.dataset.id,b.dataset.move));
 }
-function field(f,e){let[n,l,t]=f,v=e?.[n]??"";if(t==="textarea")return richEditor(n,l,v);if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;if(t==="datetime-local"&&v)v=isoToWarsawLocal(v);return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`}
+function field(f,e){
+ let[n,l,t,opts]=f,v=e?.[n]??"";
+ if(t==="textarea")return richEditor(n,l,v);
+ if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;
+ if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;
+ if(t==="select")return`<label>${l}</label><select name="${n}" class="admin-select">${(opts||[]).map(([value,label])=>`<option value="${esc(value)}" ${String(v)===String(value)?"selected":""}>${esc(label)}</option>`).join("")}</select>`;
+ if(t==="datetime-local"&&v)v=isoToWarsawLocal(v);
+ return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`
+}
 async function save(ev){
   ev.preventDefault();
   const table=q("#editor").dataset.table,d=D[table],fd=new FormData(ev.target),id=fd.get("id"),o={};

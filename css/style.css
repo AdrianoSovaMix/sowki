@@ -1523,3 +1523,22 @@ nav > button:not(.home).nav-active > img{
     align-self:start !important;
   }
 }
+
+
+/* v0.5.3.4 — lista wyboru karty docelowej w Powiadomieniach */
+#panel .admin-select{
+  width:100% !important;
+  padding:11px 38px 11px 11px !important;
+  border:1px solid #d9ccd2 !important;
+  border-radius:10px !important;
+  background:#fff !important;
+  color:#29252a !important;
+  font:inherit !important;
+  cursor:pointer !important;
+}
+
+#panel .admin-select:focus{
+  outline:0 !important;
+  border-color:#d81b60 !important;
+  box-shadow:0 0 0 3px rgba(216,27,96,.10) !important;
+}
