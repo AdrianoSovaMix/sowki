@@ -1,4 +1,4 @@
-const C="sowki-v0532";const A=["./","index.html","css/style.css?v=0532","js/config.js","js/app.js?v=0532","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0533";const A=["./","index.html","css/style.css?v=0533","js/config.js","js/app.js?v=0533","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
 self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
