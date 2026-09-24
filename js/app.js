@@ -153,19 +153,126 @@ function surveyEmbedUrl(url){
  if(!url)return "";
  try{const u=new URL(url);u.searchParams.set("embed","true");return u.toString()}catch{return url+(url.includes("?")?"&":"?")+"embed=true"}
 }
+
+// =========================================================
+// v0.5.4.9 — czerwone kropki przy działach z nową treścią
+// =========================================================
+const newContentState={
+  home:[],
+  announcementsPage:[],
+  menu:[],
+  surveysPage:[],
+  gallery:[]
+};
+
+const visitedSectionsThisSession=new Set();
+
+function newContentSeenKey(page){
+  return `sowki_new_content_seen_${page}_v1`;
+}
+
+function normalizeTokens(tokens){
+  return [...new Set((tokens||[]).map(String).filter(Boolean))];
+}
+
+function readSeenTokens(page){
+  try{
+    const v=JSON.parse(localStorage.getItem(newContentSeenKey(page))||"null");
+    return Array.isArray(v)?v.map(String):null;
+  }catch{
+    return null;
+  }
+}
+
+function saveSeenTokens(page,tokens){
+  localStorage.setItem(
+    newContentSeenKey(page),
+    JSON.stringify(normalizeTokens(tokens).slice(-150))
+  );
+}
+
+function setNewContentTokens(page,tokens){
+  const current=normalizeTokens(tokens);
+  newContentState[page]=current;
+
+  const existing=readSeenTokens(page);
+
+  // Pierwsze uruchomienie funkcji: obecne wpisy są punktem startowym,
+  // żeby nie oznaczyć całej starej zawartości jako "nowa".
+  if(existing===null){
+    saveSeenTokens(page,current);
+  }else if(visitedSectionsThisSession.has(page)){
+    // Jeśli użytkownik już wszedł do tej sekcji zanim dane się załadowały,
+    // uznajemy aktualną zawartość za zobaczoną.
+    saveSeenTokens(page,current);
+  }
+
+  updateNewContentDots();
+}
+
+function sectionHasNewContent(page){
+  const current=newContentState[page]||[];
+  const seen=new Set(readSeenTokens(page)||[]);
+  return current.some(token=>!seen.has(String(token)));
+}
+
+function ensureNewContentDot(page){
+  const btn=q(`nav [data-go="${page}"]`);
+  if(!btn)return null;
+
+  let dot=btn.querySelector(".nav-new-dot");
+  if(!dot){
+    dot=document.createElement("span");
+    dot.className="nav-new-dot";
+    dot.setAttribute("aria-hidden","true");
+    dot.hidden=true;
+    btn.appendChild(dot);
+  }
+  return dot;
+}
+
+function updateNewContentDots(){
+  Object.keys(newContentState).forEach(page=>{
+    const dot=ensureNewContentDot(page);
+    if(dot)dot.hidden=!sectionHasNewContent(page);
+  });
+}
+
+function markSectionContentSeen(page){
+  if(!(page in newContentState))return;
+  visitedSectionsThisSession.add(page);
+  saveSeenTokens(page,newContentState[page]||[]);
+  updateNewContentDots();
+}
+
 async function load(){
- let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});q("#notices").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
- r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);let a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
- r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
- r=await sb.from("menus").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
+ let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
+ const homeNoticeRows=r.data||[];
+ q("#notices").innerHTML=homeNoticeRows.length?homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
+
+ r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);
+ const homeEventRows=r.data||[];
+ let a=[];
+ for(const x of homeEventRows){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}
+ q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
+ setNewContentTokens("home",[
+   ...homeNoticeRows.map(x=>`notice:${x.id}`),
+   ...homeEventRows.map(x=>`event:${x.id}`)
+ ]);
+ r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
+ r=await sb.from("menus").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("menu",(r.data||[]).map(x=>`menu:${x.id}`));for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
  qa("[data-menu-photo]").forEach(img=>img.onclick=()=>openMenuPreview(img.dataset.menuPhoto));
  r=await sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  const now=new Date(), active=[], archive=[];
  for(const x of r.data||[]){const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;(en&&en<now?archive:(!st||st<=now?active:archive)).push(x)}
  const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
+ setNewContentTokens("surveysPage",pending.map(x=>`survey:${x.id}`));
  q("#surveys").innerHTML=pending.length?`<div class="survey-top-note">📌 <b>Ważne:</b> Po wysłaniu odpowiedzi w formularzu prosimy o kliknięcie przycisku <b>„✅ Wypełniłem/am tę ankietę”</b>. Dziękujemy!</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${formatWarsawDateTime(x.ends_at)}</div>`:""}<div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join(""):`<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
  qa("[data-survey-done]").forEach(b=>b.onclick=()=>{localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");load()});
  q("#surveyArchive").innerHTML=archive.length?`<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archive.map(x=>`<div class="item"><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}<a class="secondary" target="_blank" rel="noopener" href="${esc(x.form_url)}">Otwórz formularz ↗</a></div>`).join("")}</details>`:"";
+
+ const galleryCheck=await sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
+ if(!galleryCheck.error)setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
 }
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
@@ -408,6 +515,7 @@ function showPage(id){
  const page=q("#"+id);
  if(page)page.classList.add("active");
  setActiveNav(id);
+ markSectionContentSeen(id);
  scrollTo(0,0);
 }
 setActiveNav(q(".page.active")?.id||"home");
@@ -416,6 +524,7 @@ q("#galleryPass").onkeydown=e=>{if(e.key==="Enter")q("#galleryUnlock").click()};
 async function loadGallery(){
  const {data,error}=await sb.from("gallery_albums").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  if(error){q("#galleryAlbums").innerHTML=`<div class="item err">${esc(error.message)}</div>`;return}
+ setNewContentTokens("gallery",(data||[]).map(x=>`gallery:${x.id}`));
  let out=[];
  for(const x of data||[]){let u=await sign(x.image_url);out.push(`<article class="item">${u?`<img class="album-cover" src="${u}" alt="">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`)}
  q("#galleryAlbums").innerHTML=out.join("")||empty("Nie ma jeszcze albumów.");

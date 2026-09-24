@@ -1907,3 +1907,55 @@ nav > button:not(.home).nav-active > img{
     margin-bottom:2px;
   }
 }
+
+
+/* =========================================================
+   v0.5.4.9 — kropka "nowa treść" przy ikonach dolnego menu
+   ========================================================= */
+
+nav [data-go]{
+  position:relative;
+}
+
+.nav-new-dot{
+  position:absolute;
+  z-index:30;
+  width:11px;
+  height:11px;
+  padding:0;
+  border-radius:50%;
+  background:#d81b60;
+  border:2px solid #fff;
+  box-shadow:0 2px 7px rgba(216,27,96,.35);
+  pointer-events:none;
+}
+
+/* Zwykłe ikony */
+nav > [data-go]:not(.home) .nav-new-dot{
+  top:5px;
+  right:calc(50% - 23px);
+}
+
+/* START jest podniesionym, okrągłym przyciskiem */
+nav > .home .nav-new-dot{
+  top:7px;
+  right:8px;
+  width:12px;
+  height:12px;
+}
+
+.nav-new-dot[hidden]{
+  display:none !important;
+}
+
+@media(max-width:560px){
+  nav > [data-go]:not(.home) .nav-new-dot{
+    top:5px;
+    right:calc(50% - 21px);
+  }
+
+  nav > .home .nav-new-dot{
+    top:7px;
+    right:7px;
+  }
+}
