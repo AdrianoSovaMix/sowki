@@ -1088,3 +1088,229 @@ nav > button:not(.home).nav-active > img{
     width:22px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.2.0 — przebudowany panel administratora
+   ========================================================= */
+
+#dlg{
+  width:min(980px,calc(100% - 24px)) !important;
+  max-height:92dvh !important;
+  padding:22px !important;
+  position:relative !important;
+  overflow:auto !important;
+}
+
+/* Zamknięcie zawsze osobno w prawym górnym rogu */
+#dlg > .x{
+  position:absolute !important;
+  right:16px !important;
+  top:16px !important;
+  float:none !important;
+  width:40px !important;
+  height:40px !important;
+  display:grid !important;
+  place-items:center !important;
+  padding:0 !important;
+  border:1px solid #eadde3 !important;
+  background:#fff7fa !important;
+  color:#4a3440 !important;
+  font-size:17px !important;
+  font-weight:800 !important;
+  box-shadow:0 3px 10px rgba(45,21,32,.08) !important;
+  z-index:5 !important;
+}
+
+/* Nagłówek — wylogowanie jest po lewej, daleko od X */
+#panel .panelhead{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+  gap:10px !important;
+  padding:2px 56px 14px 2px !important;
+  border-bottom:1px solid var(--line) !important;
+}
+
+#panel .panel-title-wrap h2{
+  margin:0 !important;
+  font-size:24px !important;
+  line-height:1.15 !important;
+}
+
+#panel .panel-title-wrap p{
+  margin:5px 0 0 !important;
+  color:var(--muted) !important;
+  font-size:13px !important;
+}
+
+#panel .admin-logout{
+  width:auto !important;
+  min-width:112px !important;
+  padding:8px 13px !important;
+  border:1px solid #e7cbd5 !important;
+  border-radius:12px !important;
+  background:#fff !important;
+  color:#b32650 !important;
+  font-weight:800 !important;
+  box-shadow:none !important;
+}
+
+#panel .admin-logout:hover{
+  background:#fff2f6 !important;
+  border-color:#d81b60 !important;
+}
+
+/* Zakładki jako wyraźne, interaktywne kafelki */
+#panel .tabs{
+  display:grid !important;
+  grid-template-columns:repeat(7,minmax(112px,1fr)) !important;
+  gap:8px !important;
+  overflow-x:auto !important;
+  overscroll-behavior-inline:contain !important;
+  scrollbar-width:thin !important;
+  margin:14px 0 18px !important;
+  padding:2px 2px 9px !important;
+}
+
+#panel .tabs button{
+  position:relative !important;
+  min-width:112px !important;
+  min-height:78px !important;
+  padding:9px 8px 10px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+
+  white-space:nowrap !important;
+  border:1px solid #eadde3 !important;
+  border-radius:16px !important;
+  background:#fff !important;
+  color:#31242b !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+  cursor:pointer !important;
+
+  box-shadow:0 3px 10px rgba(62,26,43,.04) !important;
+  transition:transform .15s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease !important;
+}
+
+#panel .tabs button:hover{
+  transform:translateY(-1px) !important;
+  border-color:#e8b4c7 !important;
+  background:#fff8fb !important;
+}
+
+#panel .admin-tab-icon{
+  width:34px !important;
+  height:34px !important;
+  object-fit:contain !important;
+  display:block !important;
+  flex:0 0 34px !important;
+}
+
+#panel .admin-tab-emoji{
+  width:auto !important;
+  height:auto !important;
+  flex:none !important;
+  font-size:29px !important;
+  line-height:34px !important;
+}
+
+/* Bardzo wyraźna aktywna sekcja */
+#panel .tabs button.admin-tab-active{
+  color:#d81b60 !important;
+  border-color:#d81b60 !important;
+  background:linear-gradient(180deg,#fff0f5 0%,#fff9fb 100%) !important;
+  box-shadow:
+    0 6px 15px rgba(216,27,96,.10),
+    inset 0 0 0 1px rgba(216,27,96,.07) !important;
+  transform:translateY(-1px) !important;
+}
+
+#panel .tabs button.admin-tab-active::after{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  bottom:5px !important;
+  transform:translateX(-50%) !important;
+  width:26px !important;
+  height:3px !important;
+  border-radius:999px !important;
+  background:#d81b60 !important;
+}
+
+#panel .tabs button.admin-tab-active .admin-tab-icon{
+  transform:scale(1.08) !important;
+  filter:drop-shadow(0 2px 3px rgba(216,27,96,.15)) !important;
+}
+
+/* Edytor wyraźnie oddzielony od nawigacji panelu */
+#panel #editor{
+  border-top:1px solid #f0e6ea !important;
+  padding-top:14px !important;
+}
+
+/* Formularz trochę czytelniejszy w szerszym panelu */
+#panel .form{
+  padding:16px !important;
+  border:1px solid #f0dde5 !important;
+  box-shadow:0 4px 14px rgba(70,22,43,.035) !important;
+}
+
+#panel .form > h3{
+  margin-top:0 !important;
+  font-size:19px !important;
+}
+
+/* Telefon / tablet */
+@media(max-width:760px){
+  #dlg{
+    width:calc(100% - 12px) !important;
+    max-height:94dvh !important;
+    padding:16px !important;
+    border-radius:18px !important;
+  }
+
+  #dlg > .x{
+    right:11px !important;
+    top:11px !important;
+  }
+
+  #panel .panelhead{
+    padding-right:50px !important;
+  }
+
+  #panel .panel-title-wrap h2{
+    font-size:21px !important;
+  }
+
+  #panel .tabs{
+    display:flex !important;
+    gap:8px !important;
+    margin-top:12px !important;
+    padding-bottom:8px !important;
+    scroll-snap-type:x proximity !important;
+  }
+
+  #panel .tabs button{
+    flex:0 0 104px !important;
+    min-width:104px !important;
+    min-height:74px !important;
+    scroll-snap-align:start !important;
+  }
+
+  #panel .admin-tab-icon{
+    width:31px !important;
+    height:31px !important;
+    flex-basis:31px !important;
+  }
+
+  #panel .admin-tab-emoji{
+    font-size:27px !important;
+    line-height:31px !important;
+  }
+}
