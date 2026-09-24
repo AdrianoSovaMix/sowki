@@ -205,7 +205,7 @@ async function moveAdminItem(table,id,direction){
   await render(table);
   await load();
   if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)loadGallery();
-  if(table==="notifications")loadNotifications(false);
+  if(table==="notifications")loadNotifications();
 }
 
 async function render(table,id){
@@ -277,7 +277,7 @@ async function render(table,id){
       const del=await sb.from(table).delete().eq("id",b.dataset.d);
       if(del.error){alert(del.error.message);return}
       render(table);load();
-      if(table==="notifications")loadNotifications(false);
+      if(table==="notifications")loadNotifications();
     }
   });
   qa("[data-move]").forEach(b=>b.onclick=()=>moveAdminItem(table,b.dataset.id,b.dataset.move));
@@ -338,7 +338,7 @@ async function save(ev){
 
   render(table);
   load();
-  if(table==="notifications")loadNotifications(false);
+  if(table==="notifications")loadNotifications();
 }
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 function openMenuPreview(url){
@@ -589,15 +589,140 @@ async function enablePush(){
  }
 }
 
-function notifReadKey(){return 'sowki_notifications_last_read'}
-async function loadNotifications(markRead=false){
- const {data,error}=await sb.from('notifications').select('*').eq('published',true).order('sort_order',{ascending:true}).order('id',{ascending:false}).limit(30);if(error){q('#notificationsList').innerHTML=empty('Nie udało się pobrać powiadomień.');return}
- const last=localStorage.getItem(notifReadKey())||'';q('#notificationsList').innerHTML=(data||[]).map(x=>`<article class="item notification-item ${(!last||x.created_at>last)?'unread':''}" data-notif-target="${esc(x.target_page||'')}"><div class="notification-meta">${new Date(x.created_at).toLocaleString('pl-PL')}</div><h3>${esc(x.title)}</h3><div>${richDisplay(x.body||'')}</div>${x.target_page?'<div class="notification-target">Dotknij, aby przejść do informacji →</div>':''}</article>`).join('')||empty('Nie wysłano jeszcze żadnych powiadomień.');
- qa('[data-notif-target]').forEach(el=>el.onclick=()=>{const t=el.dataset.notifTarget;if(t&&q('#'+t))showPage(t)});
- const unread=(data||[]).filter(x=>!last||x.created_at>last).length;const badge=q('#notificationBadge');badge.textContent=unread>9?'9+':unread;badge.hidden=!unread;
- if(markRead){localStorage.setItem(notifReadKey(),new Date().toISOString());badge.hidden=true;qa('.notification-item').forEach(x=>x.classList.remove('unread'))}
+function notifReadSetKey(){return "sowki_notifications_read_ids_v1"}
+
+function getReadNotificationIds(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(notifReadSetKey())||"[]");
+    return new Set(Array.isArray(raw)?raw.map(String):[]);
+  }catch{
+    return new Set();
+  }
 }
-q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications(true);refreshPushStatus()};
+
+function saveReadNotificationIds(set){
+  localStorage.setItem(notifReadSetKey(),JSON.stringify([...set]));
+}
+
+function markNotificationRead(id){
+  if(id===null||id===undefined||id==="")return;
+  const set=getReadNotificationIds();
+  set.add(String(id));
+  saveReadNotificationIds(set);
+}
+
+function isNotificationRead(id){
+  return getReadNotificationIds().has(String(id));
+}
+
+function migrateOldNotificationReadState(data){
+  const oldKey="sowki_notifications_last_read";
+  const last=localStorage.getItem(oldKey);
+  if(!last)return;
+
+  const read=getReadNotificationIds();
+  for(const x of data||[]){
+    if(x.created_at&&x.created_at<=last)read.add(String(x.id));
+  }
+  saveReadNotificationIds(read);
+  localStorage.removeItem(oldKey);
+}
+
+function updateNotificationBadge(data){
+  const read=getReadNotificationIds();
+  const unread=(data||[]).filter(x=>!read.has(String(x.id))).length;
+  const badge=q("#notificationBadge");
+  if(!badge)return;
+  badge.textContent=unread>9?"9+":String(unread);
+  badge.hidden=!unread;
+}
+
+function updateNotificationItemState(el,read){
+  if(!el)return;
+  el.classList.toggle("unread",!read);
+  el.classList.toggle("read",read);
+
+  const status=el.querySelector(".notification-read-status");
+  if(status){
+    status.classList.toggle("is-unread",!read);
+    status.classList.toggle("is-read",read);
+    status.innerHTML=read?"✓ Odczytane":"● Nieodczytane";
+  }
+}
+
+async function loadNotifications(){
+  const {data,error}=await sb.from("notifications")
+    .select("*")
+    .eq("published",true)
+    .order("sort_order",{ascending:true})
+    .order("id",{ascending:false})
+    .limit(30);
+
+  if(error){
+    q("#notificationsList").innerHTML=empty("Nie udało się pobrać powiadomień.");
+    return;
+  }
+
+  migrateOldNotificationReadState(data||[]);
+  const read=getReadNotificationIds();
+
+  q("#notificationsList").innerHTML=(data||[]).map(x=>{
+    const wasRead=read.has(String(x.id));
+    return `<article
+      class="item notification-item ${wasRead?"read":"unread"}"
+      data-notif-id="${esc(x.id)}"
+      data-notif-target="${esc(x.target_page||"")}"
+      tabindex="0"
+      role="button"
+      aria-label="${wasRead?"Odczytane":"Nieodczytane"} powiadomienie: ${esc(x.title)}">
+        <div class="notification-topline">
+          <div class="notification-meta">${new Date(x.created_at).toLocaleString("pl-PL")}</div>
+          <span class="notification-read-status ${wasRead?"is-read":"is-unread"}">${wasRead?"✓ Odczytane":"● Nieodczytane"}</span>
+        </div>
+        <h3>${esc(x.title)}</h3>
+        <div>${richDisplay(x.body||"")}</div>
+        ${x.target_page?'<div class="notification-target">Dotknij, aby przejść do informacji →</div>':""}
+      </article>`;
+  }).join("")||empty("Nie wysłano jeszcze żadnych powiadomień.");
+
+  updateNotificationBadge(data||[]);
+
+  const openNotification=async el=>{
+    const id=el.dataset.notifId;
+    markNotificationRead(id);
+    updateNotificationItemState(el,true);
+
+    const currentData=data||[];
+    updateNotificationBadge(currentData);
+
+    const t=el.dataset.notifTarget;
+    if(t&&q("#"+t))showPage(t);
+  };
+
+  qa(".notification-item[data-notif-id]").forEach(el=>{
+    el.onclick=()=>openNotification(el);
+    el.onkeydown=e=>{
+      if(e.key==="Enter"||e.key===" "){
+        e.preventDefault();
+        openNotification(el);
+      }
+    };
+  });
+}
+
+function consumePushNotificationOpen(){
+  const url=new URL(location.href);
+  const id=url.searchParams.get("sowki_notification");
+  if(!id)return;
+
+  markNotificationRead(id);
+
+  url.searchParams.delete("sowki_notification");
+  history.replaceState({},document.title,url.pathname+url.search+url.hash);
+}
+
+consumePushNotificationOpen();
+q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications();refreshPushStatus()};
 q('#enablePush').onclick=enablePush;
 
 // Po powrocie z Ustawień telefonu sprawdzamy stan ponownie.
@@ -605,4 +730,4 @@ q('#enablePush').onclick=enablePush;
 window.addEventListener("focus",()=>refreshPushStatus());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshPushStatus()});
 
-setTimeout(()=>{loadNotifications(false);refreshPushStatus()},700);
+setTimeout(()=>{loadNotifications();refreshPushStatus()},700);

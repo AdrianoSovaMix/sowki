@@ -1714,3 +1714,79 @@ nav > button:not(.home).nav-active > img{
     min-height:44px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.3.8 — status Odczytane / Nieodczytane na urządzeniu
+   ========================================================= */
+
+.notification-item{
+  transition:background .18s ease,border-color .18s ease,opacity .18s ease !important;
+}
+
+.notification-item.unread{
+  border-left:5px solid #d81b60 !important;
+  background:#fff8fb !important;
+}
+
+.notification-item.read{
+  border-left:5px solid #d9d0d4 !important;
+  background:#fff !important;
+}
+
+.notification-topline{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+  margin-bottom:6px !important;
+}
+
+.notification-topline .notification-meta{
+  margin-bottom:0 !important;
+}
+
+.notification-read-status{
+  flex:0 0 auto !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  min-height:24px !important;
+  padding:4px 8px !important;
+  border-radius:999px !important;
+  font-size:10.5px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+  white-space:nowrap !important;
+}
+
+.notification-read-status.is-unread{
+  color:#c51650 !important;
+  background:#ffe7f0 !important;
+  border:1px solid #f5bfd2 !important;
+}
+
+.notification-read-status.is-read{
+  color:#52705e !important;
+  background:#edf5ef !important;
+  border:1px solid #d5e5da !important;
+}
+
+.notification-item.read h3{
+  color:#4f474b !important;
+}
+
+.notification-item:focus-visible{
+  outline:3px solid rgba(216,27,96,.20) !important;
+  outline-offset:2px !important;
+}
+
+@media(max-width:480px){
+  .notification-topline{
+    align-items:flex-start !important;
+  }
+
+  .notification-read-status{
+    font-size:10px !important;
+    padding:4px 7px !important;
+  }
+}
