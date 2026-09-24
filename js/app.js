@@ -148,7 +148,7 @@ announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["descripti
 notifications:{title:"Powiadomienia",fields:[
 ["title","Tytuł","text"],
 ["body","Treść powiadomienia","textarea"],
-["target_page","Po kliknięciu przejdź do","select",[
+["target_page","Wybierz gdzie ma przejść po kliknięciu w powiadomienie","select",[
 ["","Brak – nie przechodź do żadnej karty"],
 ["home","START"],
 ["announcementsPage","Ogłoszenia"],
