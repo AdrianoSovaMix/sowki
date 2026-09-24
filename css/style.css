@@ -1314,3 +1314,212 @@ nav > button:not(.home).nav-active > img{
     line-height:31px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.3.0 — zarządzanie kolejnością treści strzałkami
+   ========================================================= */
+
+#panel .admin-content-manager{
+  margin-top:18px !important;
+  border:1px solid #eadde3 !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  overflow:hidden !important;
+}
+
+#panel .admin-content-head{
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap:14px !important;
+  padding:16px !important;
+  background:linear-gradient(180deg,#fff7fa 0%,#fff 100%) !important;
+  border-bottom:1px solid #f0e5e9 !important;
+}
+
+#panel .admin-content-head h3{
+  margin:0 0 4px !important;
+  font-size:17px !important;
+}
+
+#panel .admin-content-head p{
+  margin:0 !important;
+  color:var(--muted) !important;
+  font-size:12.5px !important;
+  line-height:1.45 !important;
+}
+
+#panel .admin-count{
+  flex:0 0 auto !important;
+  padding:6px 9px !important;
+  border-radius:999px !important;
+  background:#f4eef1 !important;
+  color:#65545d !important;
+  font-size:11px !important;
+  font-weight:800 !important;
+}
+
+#panel .admin-content-list{
+  padding:8px !important;
+}
+
+#panel .adminitem-order{
+  display:grid !important;
+  grid-template-columns:52px minmax(0,1fr) auto !important;
+  align-items:center !important;
+  gap:10px !important;
+  margin:0 !important;
+  padding:9px !important;
+  border:0 !important;
+  border-bottom:1px solid #f2eaed !important;
+  border-radius:12px !important;
+  background:#fff !important;
+}
+
+#panel .adminitem-order:last-child{
+  border-bottom:0 !important;
+}
+
+#panel .adminitem-order:hover{
+  background:#fff9fb !important;
+}
+
+#panel .admin-order-controls{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:4px !important;
+}
+
+#panel .order-btn{
+  width:24px !important;
+  height:32px !important;
+  padding:0 !important;
+  display:grid !important;
+  place-items:center !important;
+  border:1px solid #e5d8de !important;
+  border-radius:8px !important;
+  background:#fff !important;
+  color:#5a4650 !important;
+  font-size:17px !important;
+  font-weight:900 !important;
+  box-shadow:none !important;
+}
+
+#panel .order-btn:hover:not(:disabled){
+  color:#d81b60 !important;
+  border-color:#d81b60 !important;
+  background:#fff2f7 !important;
+}
+
+#panel .order-btn:disabled{
+  opacity:.25 !important;
+  cursor:default !important;
+}
+
+#panel .adminitem-main{
+  min-width:0 !important;
+}
+
+#panel .adminitem-title-row{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  flex-wrap:wrap !important;
+}
+
+#panel .adminitem-title-row b{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+#panel .admin-status{
+  display:inline-flex !important;
+  align-items:center !important;
+  padding:3px 7px !important;
+  border-radius:999px !important;
+  font-size:10px !important;
+  font-weight:900 !important;
+}
+
+#panel .admin-status.is-published{
+  color:#14783a !important;
+  background:#e9f8ef !important;
+}
+
+#panel .admin-status.is-hidden{
+  color:#786b71 !important;
+  background:#f2eff0 !important;
+}
+
+#panel .adminitem-meta{
+  margin-top:4px !important;
+  color:#897982 !important;
+  font-size:11px !important;
+}
+
+#panel .adminitem-actions{
+  display:flex !important;
+  gap:5px !important;
+}
+
+#panel .adminitem-actions button{
+  width:34px !important;
+  height:34px !important;
+  padding:0 !important;
+  display:grid !important;
+  place-items:center !important;
+  border:1px solid #eadde3 !important;
+  border-radius:10px !important;
+  background:#fff !important;
+  box-shadow:none !important;
+}
+
+#panel .adminitem-actions button:hover{
+  border-color:#d81b60 !important;
+  background:#fff2f7 !important;
+}
+
+#panel .adminitem-actions .danger-lite:hover{
+  color:#b42318 !important;
+  border-color:#f0b5b0 !important;
+  background:#fff5f4 !important;
+}
+
+#panel .admin-empty{
+  padding:22px 14px !important;
+  text-align:center !important;
+  color:var(--muted) !important;
+  font-size:13px !important;
+}
+
+#panel .admin-order-warning{
+  margin:0 0 14px !important;
+  padding:12px 14px !important;
+  border:1px solid #f1c66e !important;
+  border-radius:12px !important;
+  background:#fff8e7 !important;
+  color:#72520f !important;
+  font-size:13px !important;
+}
+
+@media(max-width:620px){
+  #panel .admin-content-head{
+    flex-direction:column !important;
+  }
+
+  #panel .adminitem-order{
+    grid-template-columns:46px minmax(0,1fr) !important;
+  }
+
+  #panel .adminitem-actions{
+    grid-column:2 !important;
+    justify-content:flex-start !important;
+    margin-top:2px !important;
+  }
+
+  #panel .admin-order-controls{
+    align-self:start !important;
+  }
+}

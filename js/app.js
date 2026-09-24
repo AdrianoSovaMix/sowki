@@ -61,12 +61,12 @@ function surveyEmbedUrl(url){
  try{const u=new URL(url);u.searchParams.set("embed","true");return u.toString()}catch{return url+(url.includes("?")?"&":"?")+"embed=true"}
 }
 async function load(){
- let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order");q("#notices").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
- r=await sb.from("events").select("*").eq("published",true).order("event_date",{ascending:false}).limit(5);let a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
- r=await sb.from("announcements").select("*").eq("published",true).order("event_date",{ascending:false});a=[];if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
- r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false});a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
+ let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});q("#notices").innerHTML=r.data?.length?r.data.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
+ r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);let a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
+ r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
+ r=await sb.from("menus").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
  qa("[data-menu-photo]").forEach(img=>img.onclick=()=>openMenuPreview(img.dataset.menuPhoto));
- r=await sb.from("surveys").select("*").eq("published",true).order("ends_at",{ascending:true});
+ r=await sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  const now=new Date(), active=[], archive=[];
  for(const x of r.data||[]){const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;(en&&en<now?archive:(!st||st<=now?active:archive)).push(x)}
  const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
@@ -87,13 +87,176 @@ function setActiveAdminTab(table){
   });
 }
 qa("[data-tab]").forEach(b=>b.onclick=()=>render(b.dataset.tab));
-const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["icon","Emoji","text"],["event_date","Data","date"],["sort_order","Kolejność","number"],["published","Opublikowane","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikowane","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikowane","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["form_url","Link do Microsoft Forms","url"],["starts_at","Początek","datetime-local"],["ends_at","Koniec","datetime-local"],["published","Opublikowane","checkbox"]]},
+const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["icon","Emoji","text"],["event_date","Data","date"],["published","Opublikowane","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikowane","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikowane","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["form_url","Link do Microsoft Forms","url"],["starts_at","Początek","datetime-local"],["ends_at","Koniec","datetime-local"],["published","Opublikowane","checkbox"]]},
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikowane","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[["title","Tytuł","text"],["body","Treść powiadomienia","textarea"],["target_page","Po kliknięciu przejdź do (np. announcementsPage, surveysPage, calendar)","text"],["published","Widoczne w centrum powiadomień","checkbox"]]},
 gallery_albums:{title:"Galeria",fields:[["title","Tytuł albumu","text"],["description","Opis","textarea"],["event_date","Data","date"],["download_url","Link OneDrive do pobrania","url"],["file","Zdjęcie okładkowe","file"],["published","Opublikowane","checkbox"]]}};
-async function render(table,id){setActiveAdminTab(table);const d=D[table],{data,error}=await sb.from(table).select("*").order("id",{ascending:false});if(error){q("#editor").innerHTML=`<p class="err">${esc(error.message)}</p>`;return}const e=id?data.find(x=>x.id==id):null;q("#editor").dataset.table=table;q("#editor").innerHTML=`<div class="form"><h3>${e?"Edytuj":"Dodaj"}: ${d.title}</h3><form id="f">${d.fields.map(x=>field(x,e)).join("")}<input type="hidden" name="id" value="${e?.id||""}"><button class="primary">Zapisz</button></form></div>${data.map(x=>`<div class="adminitem"><b>${esc(x.title||"#"+x.id)}</b><span class="actions"><button data-e="${x.id}">✏️</button> <button data-d="${x.id}">🗑️</button></span></div>`).join("")}`;q("#f").onsubmit=save;bindRichEditors();qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));qa("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Usunąć wpis?")){await sb.from(table).delete().eq("id",b.dataset.d);render(table);load()}})}
+function adminMeta(table,x){
+  if(table==="menus"){
+    const a=x.date_from?date(x.date_from):"";
+    const b=x.date_to?date(x.date_to):"";
+    return [a,b].filter(Boolean).join(" – ");
+  }
+  if(table==="surveys"){
+    return x.ends_at ? "Do: "+new Date(x.ends_at).toLocaleString("pl-PL",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+  }
+  if(table==="notifications"){
+    return x.created_at ? new Date(x.created_at).toLocaleString("pl-PL") : "";
+  }
+  const d=x.event_date;
+  return d?date(d):"";
+}
+
+async function nextSortOrder(table){
+  // Nowy wpis ma pojawić się NA GÓRZE listy jako najnowszy.
+  const {data,error}=await sb.from(table).select("sort_order").order("sort_order",{ascending:true}).limit(1);
+  if(error)throw error;
+  const n=Number(data?.[0]?.sort_order);
+  return Number.isFinite(n)?n-10:10;
+}
+
+async function moveAdminItem(table,id,direction){
+  const {data,error}=await sb.from(table).select("id,sort_order").order("sort_order",{ascending:true}).order("id",{ascending:false});
+  if(error){alert("Nie udało się pobrać kolejności: "+error.message);return}
+  const rows=data||[];
+  const i=rows.findIndex(x=>String(x.id)===String(id));
+  const j=direction==="up"?i-1:i+1;
+  if(i<0||j<0||j>=rows.length)return;
+
+  const a=rows[i], b=rows[j];
+  const aOrder=Number.isFinite(Number(a.sort_order))?Number(a.sort_order):(i+1)*10;
+  const bOrder=Number.isFinite(Number(b.sort_order))?Number(b.sort_order):(j+1)*10;
+
+  const first=await sb.from(table).update({sort_order:bOrder}).eq("id",a.id);
+  if(first.error){alert("Nie udało się zmienić kolejności: "+first.error.message);return}
+  const second=await sb.from(table).update({sort_order:aOrder}).eq("id",b.id);
+  if(second.error){alert("Nie udało się zmienić kolejności: "+second.error.message);return}
+
+  await render(table);
+  await load();
+  if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)loadGallery();
+  if(table==="notifications")loadNotifications(false);
+}
+
+async function render(table,id){
+  setActiveAdminTab(table);
+  const d=D[table];
+  const {data,error}=await sb.from(table).select("*").order("sort_order",{ascending:true}).order("id",{ascending:false});
+  if(error){
+    const extra=(error.message||"").includes("sort_order")
+      ? `<div class="admin-order-warning"><b>⚠️ Brakuje obsługi sortowania w bazie.</b><br>Najpierw uruchom plik SQL dołączony do wersji v0.5.3.0.</div>`
+      : "";
+    q("#editor").innerHTML=extra+`<p class="err">${esc(error.message)}</p>`;
+    return;
+  }
+
+  const rows=data||[];
+  const e=id?rows.find(x=>String(x.id)===String(id)):null;
+
+  q("#editor").dataset.table=table;
+  q("#editor").innerHTML=`
+    <div class="form">
+      <h3>${e?"Edytuj":"Dodaj"}: ${d.title}</h3>
+      <form id="f">
+        ${d.fields.map(x=>field(x,e)).join("")}
+        <input type="hidden" name="id" value="${e?.id||""}">
+        <button class="primary">Zapisz</button>
+      </form>
+    </div>
+
+    <section class="admin-content-manager">
+      <div class="admin-content-head">
+        <div>
+          <h3>Opublikowane i zapisane treści</h3>
+          <p>Użyj strzałek ↑ ↓, aby ustawić kolejność wyświetlania w aplikacji. Nie musisz już wpisywać numerów.</p>
+        </div>
+        <span class="admin-count">${rows.length} ${rows.length===1?"wpis":"wpisów"}</span>
+      </div>
+
+      <div class="admin-content-list">
+        ${rows.length ? rows.map((x,i)=>{
+          const meta=adminMeta(table,x);
+          const isPublished=!!x.published;
+          return `<article class="adminitem adminitem-order">
+            <div class="admin-order-controls" aria-label="Zmień kolejność">
+              <button type="button" class="order-btn" data-move="up" data-id="${x.id}" ${i===0?"disabled":""} title="Przesuń wyżej" aria-label="Przesuń wyżej">↑</button>
+              <button type="button" class="order-btn" data-move="down" data-id="${x.id}" ${i===rows.length-1?"disabled":""} title="Przesuń niżej" aria-label="Przesuń niżej">↓</button>
+            </div>
+            <div class="adminitem-main">
+              <div class="adminitem-title-row">
+                <b>${esc(x.title||"#"+x.id)}</b>
+                <span class="admin-status ${isPublished?"is-published":"is-hidden"}">${isPublished?"● Opublikowane":"○ Ukryte"}</span>
+              </div>
+              ${meta?`<div class="adminitem-meta">${esc(meta)}</div>`:""}
+            </div>
+            <div class="actions adminitem-actions">
+              <button type="button" data-e="${x.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+              <button type="button" data-d="${x.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
+            </div>
+          </article>`;
+        }).join("") : `<div class="admin-empty">Nie ma jeszcze żadnych wpisów w tym dziale.</div>`}
+      </div>
+    </section>`;
+
+  q("#f").onsubmit=save;
+  bindRichEditors();
+
+  qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));
+  qa("[data-d]").forEach(b=>b.onclick=async()=>{
+    if(confirm("Usunąć wpis?")){
+      const del=await sb.from(table).delete().eq("id",b.dataset.d);
+      if(del.error){alert(del.error.message);return}
+      render(table);load();
+      if(table==="notifications")loadNotifications(false);
+    }
+  });
+  qa("[data-move]").forEach(b=>b.onclick=()=>moveAdminItem(table,b.dataset.id,b.dataset.move));
+}
 function field(f,e){let[n,l,t]=f,v=e?.[n]??"";if(t==="textarea")return richEditor(n,l,v);if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;if(t==="datetime-local"&&v)v=String(v).slice(0,16);return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`}
-async function save(ev){ev.preventDefault();const table=q("#editor").dataset.table,d=D[table],fd=new FormData(ev.target),id=fd.get("id"),o={};d.fields.forEach(x=>{let[n,,t]=x;if(t==="file")return;if(t==="checkbox")o[n]=fd.get(n)==="on";else{o[n]=fd.get(n)||null;if(t==="number"&&o[n])o[n]=+o[n]}});const file=fd.get("file");if(file?.size){let folder=table==="events"?"events":table==="gallery_albums"?"gallery":table==="announcements"?"announcements":"menus",path=`${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`,u=await sb.storage.from(cfg.bucket).upload(path,file,{contentType:file.type});if(u.error){alert(u.error.message);return}o.image_url=path}let r=id?await sb.from(table).update(o).eq("id",id):await sb.from(table).insert(o).select().single();if(r.error){alert(r.error.message);return}if(table==="notifications"&&!id&&r.data){const sent=await sb.functions.invoke("send-push",{body:{notification_id:r.data.id}});if(sent.error)alert("Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+sent.error.message);else alert(`Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`)}render(table);load();if(table==="notifications")loadNotifications(false)}
+async function save(ev){
+  ev.preventDefault();
+  const table=q("#editor").dataset.table,d=D[table],fd=new FormData(ev.target),id=fd.get("id"),o={};
+
+  d.fields.forEach(x=>{
+    let[n,,t]=x;
+    if(t==="file")return;
+    if(t==="checkbox")o[n]=fd.get(n)==="on";
+    else{
+      o[n]=fd.get(n)||null;
+      if(t==="number"&&o[n])o[n]=+o[n];
+    }
+  });
+
+  const file=fd.get("file");
+  if(file?.size){
+    let folder=table==="events"?"events":table==="gallery_albums"?"gallery":table==="announcements"?"announcements":"menus",
+        path=`${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`,
+        u=await sb.storage.from(cfg.bucket).upload(path,file,{contentType:file.type});
+    if(u.error){alert(u.error.message);return}
+    o.image_url=path;
+  }
+
+  if(!id){
+    try{o.sort_order=await nextSortOrder(table)}
+    catch(e){alert("Nie udało się ustawić kolejności nowego wpisu: "+(e?.message||e));return}
+  }
+
+  let r=id
+    ? await sb.from(table).update(o).eq("id",id)
+    : await sb.from(table).insert(o).select().single();
+
+  if(r.error){alert(r.error.message);return}
+
+  if(table==="notifications"&&!id&&r.data){
+    const sent=await sb.functions.invoke("send-push",{body:{notification_id:r.data.id}});
+    if(sent.error)alert("Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+sent.error.message);
+    else alert(`Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`);
+  }
+
+  render(table);
+  load();
+  if(table==="notifications")loadNotifications(false);
+}
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 function openMenuPreview(url){
   let d=q("#menuPreview");
@@ -131,7 +294,7 @@ setActiveNav(q(".page.active")?.id||"home");
 q("#galleryUnlock").onclick=()=>{if(q("#galleryPass").value==="SowkiGrupa3"){q("#galleryGate").hidden=true;q("#galleryAlbums").hidden=false;q("#galleryErr").textContent="";loadGallery()}else q("#galleryErr").textContent="Nieprawidłowe hasło"};
 q("#galleryPass").onkeydown=e=>{if(e.key==="Enter")q("#galleryUnlock").click()};
 async function loadGallery(){
- const {data,error}=await sb.from("gallery_albums").select("*").eq("published",true).order("event_date",{ascending:false});
+ const {data,error}=await sb.from("gallery_albums").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  if(error){q("#galleryAlbums").innerHTML=`<div class="item err">${esc(error.message)}</div>`;return}
  let out=[];
  for(const x of data||[]){let u=await sign(x.image_url);out.push(`<article class="item">${u?`<img class="album-cover" src="${u}" alt="">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`)}
@@ -181,7 +344,7 @@ async function enablePush(){
 async function refreshPushStatus(){if(!q('#pushStatus'))return;if(!('Notification' in window)){q('#pushStatus').innerHTML='<b>⚠️ Ta przeglądarka nie obsługuje powiadomień push.</b>';return}if(Notification.permission==='granted')q('#pushStatus').innerHTML='<b>✅ Powiadomienia są dozwolone.</b>';else if(Notification.permission==='denied')q('#pushStatus').innerHTML='<b>🔕 Powiadomienia są zablokowane w ustawieniach urządzenia.</b>';else q('#pushStatus').innerHTML='<b>🔔 Powiadomienia nie są jeszcze włączone.</b><p>Kliknij „Włącz powiadomienia”, aby otrzymywać ważne informacje z grupy.</p>'}
 function notifReadKey(){return 'sowki_notifications_last_read'}
 async function loadNotifications(markRead=false){
- const {data,error}=await sb.from('notifications').select('*').eq('published',true).order('created_at',{ascending:false}).limit(30);if(error){q('#notificationsList').innerHTML=empty('Nie udało się pobrać powiadomień.');return}
+ const {data,error}=await sb.from('notifications').select('*').eq('published',true).order('sort_order',{ascending:true}).order('id',{ascending:false}).limit(30);if(error){q('#notificationsList').innerHTML=empty('Nie udało się pobrać powiadomień.');return}
  const last=localStorage.getItem(notifReadKey())||'';q('#notificationsList').innerHTML=(data||[]).map(x=>`<article class="item notification-item ${(!last||x.created_at>last)?'unread':''}" data-notif-target="${esc(x.target_page||'')}"><div class="notification-meta">${new Date(x.created_at).toLocaleString('pl-PL')}</div><h3>${esc(x.title)}</h3><div>${richDisplay(x.body||'')}</div>${x.target_page?'<div class="notification-target">Dotknij, aby przejść do informacji →</div>':''}</article>`).join('')||empty('Nie wysłano jeszcze żadnych powiadomień.');
  qa('[data-notif-target]').forEach(el=>el.onclick=()=>{const t=el.dataset.notifTarget;if(t&&q('#'+t))showPage(t)});
  const unread=(data||[]).filter(x=>!last||x.created_at>last).length;const badge=q('#notificationBadge');badge.textContent=unread>9?'9+':unread;badge.hidden=!unread;
