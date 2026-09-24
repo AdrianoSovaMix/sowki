@@ -389,15 +389,63 @@ let deferredInstallPrompt=null;
 const installDlg=q("#installDlg"), installBtn=q("#installPwa"), installLater=q("#installLater");
 const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const isIOSSafari=isIOS&&/safari/i.test(navigator.userAgent)&&!/(crios|fxios|edgios|opios|duckduckgo|fbav|fban|instagram)/i.test(navigator.userAgent);
+const INSTALL_PROMPT_KEY="sowki_install_prompt_seen_v2";
+
 function maybeShowInstall(){
-  if(isStandalone()||localStorage.getItem("sowki_install_prompt_seen"))return;
-  if(isIOS){q("#installAndroid").hidden=true;q("#installIos").hidden=false;installDlg.showModal();return;}
+  if(isStandalone()||localStorage.getItem(INSTALL_PROMPT_KEY))return;
+
+  if(isIOS){
+    q("#installAndroid").hidden=true;
+    q("#installIos").hidden=false;
+    const warning=q("#iosSafariWarning");
+    if(warning)warning.hidden=isIOSSafari;
+    installDlg.showModal();
+    return;
+  }
+
   if(deferredInstallPrompt)installDlg.showModal();
 }
-window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;setTimeout(maybeShowInstall,500)});
-window.addEventListener("appinstalled",()=>{localStorage.setItem("sowki_install_prompt_seen","1");deferredInstallPrompt=null;if(installDlg.open)installDlg.close()});
-installBtn.onclick=async()=>{if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;localStorage.setItem("sowki_install_prompt_seen","1");deferredInstallPrompt=null;installDlg.close()};
-installLater.onclick=()=>{localStorage.setItem("sowki_install_prompt_seen","1");installDlg.close()};
+
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  setTimeout(maybeShowInstall,500);
+});
+
+window.addEventListener("appinstalled",()=>{
+  localStorage.setItem(INSTALL_PROMPT_KEY,"1");
+  deferredInstallPrompt=null;
+  if(installDlg.open)installDlg.close();
+});
+
+installBtn.onclick=async()=>{
+  if(!deferredInstallPrompt)return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  localStorage.setItem(INSTALL_PROMPT_KEY,"1");
+  deferredInstallPrompt=null;
+  installDlg.close();
+};
+
+installLater.onclick=()=>{
+  localStorage.setItem(INSTALL_PROMPT_KEY,"1");
+  installDlg.close();
+};
+
+const copyInstallUrl=q("#copyInstallUrl");
+if(copyInstallUrl)copyInstallUrl.onclick=async()=>{
+  const url="https://www.sowkitarczyn.pl/";
+  try{
+    await navigator.clipboard.writeText(url);
+    const old=copyInstallUrl.textContent;
+    copyInstallUrl.textContent="✅ Adres skopiowany";
+    setTimeout(()=>copyInstallUrl.textContent=old,1800);
+  }catch{
+    prompt("Skopiuj ten adres i otwórz go w Safari:",url);
+  }
+};
+
 if(isIOS)setTimeout(maybeShowInstall,900);
 
 // v0.5.0.2 — Web Push + notification center; registration via register-push Edge Function

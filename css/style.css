@@ -1542,3 +1542,134 @@ nav > button:not(.home).nav-active > img{
   border-color:#d81b60 !important;
   box-shadow:0 0 0 3px rgba(216,27,96,.10) !important;
 }
+
+
+/* =========================================================
+   v0.5.3.6 — czytelna instalacja PWA na iPhone / Safari
+   ========================================================= */
+
+.install-dialog{
+  max-width:470px !important;
+  max-height:92dvh !important;
+  overflow:auto !important;
+}
+
+.install-card{
+  padding:22px !important;
+}
+
+.install-card .install-lead{
+  margin:0 0 14px !important;
+  color:var(--muted) !important;
+}
+
+.ios-install-box{
+  margin:12px 0 4px !important;
+  padding:16px !important;
+  text-align:left !important;
+  border:1px solid #eadde3 !important;
+  border-radius:18px !important;
+  background:linear-gradient(180deg,#fff8fb 0%,#fff 100%) !important;
+}
+
+.ios-install-box h3{
+  margin:0 0 12px !important;
+  font-size:18px !important;
+  text-align:center !important;
+}
+
+.ios-install-steps{
+  list-style:none !important;
+  margin:0 !important;
+  padding:0 !important;
+  display:grid !important;
+  gap:10px !important;
+}
+
+.ios-install-steps li{
+  display:grid !important;
+  grid-template-columns:32px minmax(0,1fr) !important;
+  gap:10px !important;
+  align-items:start !important;
+  line-height:1.42 !important;
+  font-size:14px !important;
+}
+
+.ios-install-steps li > span{
+  width:30px !important;
+  height:30px !important;
+  border-radius:50% !important;
+  display:grid !important;
+  place-items:center !important;
+  background:#d81b60 !important;
+  color:#fff !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  box-shadow:0 3px 8px rgba(216,27,96,.18) !important;
+}
+
+.ios-install-steps b{
+  color:#261d22 !important;
+}
+
+.ios-install-done{
+  margin-top:14px !important;
+  padding:10px 12px !important;
+  border-radius:12px !important;
+  background:#eaf8ef !important;
+  color:#166534 !important;
+  font-size:13px !important;
+  line-height:1.4 !important;
+  text-align:center !important;
+}
+
+.ios-safari-warning{
+  margin:10px 0 12px !important;
+  padding:13px !important;
+  border:1px solid #efc261 !important;
+  border-radius:14px !important;
+  background:#fff8e6 !important;
+  color:#684b0d !important;
+  text-align:left !important;
+}
+
+.ios-safari-warning p{
+  margin:5px 0 8px !important;
+  color:#684b0d !important;
+  font-size:13px !important;
+}
+
+.install-copy-btn{
+  width:100% !important;
+  margin:4px 0 0 !important;
+  background:#fff !important;
+}
+
+@media(max-width:430px){
+  .install-card{
+    padding:18px !important;
+  }
+
+  .install-icon{
+    width:82px !important;
+    height:82px !important;
+    margin-bottom:9px !important;
+  }
+
+  .install-card h2{
+    font-size:21px !important;
+  }
+
+  .ios-install-box{
+    padding:14px !important;
+  }
+
+  .ios-install-steps{
+    gap:9px !important;
+  }
+
+  .ios-install-steps li{
+    font-size:13.5px !important;
+    grid-template-columns:30px minmax(0,1fr) !important;
+  }
+}
