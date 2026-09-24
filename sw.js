@@ -1,4 +1,4 @@
-const C="sowki-v0549";const A=["./","index.html","css/style.css?v=0549","js/config.js","js/app.js?v=0549","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0550";const A=["./","index.html","css/style.css?v=0550","js/config.js","js/app.js?v=0550","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
 self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
@@ -11,18 +11,29 @@ self.addEventListener("push",e=>{
   const fromTag=String(tag).match(/^sowki-(\d+)$/);
   const notificationId=d.notification_id||d.notificationId||(fromTag?fromTag[1]:"");
 
-  e.waitUntil(self.registration.showNotification(d.title||"Sówki",{
-    body:d.body||"Nowa wiadomość dla rodziców.",
-    icon:"icon-192.png",
-    badge:"favicon.png",
-    tag,
-    data:{
-      url:d.url||"./",
-      notificationId:String(notificationId||""),
-      targetPage:String(d.target_page||d.targetPage||"")
-    }
-  }));
+  e.waitUntil((async()=>{
+    await self.registration.showNotification(d.title||"Sówki",{
+      body:d.body||"Nowa wiadomość dla rodziców.",
+      icon:"icon-192.png",
+      badge:"favicon.png",
+      tag,
+      data:{
+        url:d.url||"./",
+        notificationId:String(notificationId||""),
+        targetPage:String(d.target_page||d.targetPage||"")
+      }
+    });
+
+    // Przy odebraniu PUSH-a ustawiamy co najmniej badge "1".
+    // Dokładną liczbę nieodczytanych aplikacja przeliczy po uruchomieniu.
+    try{
+      if("setAppBadge" in self.registration){
+        await self.registration.setAppBadge();
+      }
+    }catch{}
+  })());
 });
+
 self.addEventListener("notificationclick",e=>{
   e.notification.close();
 

@@ -774,13 +774,35 @@ function migrateOldNotificationReadState(data){
   localStorage.removeItem(oldKey);
 }
 
+async function updateAppIconBadge(unread){
+  try{
+    // iOS / iPadOS Home Screen Web Apps oraz wspierane przeglądarki desktopowe.
+    if(unread>0 && "setAppBadge" in navigator){
+      await navigator.setAppBadge(unread);
+      return;
+    }
+
+    if(unread<=0 && "clearAppBadge" in navigator){
+      await navigator.clearAppBadge();
+    }
+  }catch(e){
+    // Badge aplikacji jest dodatkiem — jego brak nie może wpływać na działanie PWA.
+    console.debug("App badge unavailable:",e);
+  }
+}
+
 function updateNotificationBadge(data){
   const read=getReadNotificationIds();
   const unread=(data||[]).filter(x=>!read.has(String(x.id))).length;
   const badge=q("#notificationBadge");
-  if(!badge)return;
-  badge.textContent=unread>9?"9+":String(unread);
-  badge.hidden=!unread;
+  if(badge){
+    badge.textContent=unread>9?"9+":String(unread);
+    badge.hidden=!unread;
+  }
+
+  // Ten sam licznik pokazujemy na ikonie zainstalowanej aplikacji,
+  // jeśli dany system/przeglądarka obsługuje Badging API.
+  updateAppIconBadge(unread);
 }
 
 function updateNotificationItemState(el,read){
