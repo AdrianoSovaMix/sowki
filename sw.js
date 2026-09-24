@@ -1,4 +1,4 @@
-const C="sowki-v0539";const A=["./","index.html","css/style.css?v=0539","js/config.js","js/app.js?v=0539","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0540";const A=["./","index.html","css/style.css?v=0540","js/config.js","js/app.js?v=0540","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
 self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
@@ -27,25 +27,41 @@ self.addEventListener("notificationclick",e=>{
   e.notification.close();
 
   let target=e.notification.data?.url||"./";
-  const notificationId=e.notification.data?.notificationId||"";
-  const targetPage=e.notification.data?.targetPage||"";
+  const notificationId=String(e.notification.data?.notificationId||"");
+  const targetPage=String(e.notification.data?.targetPage||"");
 
   try{
     const u=new URL(target,self.location.origin);
-    if(notificationId)u.searchParams.set("sowki_notification",notificationId);
-    if(targetPage)u.searchParams.set("sowki_target",targetPage);
+    if(notificationId&&!u.searchParams.has("sowki_notification")){
+      u.searchParams.set("sowki_notification",notificationId);
+    }
+    if(targetPage&&!u.searchParams.has("sowki_target")){
+      u.searchParams.set("sowki_target",targetPage);
+    }
     target=u.href;
   }catch{}
 
-  e.waitUntil(
-    clients.matchAll({type:"window",includeUncontrolled:true}).then(ws=>{
-      for(const w of ws){
-        if("focus" in w){
-          w.navigate(target);
-          return w.focus();
-        }
-      }
-      return clients.openWindow?clients.openWindow(target):null;
-    })
-  );
+  e.waitUntil((async()=>{
+    const ws=await clients.matchAll({type:"window",includeUncontrolled:true});
+
+    if(ws.length){
+      const w=ws[0];
+
+      // Najpewniejsza ścieżka dla zainstalowanej PWA:
+      // przekazujemy stronę docelową bezpośrednio do otwartej aplikacji.
+      try{
+        w.postMessage({
+          type:"SOWKI_NOTIFICATION_CLICK",
+          notificationId,
+          targetPage
+        });
+      }catch{}
+
+      // Jednocześnie aktualizujemy URL jako fallback.
+      try{await w.navigate(target)}catch{}
+      return w.focus();
+    }
+
+    return clients.openWindow?clients.openWindow(target):null;
+  })());
 });

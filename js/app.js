@@ -733,6 +733,27 @@ function consumePushNotificationOpen(){
 }
 
 consumePushNotificationOpen();
+
+// Gdy aplikacja jest już otwarta w tle, Service Worker może przekazać
+// kliknięcie PUSH-a bez przeładowywania całej aplikacji.
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.addEventListener("message",e=>{
+    const d=e.data||{};
+    if(d.type!=="SOWKI_NOTIFICATION_CLICK")return;
+
+    if(d.notificationId)markNotificationRead(d.notificationId);
+
+    const target=String(d.targetPage||"");
+    if(target&&q("#"+target)){
+      showPage(target);
+    }else if(target==="home"){
+      showPage("home");
+    }
+
+    loadNotifications();
+  });
+}
+
 q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications();refreshPushStatus()};
 q('#enablePush').onclick=enablePush;
 
