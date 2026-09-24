@@ -452,27 +452,143 @@ if(isIOS)setTimeout(maybeShowInstall,900);
 const VAPID_PUBLIC_KEY="BNy7_B7IKR3OSyGqMqbSyWjONg4zOTynJpt1H4YA2otklr_6ULOebeZFqShyzkHY2GlqKI-Pv9-wcrUdxNFxAMc";
 function b64ToUint8Array(base64){const pad='='.repeat((4-base64.length%4)%4),b64=(base64+pad).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
 async function getPushRegistration(){if(!('serviceWorker' in navigator))throw new Error('Ta przeglądarka nie obsługuje Service Worker.');return await navigator.serviceWorker.ready}
-async function enablePush(){
- if(!('Notification' in window)||!('PushManager' in window)){q('#pushStatus').innerHTML='<b>⚠️ Powiadomienia push nie są obsługiwane w tej przeglądarce.</b>';return}
- if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!isStandalone()){q('#pushStatus').innerHTML='<b>📱 iPhone / iPad:</b><p>Najpierw dodaj Sówki do ekranu początkowego w Safari, a potem uruchom zainstalowaną aplikację i włącz powiadomienia.</p>';return}
- const perm=await Notification.requestPermission(); if(perm!=='granted'){q('#pushStatus').innerHTML='<b>🔕 Powiadomienia nie zostały włączone.</b><p>Możesz zmienić zgodę później w ustawieniach przeglądarki/telefonu.</p>';return}
- const reg=await getPushRegistration();let sub=await reg.pushManager.getSubscription();
- if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8Array(VAPID_PUBLIC_KEY)});
- const j=sub.toJSON();
- const {data:registerData,error:registerError}=await sb.functions.invoke('register-push',{body:{
-   subscription:j,
-   endpoint:j.endpoint,
-   p256dh:j.keys?.p256dh||'',
-   auth:j.keys?.auth||'',
-   user_agent:navigator.userAgent
- }});
- if(registerError||registerData?.error){
-   const msg=registerData?.error||registerError?.message||'Nieznany błąd rejestracji.';
-   q('#pushStatus').innerHTML='<b>⚠️ Nie udało się zapisać telefonu.</b><p>'+esc(msg)+'</p>';return
+function setPushButtonState(state){
+ const btn=q("#enablePush");
+ if(!btn)return;
+
+ btn.classList.remove("push-enabled","push-unavailable","push-checking");
+ btn.disabled=false;
+ btn.removeAttribute("aria-disabled");
+ btn.title="";
+
+ if(state==="enabled"){
+   btn.textContent="✅ Powiadomienia są włączone";
+   btn.classList.add("push-enabled");
+   btn.disabled=true;
+   btn.setAttribute("aria-disabled","true");
+   return;
  }
- q('#pushStatus').innerHTML='<b>✅ Powiadomienia są włączone na tym urządzeniu.</b><p>Telefon został zapisany. Najważniejsze wiadomości z grupy mogą pojawiać się bezpośrednio na telefonie.</p>';
+
+ if(state==="unsupported"){
+   btn.textContent="⚠️ Powiadomienia nieobsługiwane";
+   btn.classList.add("push-unavailable");
+   btn.disabled=true;
+   btn.setAttribute("aria-disabled","true");
+   return;
+ }
+
+ if(state==="install"){
+   btn.textContent="📱 Zainstaluj aplikację, aby włączyć";
+   btn.classList.add("push-unavailable");
+   btn.title="Na iPhone powiadomienia działają w aplikacji dodanej do ekranu głównego.";
+   return;
+ }
+
+ if(state==="checking"){
+   btn.textContent="Sprawdzam powiadomienia…";
+   btn.classList.add("push-checking");
+   btn.disabled=true;
+   btn.setAttribute("aria-disabled","true");
+   return;
+ }
+
+ // default / denied / brak subskrypcji
+ btn.textContent="🔔 Włącz powiadomienia";
 }
-async function refreshPushStatus(){if(!q('#pushStatus'))return;if(!('Notification' in window)){q('#pushStatus').innerHTML='<b>⚠️ Ta przeglądarka nie obsługuje powiadomień push.</b>';return}if(Notification.permission==='granted')q('#pushStatus').innerHTML='<b>✅ Powiadomienia są dozwolone.</b>';else if(Notification.permission==='denied')q('#pushStatus').innerHTML='<b>🔕 Powiadomienia są zablokowane w ustawieniach urządzenia.</b>';else q('#pushStatus').innerHTML='<b>🔔 Powiadomienia nie są jeszcze włączone.</b><p>Kliknij „Włącz powiadomienia”, aby otrzymywać ważne informacje z grupy.</p>'}
+
+async function refreshPushStatus(){
+ const btn=q("#enablePush");
+ if(!btn)return;
+
+ if(!("Notification" in window)||!("PushManager" in window)){
+   setPushButtonState("unsupported");
+   return;
+ }
+
+ if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!isStandalone()){
+   setPushButtonState("install");
+   return;
+ }
+
+ setPushButtonState("checking");
+
+ try{
+   const reg=await getPushRegistration();
+   const sub=await reg.pushManager.getSubscription();
+
+   // Zielony stan pokazujemy dopiero gdy:
+   // 1) system pozwala na powiadomienia
+   // 2) istnieje aktywna subskrypcja PUSH
+   if(Notification.permission==="granted"&&sub){
+     setPushButtonState("enabled");
+   }else{
+     setPushButtonState("off");
+   }
+ }catch{
+   setPushButtonState("off");
+ }
+}
+
+async function enablePush(){
+ if(!("Notification" in window)||!("PushManager" in window)){
+   setPushButtonState("unsupported");
+   return;
+ }
+
+ if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!isStandalone()){
+   alert("Na iPhone powiadomienia działają po zainstalowaniu aplikacji Sówki na ekranie głównym. Otwórz stronę w Safari i dodaj ją do ekranu głównego.");
+   setPushButtonState("install");
+   return;
+ }
+
+ // Jeśli użytkownik wyłączył powiadomienia w ustawieniach telefonu,
+ // przeglądarka nie może ponownie sama wyświetlić systemowej zgody.
+ if(Notification.permission==="denied"){
+   alert("Powiadomienia są wyłączone w ustawieniach telefonu. Włącz powiadomienia dla aplikacji Sówki w Ustawieniach telefonu, a następnie wróć do aplikacji.");
+   setPushButtonState("off");
+   return;
+ }
+
+ const perm=await Notification.requestPermission();
+ if(perm!=="granted"){
+   setPushButtonState("off");
+   return;
+ }
+
+ try{
+   const reg=await getPushRegistration();
+   let sub=await reg.pushManager.getSubscription();
+
+   if(!sub){
+     sub=await reg.pushManager.subscribe({
+       userVisibleOnly:true,
+       applicationServerKey:b64ToUint8Array(VAPID_PUBLIC_KEY)
+     });
+   }
+
+   const j=sub.toJSON();
+   const {data:registerData,error:registerError}=await sb.functions.invoke("register-push",{body:{
+     subscription:j,
+     endpoint:j.endpoint,
+     p256dh:j.keys?.p256dh||"",
+     auth:j.keys?.auth||"",
+     user_agent:navigator.userAgent
+   }});
+
+   if(registerError||registerData?.error){
+     const msg=registerData?.error||registerError?.message||"Nieznany błąd rejestracji.";
+     alert("Nie udało się włączyć powiadomień: "+msg);
+     setPushButtonState("off");
+     return;
+   }
+
+   await refreshPushStatus();
+ }catch(e){
+   alert("Nie udało się włączyć powiadomień. Spróbuj ponownie.");
+   setPushButtonState("off");
+ }
+}
+
 function notifReadKey(){return 'sowki_notifications_last_read'}
 async function loadNotifications(markRead=false){
  const {data,error}=await sb.from('notifications').select('*').eq('published',true).order('sort_order',{ascending:true}).order('id',{ascending:false}).limit(30);if(error){q('#notificationsList').innerHTML=empty('Nie udało się pobrać powiadomień.');return}
@@ -481,5 +597,12 @@ async function loadNotifications(markRead=false){
  const unread=(data||[]).filter(x=>!last||x.created_at>last).length;const badge=q('#notificationBadge');badge.textContent=unread>9?'9+':unread;badge.hidden=!unread;
  if(markRead){localStorage.setItem(notifReadKey(),new Date().toISOString());badge.hidden=true;qa('.notification-item').forEach(x=>x.classList.remove('unread'))}
 }
-q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications(true);refreshPushStatus()};q('#enablePush').onclick=enablePush;
-setTimeout(()=>loadNotifications(false),700);
+q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications(true);refreshPushStatus()};
+q('#enablePush').onclick=enablePush;
+
+// Po powrocie z Ustawień telefonu sprawdzamy stan ponownie.
+// Dzięki temu przycisk aktualizuje się bez odświeżania całej aplikacji.
+window.addEventListener("focus",()=>refreshPushStatus());
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshPushStatus()});
+
+setTimeout(()=>{loadNotifications(false);refreshPushStatus()},700);

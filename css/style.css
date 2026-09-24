@@ -1673,3 +1673,44 @@ nav > button:not(.home).nav-active > img{
     grid-template-columns:30px minmax(0,1fr) !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.3.7 — status PUSH bez osobnego komunikatu
+   ========================================================= */
+
+#enablePush{
+  transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease !important;
+}
+
+#enablePush.push-enabled{
+  background:#107c41 !important;
+  color:#fff !important;
+  border:1px solid #0d6d39 !important;
+  box-shadow:0 4px 12px rgba(16,124,65,.18) !important;
+  opacity:1 !important;
+  cursor:default !important;
+}
+
+#enablePush.push-enabled:disabled{
+  opacity:1 !important;
+}
+
+#enablePush.push-unavailable{
+  background:#eee8eb !important;
+  color:#6e6369 !important;
+  border:1px solid #ddd2d7 !important;
+  box-shadow:none !important;
+}
+
+#enablePush.push-checking{
+  background:#f3edf0 !important;
+  color:#746970 !important;
+  box-shadow:none !important;
+}
+
+@media(max-width:520px){
+  .notification-head #enablePush{
+    min-height:44px !important;
+  }
+}
