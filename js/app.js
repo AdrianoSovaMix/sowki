@@ -168,7 +168,7 @@ function adminMeta(table,x){
     return [a,b].filter(Boolean).join(" – ");
   }
   if(table==="surveys"){
-    return x.ends_at ? "Do: "+formatWarsawDateTime(x.ends_at)+" (Warszawa)" : "";
+    return x.ends_at ? "Do: "+formatWarsawDateTime(x.ends_at) : "";
   }
   if(table==="notifications"){
     return x.created_at ? new Date(x.created_at).toLocaleString("pl-PL") : "";
