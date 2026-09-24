@@ -713,12 +713,23 @@ async function loadNotifications(){
 function consumePushNotificationOpen(){
   const url=new URL(location.href);
   const id=url.searchParams.get("sowki_notification");
-  if(!id)return;
+  const target=url.searchParams.get("sowki_target")||"";
 
-  markNotificationRead(id);
+  if(id)markNotificationRead(id);
 
-  url.searchParams.delete("sowki_notification");
-  history.replaceState({},document.title,url.pathname+url.search+url.hash);
+  // Jeżeli administrator wybrał kartę docelową,
+  // po kliknięciu systemowego PUSH-a otwieramy ją od razu.
+  if(target&&q("#"+target)){
+    showPage(target);
+  }else if(target==="home"){
+    showPage("home");
+  }
+
+  if(id||target){
+    url.searchParams.delete("sowki_notification");
+    url.searchParams.delete("sowki_target");
+    history.replaceState({},document.title,url.pathname+url.search+url.hash);
+  }
 }
 
 consumePushNotificationOpen();

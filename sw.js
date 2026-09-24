@@ -1,4 +1,4 @@
-const C="sowki-v0538";const A=["./","index.html","css/style.css?v=0538","js/config.js","js/app.js?v=0538","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0539";const A=["./","index.html","css/style.css?v=0539","js/config.js","js/app.js?v=0539","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
 self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
@@ -18,7 +18,8 @@ self.addEventListener("push",e=>{
     tag,
     data:{
       url:d.url||"./",
-      notificationId:String(notificationId||"")
+      notificationId:String(notificationId||""),
+      targetPage:String(d.target_page||d.targetPage||"")
     }
   }));
 });
@@ -27,10 +28,12 @@ self.addEventListener("notificationclick",e=>{
 
   let target=e.notification.data?.url||"./";
   const notificationId=e.notification.data?.notificationId||"";
+  const targetPage=e.notification.data?.targetPage||"";
 
   try{
     const u=new URL(target,self.location.origin);
     if(notificationId)u.searchParams.set("sowki_notification",notificationId);
+    if(targetPage)u.searchParams.set("sowki_target",targetPage);
     target=u.href;
   }catch{}
 
