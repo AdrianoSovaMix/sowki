@@ -275,7 +275,7 @@ async function render(table,id){
       <div class="admin-content-head">
         <div>
           <h3>Opublikowane i zapisane treści</h3>
-          <p>Użyj strzałek ↑ ↓, aby ustawić kolejność wyświetlania w aplikacji. Nie musisz już wpisywać numerów.</p>
+          <p>Użyj strzałek ↑ ↓, aby ustawić kolejność wyświetlania w aplikacji.</p>
         </div>
         <span class="admin-count">${rows.length} ${rows.length===1?"wpis":"wpisów"}</span>
       </div>
