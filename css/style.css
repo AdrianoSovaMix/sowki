@@ -1790,3 +1790,120 @@ nav > button:not(.home).nav-active > img{
     padding:4px 7px !important;
   }
 }
+
+
+/* =========================================================
+   v0.5.4.7 — kompaktowe informacje o działach
+   ========================================================= */
+
+.section-title-row{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:max-content;
+  max-width:100%;
+  margin:18px 0 13px;
+  overflow:visible;
+  z-index:3;
+}
+
+.section-title-row h1{
+  margin:0;
+  min-width:0;
+}
+
+.section-info-btn{
+  flex:0 0 auto;
+  width:31px;
+  height:31px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:2px solid #d81b60;
+  border-radius:50%;
+  background:#fff;
+  color:#d81b60;
+  font-family:Georgia,serif;
+  font-size:18px;
+  line-height:1;
+  font-weight:800;
+  font-style:italic;
+  cursor:pointer;
+  box-shadow:0 3px 10px rgba(216,27,96,.10);
+}
+
+.section-info-btn[aria-expanded="true"]{
+  background:#d81b60;
+  color:#fff;
+}
+
+.section-info-btn:focus-visible{
+  outline:3px solid rgba(216,27,96,.22);
+  outline-offset:2px;
+}
+
+.section-info-popover{
+  position:absolute;
+  z-index:50;
+  top:calc(100% + 9px);
+  left:0;
+  width:min(390px,calc(100vw - 32px));
+  padding:13px 15px;
+  border:1px solid #e6d7de;
+  border-radius:15px;
+  background:#fff;
+  color:#40383d;
+  font-size:13px;
+  line-height:1.5;
+  font-weight:500;
+  box-shadow:0 14px 34px rgba(55,31,42,.18);
+}
+
+.section-info-popover::before{
+  content:"";
+  position:absolute;
+  top:-7px;
+  left:48px;
+  width:12px;
+  height:12px;
+  background:#fff;
+  border-left:1px solid #e6d7de;
+  border-top:1px solid #e6d7de;
+  transform:rotate(45deg);
+}
+
+.section-info-popover[hidden]{
+  display:none !important;
+}
+
+/* Powiadomienia mają dodatkowo przycisk PUSH po prawej. */
+.notification-head .section-title-row{
+  margin:18px 0 13px;
+}
+
+@media(max-width:520px){
+  .section-title-row{
+    margin:14px 0 11px;
+  }
+
+  .section-title-row h1{
+    font-size:23px;
+  }
+
+  .section-info-btn{
+    width:30px;
+    height:30px;
+    font-size:17px;
+  }
+
+  .section-info-popover{
+    width:min(360px,calc(100vw - 32px));
+    font-size:13px;
+  }
+
+  .notification-head .section-title-row{
+    width:100%;
+    margin-bottom:2px;
+  }
+}

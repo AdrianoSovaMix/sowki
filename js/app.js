@@ -53,7 +53,44 @@ function bindRichEditors(){
  });
 }
 
+
 const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)],cfg=window.SOWKI,sb=supabase.createClient(cfg.url,cfg.key);
+
+// Kompaktowe dymki informacyjne przy nagłówkach sekcji.
+function closeSectionInfo(exceptBtn=null){
+  qa(".section-info-btn").forEach(btn=>{
+    if(btn===exceptBtn)return;
+    btn.setAttribute("aria-expanded","false");
+    const id=btn.getAttribute("aria-controls");
+    const pop=id?q("#"+id):null;
+    if(pop)pop.hidden=true;
+  });
+}
+
+qa(".section-info-btn").forEach(btn=>{
+  btn.addEventListener("click",e=>{
+    e.stopPropagation();
+    const id=btn.getAttribute("aria-controls");
+    const pop=id?q("#"+id):null;
+    if(!pop)return;
+
+    const willOpen=btn.getAttribute("aria-expanded")!=="true";
+    closeSectionInfo(willOpen?btn:null);
+
+    btn.setAttribute("aria-expanded",willOpen?"true":"false");
+    pop.hidden=!willOpen;
+  });
+});
+
+qa(".section-info-popover").forEach(pop=>{
+  pop.addEventListener("click",e=>e.stopPropagation());
+});
+
+document.addEventListener("click",()=>closeSectionInfo());
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")closeSectionInfo();
+});
+
 const WARSAW_TZ="Europe/Warsaw";
 
 function warsawParts(value,withSeconds=false){
@@ -366,6 +403,7 @@ function setActiveNav(id){
  if(bell)bell.classList.toggle("page-active",id==="notificationsPage");
 }
 function showPage(id){
+ closeSectionInfo();
  qa(".page").forEach(x=>x.classList.remove("active"));
  const page=q("#"+id);
  if(page)page.classList.add("active");
