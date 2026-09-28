@@ -1,5 +1,5 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0556"></head><body>
-<header class="app-header"><button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button><div class="header-brand"><span class="brand-leaves left">🍃</span><span class="brand-heart">♥</span><img src="icon-192.png" alt="Sówki"><div><b>Sówki</b><small>Grupa Pani Kasi</small></div><span class="brand-heart">♥</span><span class="brand-leaves right">🍃</span></div><button id="admin" aria-label="Panel administratora">🔐</button></header>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0557"></head><body>
+<header class="app-header"><div class="header-left-actions"><button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button><button id="parentMessageBtn" class="message-btn" aria-label="Napisz wiadomość do wychowawczyni">✉️</button></div><div class="header-brand"><span class="brand-leaves left">🍃</span><span class="brand-heart">♥</span><img src="icon-192.png" alt="Sówki"><div><b>Sówki</b><small>Grupa Pani Kasi</small></div><span class="brand-heart">♥</span><span class="brand-leaves right">🍃</span></div><button id="admin" aria-label="Panel administratora">🔐</button></header>
 <main>
 <section id="home" class="page active"><div class="hero"><span>🦉</span><div><h1>Witajcie w Sówkach!</h1><p>Najważniejsze informacje naszej grupy w jednym miejscu.</p></div></div><h2>📌 Najważniejsze na ten miesiąc</h2><div id="notices"></div><h2>📰 Wydarzenia przedszkolaków</h2><div id="events"></div></section>
 <section id="notificationsPage" class="page"><div class="notification-head"><div class="section-title-row"><h1>🔔 Powiadomienia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Powiadomienia" aria-expanded="false" aria-controls="info-notifications">i</button><div id="info-notifications" class="section-info-popover" hidden>Tutaj znajdziesz ostatnie wiadomości wysłane do rodziców Grupy 3 „Sówki”. Kliknij wybrane powiadomienie, aby oznaczyć je jako odczytane lub przejść do wskazanej sekcji.</div></div><button id="enablePush" class="primary">🔔 Włącz powiadomienia</button></div><div id="notificationsList"></div></section>
@@ -13,6 +13,39 @@
 <section id="payments" class="page"><div class="section-title-row"><h1>💰 Rozliczenia grupy „Sówki”</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Rozliczenia" aria-expanded="false" aria-controls="info-payments">i</button><div id="info-payments" class="section-info-popover" hidden>Tutaj możesz sprawdzić bieżące rozliczenia grupy, wpłaty i wydatki. Arkusz jest aktualizowany na bieżąco i chroniony hasłem.</div></div><p class="ok">● Arkusz aktualizowany na bieżąco</p><div id="gate" class="card"><label>Hasło</label><div class="row"><input id="pass" type="password"><button id="openPay">Otwórz</button></div><p id="payErr" class="err"></p></div><div id="pay" hidden><iframe class="bigframe desktop" src="https://1drv.ms/x/c/33eff04408f33c11/IQRrDW0alyzxQJSy91EQBK8ZAU4lngG0Fi1laO_zujcVTvY"></iframe><div class="card mobile"><h3>Arkusz Excel</h3><a class="primary" target="_blank" href="https://1drv.ms/x/c/33eff04408f33c11/IQBrDW0alyzxQJSy91EQBK8ZAeTfh0EdNF_VFVPGFR4kI6c?e=UYKfOV">Otwórz arkusz</a></div></div></section>
 </main>
 <nav><button data-go="announcementsPage"><img src="icons/nav/announcements.svg" alt=""><small>Ogłoszenia</small></button><button data-go="menu"><img src="icons/nav/menu.svg" alt=""><small>Jadłospis</small></button><button data-go="calendar"><img src="icons/nav/calendar.svg" alt=""><small>Kalendarz</small></button><button data-go="home" class="home"><img src="icons/nav/home.svg?v=0515" alt=""><small>START</small></button><button data-go="surveysPage"><img src="icons/nav/surveys.svg" alt=""><small>Ankiety</small></button><button data-go="gallery"><img src="icons/nav/gallery.svg" alt=""><small>Galeria</small></button><button data-go="payments"><img src="icons/nav/payments.svg" alt=""><small>Rozliczenia</small></button></nav>
+<dialog id="parentMessageDlg" class="parent-message-dialog">
+  <div class="parent-message-card">
+    <button id="parentMessageClose" class="parent-message-close" type="button" aria-label="Zamknij">✕</button>
+    <div class="parent-message-title">
+      <span class="parent-message-icon">✉️</span>
+      <div>
+        <h2>Napisz do wychowawczyni</h2>
+        <p>Wiadomość trafi do panelu administracyjnego grupy.</p>
+      </div>
+    </div>
+
+    <form id="parentMessageForm">
+      <label>Imię i nazwisko rodzica</label>
+      <input name="parent_name" type="text" maxlength="100" autocomplete="name" required>
+
+      <label>Imię dziecka</label>
+      <input name="child_name" type="text" maxlength="80" required>
+
+      <label>Telefon lub e-mail do odpowiedzi</label>
+      <input name="contact" type="text" maxlength="150" autocomplete="email" required>
+
+      <label>Wiadomość</label>
+      <textarea name="message" rows="6" maxlength="1500" required placeholder="Napisz wiadomość do wychowawczyni…"></textarea>
+
+      <input class="parent-message-hp" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+      <button class="primary parent-message-send" type="submit">✉️ Wyślij wiadomość</button>
+      <div id="parentMessageStatus" class="parent-message-status" aria-live="polite"></div>
+    </form>
+
+    <p class="parent-message-note">ℹ️ To prosta skrzynka kontaktowa. Odpowiedź wychowawczyni zostanie przekazana poza aplikacją, np. telefonicznie lub e-mailem.</p>
+  </div>
+</dialog>
 <dialog id="installDlg" class="install-dialog">
   <div class="install-card">
     <img src="icon-192.png" alt="Sówki" class="install-icon">
@@ -86,6 +119,12 @@
       <span>Galeria</span>
     </button>
 
+    <button type="button" data-tab="parent_messages" role="tab">
+      <span class="admin-tab-icon admin-tab-emoji">✉️</span>
+      <span>Wiadomości</span>
+      <span id="adminMessagesBadge" class="admin-tab-badge" hidden>0</span>
+    </button>
+
     <button type="button" data-tab="notifications" role="tab">
       <span class="admin-tab-icon admin-tab-emoji">🔔</span>
       <span>Powiadomienia</span>
@@ -99,4 +138,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/app.js?v=0556"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/app.js?v=0557"></script></body></html>

@@ -87,8 +87,74 @@ qa(".section-info-popover").forEach(pop=>{
 });
 
 document.addEventListener("click",()=>closeSectionInfo());
+
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape")closeSectionInfo();
+});
+
+// =========================================================
+// v0.5.5.7 — prosta skrzynka wiadomości do wychowawczyni
+// =========================================================
+const parentMessageDlg=q("#parentMessageDlg");
+const parentMessageForm=q("#parentMessageForm");
+const parentMessageStatus=q("#parentMessageStatus");
+
+q("#parentMessageBtn").onclick=()=>{
+  if(parentMessageStatus)parentMessageStatus.textContent="";
+  parentMessageDlg.showModal();
+};
+
+q("#parentMessageClose").onclick=()=>parentMessageDlg.close();
+
+parentMessageDlg.addEventListener("click",e=>{
+  if(e.target===parentMessageDlg)parentMessageDlg.close();
+});
+
+parentMessageForm.addEventListener("submit",async e=>{
+  e.preventDefault();
+
+  const fd=new FormData(parentMessageForm);
+  const website=String(fd.get("website")||"").trim();
+  if(website)return;
+
+  const payload={
+    p_parent_name:String(fd.get("parent_name")||"").trim(),
+    p_child_name:String(fd.get("child_name")||"").trim(),
+    p_contact:String(fd.get("contact")||"").trim(),
+    p_message:String(fd.get("message")||"").trim()
+  };
+
+  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_contact||!payload.p_message){
+    parentMessageStatus.textContent="Uzupełnij wszystkie pola.";
+    return;
+  }
+
+  const lastSent=Number(localStorage.getItem("sowki_parent_message_last_sent")||0);
+  if(lastSent && Date.now()-lastSent<60000){
+    parentMessageStatus.textContent="Wiadomość została już przed chwilą wysłana. Odczekaj chwilę przed kolejną.";
+    return;
+  }
+
+  const btn=parentMessageForm.querySelector(".parent-message-send");
+  btn.disabled=true;
+  btn.textContent="Wysyłanie…";
+  parentMessageStatus.textContent="Wysyłam wiadomość…";
+
+  try{
+    const {error}=await sb.rpc("submit_parent_message",payload);
+    if(error)throw error;
+
+    localStorage.setItem("sowki_parent_message_last_sent",String(Date.now()));
+    parentMessageForm.reset();
+    parentMessageStatus.textContent="✅ Wiadomość została wysłana.";
+    setTimeout(()=>{if(parentMessageDlg.open)parentMessageDlg.close()},1400);
+  }catch(err){
+    console.error("PARENT MESSAGE ERROR:",err);
+    parentMessageStatus.textContent="❌ Nie udało się wysłać wiadomości. Spróbuj ponownie.";
+  }finally{
+    btn.disabled=false;
+    btn.textContent="✉️ Wyślij wiadomość";
+  }
 });
 
 const WARSAW_TZ="Europe/Warsaw";
@@ -294,7 +360,7 @@ async function load(){
 }
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
-async function auth(){const {data:{user}}=await sb.auth.getUser();q("#login").hidden=!!user;q("#panel").hidden=!user;if(user)render("monthly_notices")}
+async function auth(){const {data:{user}}=await sb.auth.getUser();q("#login").hidden=!!user;q("#panel").hidden=!user;if(user){refreshAdminMessagesBadge();render("monthly_notices")}}
 function setActiveAdminTab(table){
   qa(".tabs [data-tab]").forEach(b=>{
     const active=b.dataset.tab===table;
@@ -306,6 +372,7 @@ function setActiveAdminTab(table){
 }
 qa("[data-tab]").forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==="stats")renderStats();
+  else if(b.dataset.tab==="parent_messages")renderParentMessages();
   else render(b.dataset.tab);
 });
 const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["file","Zdjęcie wyników ankiety","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
@@ -374,6 +441,140 @@ async function moveAdminItem(table,id,direction){
   await load();
   if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)loadGallery();
   if(table==="notifications")loadNotifications();
+}
+
+async function refreshAdminMessagesBadge(){
+  const badge=q("#adminMessagesBadge");
+  if(!badge)return;
+
+  try{
+    const {data,error}=await sb
+      .from("parent_messages")
+      .select("id")
+      .is("read_at",null);
+
+    if(error)throw error;
+
+    const count=(data||[]).length;
+    badge.textContent=count>9?"9+":String(count);
+    badge.hidden=!count;
+  }catch{
+    badge.hidden=true;
+  }
+}
+
+function parentMessageDate(value){
+  if(!value)return "";
+  return new Date(value).toLocaleString("pl-PL",{
+    timeZone:"Europe/Warsaw",
+    day:"2-digit",
+    month:"2-digit",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+}
+
+async function renderParentMessages(){
+  setActiveAdminTab("parent_messages");
+  q("#editor").dataset.table="parent_messages";
+  q("#editor").innerHTML=`<div class="admin-messages-loading">Ładowanie wiadomości…</div>`;
+
+  const {data,error}=await sb
+    .from("parent_messages")
+    .select("*")
+    .order("created_at",{ascending:false})
+    .limit(200);
+
+  if(error){
+    q("#editor").innerHTML=`
+      <div class="admin-order-warning">
+        <b>⚠️ Nie udało się pobrać wiadomości.</b><br>
+        ${esc(error.message)}<br><br>
+        Jeśli dopiero dodajesz tę funkcję, uruchom plik SQL dołączony do wersji v0.5.5.7.
+      </div>`;
+    return;
+  }
+
+  const rows=data||[];
+  const unread=rows.filter(x=>!x.read_at).length;
+
+  q("#editor").innerHTML=`
+    <section class="admin-parent-messages">
+      <div class="admin-content-head">
+        <div>
+          <h3>Wiadomości od rodziców</h3>
+          <p>Rodzic wysyła wiadomość bez logowania. Odpowiedź przekazujesz poza aplikacją, korzystając z podanego telefonu lub e-maila.</p>
+        </div>
+        <span class="admin-count">${unread?`${unread} nowych`:`${rows.length} wiadomości`}</span>
+      </div>
+
+      <div class="admin-parent-message-list">
+        ${rows.length?rows.map(x=>`
+          <article class="admin-parent-message ${x.read_at?"is-read":"is-unread"}">
+            <div class="admin-parent-message-head">
+              <div>
+                <div class="admin-parent-message-title">
+                  <b>${esc(x.parent_name)}</b>
+                  <span class="admin-status ${x.read_at?"is-published":"is-hidden"}">${x.read_at?"✓ Przeczytana":"● Nowa"}</span>
+                </div>
+                <div class="admin-parent-message-meta">
+                  Dziecko: <b>${esc(x.child_name)}</b> • ${parentMessageDate(x.created_at)}
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-parent-message-body">${esc(x.message).replace(/\n/g,"<br>")}</div>
+
+            <div class="admin-parent-message-contact">
+              <span>Kontakt do odpowiedzi:</span>
+              <b>${esc(x.contact)}</b>
+            </div>
+
+            <div class="actions admin-parent-message-actions">
+              ${x.read_at
+                ? `<button type="button" class="secondary" data-message-unread="${x.id}">Oznacz jako nieprzeczytaną</button>`
+                : `<button type="button" class="primary" data-message-read="${x.id}">✓ Oznacz jako przeczytaną</button>`}
+              <button type="button" class="danger" data-message-delete="${x.id}">Usuń</button>
+            </div>
+          </article>
+        `).join(""):`<div class="admin-empty">Nie ma jeszcze żadnych wiadomości od rodziców.</div>`}
+      </div>
+    </section>
+  `;
+
+  qa("[data-message-read]").forEach(b=>b.onclick=async()=>{
+    const {error}=await sb
+      .from("parent_messages")
+      .update({read_at:new Date().toISOString()})
+      .eq("id",b.dataset.messageRead);
+    if(error){alert(error.message);return}
+    await refreshAdminMessagesBadge();
+    renderParentMessages();
+  });
+
+  qa("[data-message-unread]").forEach(b=>b.onclick=async()=>{
+    const {error}=await sb
+      .from("parent_messages")
+      .update({read_at:null})
+      .eq("id",b.dataset.messageUnread);
+    if(error){alert(error.message);return}
+    await refreshAdminMessagesBadge();
+    renderParentMessages();
+  });
+
+  qa("[data-message-delete]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Usunąć tę wiadomość?"))return;
+    const {error}=await sb
+      .from("parent_messages")
+      .delete()
+      .eq("id",b.dataset.messageDelete);
+    if(error){alert(error.message);return}
+    await refreshAdminMessagesBadge();
+    renderParentMessages();
+  });
+
+  await refreshAdminMessagesBadge();
 }
 
 const STATS_PAGES=[
