@@ -120,11 +120,10 @@ parentMessageForm.addEventListener("submit",async e=>{
   const payload={
     p_parent_name:String(fd.get("parent_name")||"").trim(),
     p_child_name:String(fd.get("child_name")||"").trim(),
-    p_contact:String(fd.get("contact")||"").trim(),
     p_message:String(fd.get("message")||"").trim()
   };
 
-  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_contact||!payload.p_message){
+  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_message){
     parentMessageStatus.textContent="Uzupełnij wszystkie pola.";
     return;
   }
@@ -504,7 +503,7 @@ async function renderParentMessages(){
       <div class="admin-content-head">
         <div>
           <h3>Wiadomości od rodziców</h3>
-          <p>Rodzic wysyła wiadomość bez logowania. Odpowiedź przekazujesz poza aplikacją, korzystając z podanego telefonu lub e-maila.</p>
+          <p>Rodzic wysyła wiadomość bez logowania. To szybki kontakt służący do przekazania informacji wychowawczyni.</p>
         </div>
         <span class="admin-count">${unread?`${unread} nowych`:`${rows.length} wiadomości`}</span>
       </div>
@@ -525,11 +524,6 @@ async function renderParentMessages(){
             </div>
 
             <div class="admin-parent-message-body">${esc(x.message).replace(/\n/g,"<br>")}</div>
-
-            <div class="admin-parent-message-contact">
-              <span>Kontakt do odpowiedzi:</span>
-              <b>${esc(x.contact)}</b>
-            </div>
 
             <div class="actions admin-parent-message-actions">
               ${x.read_at

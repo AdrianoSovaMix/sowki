@@ -2511,17 +2511,6 @@ nav > .home .nav-new-dot{
   font-size:13px;
 }
 
-.admin-parent-message-contact{
-  display:flex;
-  flex-wrap:wrap;
-  gap:5px 8px;
-  margin-bottom:12px;
-  font-size:12px;
-}
-
-.admin-parent-message-contact span{
-  color:var(--muted);
-}
 
 .admin-parent-message-actions{
   display:flex;
