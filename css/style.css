@@ -2247,3 +2247,29 @@ nav > .home .nav-new-dot{
   font-weight:700;
 }
 
+
+
+/* =========================================================
+   v0.5.5.6 — wyniki zakończonych ankiet
+   ========================================================= */
+
+.survey-results-btn{
+  margin-top:10px;
+}
+
+.survey-results-pending{
+  margin-top:9px;
+  color:var(--muted);
+  font-size:12px;
+  font-style:italic;
+}
+
+.survey-results-preview-title{
+  padding:4px 42px 10px 8px;
+  color:#fff;
+  font-size:15px;
+  line-height:1.35;
+  font-weight:800;
+  text-align:center;
+}
+

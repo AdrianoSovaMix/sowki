@@ -269,7 +269,25 @@ async function load(){
  setNewContentTokens("surveysPage",pending.map(x=>`survey:${x.id}`));
  q("#surveys").innerHTML=pending.length?`<div class="survey-top-note">📌 <b>Ważne:</b> Po wysłaniu odpowiedzi w formularzu prosimy o kliknięcie przycisku <b>„✅ Wypełniłem/am tę ankietę”</b>. Dziękujemy!</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${formatWarsawDateTime(x.ends_at)}</div>`:""}<div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join(""):`<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
  qa("[data-survey-done]").forEach(b=>b.onclick=()=>{localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");load()});
- q("#surveyArchive").innerHTML=archive.length?`<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archive.map(x=>`<div class="item"><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}<a class="secondary" target="_blank" rel="noopener" href="${esc(x.form_url)}">Otwórz formularz ↗</a></div>`).join("")}</details>`:"";
+ let archiveCards=[];
+ for(const x of archive){
+   const resultsUrl=await sign(x.results_image_url);
+   archiveCards.push(`<div class="item survey-archive-item">
+     <h3>${esc(x.title)}</h3>
+     ${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}
+     ${resultsUrl
+       ? `<button type="button" class="secondary survey-results-btn" data-survey-results="${esc(resultsUrl)}" data-survey-title="${esc(x.title)}">📊 Pokaż wyniki</button>`
+       : `<div class="survey-results-pending">Wyniki nie zostały jeszcze opublikowane.</div>`}
+   </div>`);
+ }
+ q("#surveyArchive").innerHTML=archive.length
+   ? `<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archiveCards.join("")}</details>`
+   : "";
+
+ qa("[data-survey-results]").forEach(b=>b.onclick=()=>openSurveyResults(
+   b.dataset.surveyResults,
+   b.dataset.surveyTitle||"Wyniki ankiety"
+ ));
 
  const galleryCheck=await sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  if(!galleryCheck.error)setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
@@ -290,7 +308,7 @@ qa("[data-tab]").forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==="stats")renderStats();
   else render(b.dataset.tab);
 });
-const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["published","Opublikuj od razu na stronie","checkbox"]]},
+const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["file","Zdjęcie wyników ankiety","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[
 ["title","Tytuł","text"],
@@ -315,7 +333,10 @@ function adminMeta(table,x){
     return [a,b].filter(Boolean).join(" – ");
   }
   if(table==="surveys"){
-    return x.ends_at ? "Do: "+formatWarsawDateTime(x.ends_at) : "";
+    const parts=[];
+    if(x.ends_at)parts.push("Do: "+formatWarsawDateTime(x.ends_at));
+    if(x.results_image_url)parts.push("Wyniki: dodane");
+    return parts.join(" • ");
   }
   if(table==="notifications"){
     return x.created_at ? new Date(x.created_at).toLocaleString("pl-PL") : "";
@@ -653,6 +674,7 @@ async function save(ev){
         table==="events"?"events":
         table==="gallery_albums"?"gallery":
         table==="announcements"?"announcements":
+        table==="surveys"?"survey-results":
         "menus";
 
       const safeName=(file.name||"image.jpg")
@@ -718,7 +740,8 @@ async function save(ev){
         throw new Error(msg||"Nie udało się przesłać zdjęcia.");
       }
 
-      o.image_url=path;
+      if(table==="surveys")o.results_image_url=path;
+      else o.image_url=path;
     }
 
     setStatus("Zapisuję wpis…");
@@ -797,6 +820,23 @@ function openMenuPreview(url){
     d.onclick=e=>{if(e.target===d)d.close()};
   }
   d.querySelector("img").src=url;
+  d.showModal();
+}
+
+function openSurveyResults(url,title="Wyniki ankiety"){
+  let d=q("#surveyResultsPreview");
+  if(!d){
+    d=document.createElement("dialog");
+    d.id="surveyResultsPreview";
+    d.className="photo-preview survey-results-preview";
+    d.innerHTML=`<button class="preview-close" aria-label="Zamknij">✕</button><div class="survey-results-preview-title"></div><div class="preview-stage"><img alt="Wyniki ankiety"></div><div class="preview-hint">Przesuwaj obraz palcem • użyj gestu powiększania</div>`;
+    document.body.appendChild(d);
+    d.querySelector(".preview-close").onclick=()=>d.close();
+    d.onclick=e=>{if(e.target===d)d.close()};
+  }
+  d.querySelector(".survey-results-preview-title").textContent=title;
+  d.querySelector("img").src=url;
+  d.querySelector("img").alt=`Wyniki ankiety: ${title}`;
   d.showModal();
 }
 
