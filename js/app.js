@@ -455,10 +455,51 @@ async function save(ev){
 
   const file=fd.get("file");
   if(file?.size){
-    let folder=table==="events"?"events":table==="gallery_albums"?"gallery":table==="announcements"?"announcements":"menus",
-        path=`${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`,
-        u=await sb.storage.from(cfg.bucket).upload(path,file,{contentType:file.type});
-    if(u.error){alert(u.error.message);return}
+    const folder=table==="events"?"events":table==="gallery_albums"?"gallery":table==="announcements"?"announcements":"menus";
+    const safeName=(file.name||"image.jpg").replace(/[^a-zA-Z0-9._-]/g,"_");
+    const path=`${folder}/${Date.now()}-${safeName}`;
+
+    // iOS/Safari/PWA potrafi czasem przekazać wybrany File do uploadu
+    // jako pustą treść. Odczytujemy plik i tworzymy świeży Blob.
+    let mime=file.type||"";
+    if(!mime){
+      const n=safeName.toLowerCase();
+      if(n.endsWith(".png"))mime="image/png";
+      else if(n.endsWith(".webp"))mime="image/webp";
+      else if(n.endsWith(".mov"))mime="video/quicktime";
+      else if(n.endsWith(".mp4"))mime="video/mp4";
+      else mime="image/jpeg";
+    }
+
+    let uploadBody;
+    try{
+      const bytes=await file.arrayBuffer();
+      if(!bytes.byteLength){
+        alert("Wybrany plik jest pusty. Wybierz zdjęcie ponownie.");
+        return;
+      }
+      uploadBody=new Blob([bytes],{type:mime});
+    }catch(e){
+      alert("Nie udało się odczytać wybranego zdjęcia. Wybierz plik ponownie.");
+      return;
+    }
+
+    const u=await sb.storage.from(cfg.bucket).upload(path,uploadBody,{
+      contentType:mime,
+      cacheControl:"3600",
+      upsert:false
+    });
+
+    if(u.error){
+      const msg=String(u.error.message||"");
+      if(msg.toLowerCase().includes("no content provided")){
+        alert("Nie udało się przesłać zdjęcia z telefonu. Wybierz zdjęcie ponownie i spróbuj jeszcze raz.");
+      }else{
+        alert(msg);
+      }
+      return;
+    }
+
     o.image_url=path;
   }
 
