@@ -507,7 +507,7 @@ async function renderStats(days=30){
       </div>
     </section>
 
-    <p class="stats-note">ℹ️ Statystyki zaczynają być zbierane dopiero od momentu uruchomienia tej funkcji. Liczymy wejścia do działów, a nie unikalnych użytkowników.</p>
+    <p class="stats-note">ℹ️ Statystyki zaczynają być zbierane dopiero od momentu uruchomienia tej funkcji. Z jednego urządzenia ponowne wejście do tego samego działu w ciągu 10 minut nie jest liczone ponownie. Nadal są to anonimowe wejścia do działów, a nie identyfikacja konkretnych rodziców.</p>
   `;
 }
 
@@ -710,7 +710,21 @@ const TRACKED_PAGES=new Set([
   "payments"
 ]);
 
+const STATS_DEDUPE_MS=10*60*1000;
 let lastTrackedPage=null;
+
+function statsLastCountedKey(page){
+  return `sowki_stats_last_counted_${page}_v1`;
+}
+
+function canCountPageView(page){
+  const last=Number(localStorage.getItem(statsLastCountedKey(page))||0);
+  return !last || (Date.now()-last)>=STATS_DEDUPE_MS;
+}
+
+function rememberCountedPageView(page){
+  localStorage.setItem(statsLastCountedKey(page),String(Date.now()));
+}
 
 async function trackPageView(page){
   if(!TRACKED_PAGES.has(page))return;
@@ -718,8 +732,16 @@ async function trackPageView(page){
 
   lastTrackedPage=page;
 
+  // Z jednego urządzenia nie liczymy ponownie tego samego działu
+  // częściej niż raz na 10 minut.
+  if(!canCountPageView(page))return;
+
   try{
-    await sb.rpc("track_page_view",{p_page:page});
+    const {error}=await sb.rpc("track_page_view",{p_page:page});
+    if(error)throw error;
+
+    // Dopiero po poprawnym zapisie do Supabase uruchamiamy 10-minutową blokadę.
+    rememberCountedPageView(page);
   }catch(e){
     // Statystyki są dodatkiem — błąd nie może wpływać na działanie aplikacji.
     console.debug("Page view tracking unavailable:",e);
