@@ -533,7 +533,8 @@ async function render(table,id){
       <form id="f">
         ${d.fields.map(x=>field(x,e)).join("")}
         <input type="hidden" name="id" value="${e?.id||""}">
-        <button class="primary">Zapisz</button>
+        <button class="primary admin-save-btn" type="submit">Zapisz</button>
+        <div class="admin-save-status" aria-live="polite"></div>
       </form>
     </div>
 
@@ -594,94 +595,194 @@ function field(f,e){
  if(t==="datetime-local"&&v)v=isoToWarsawLocal(v);
  return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`
 }
+function withTimeout(promise,ms,message){
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error(message)),ms);
+  });
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+}
+
 async function save(ev){
   ev.preventDefault();
-  const table=q("#editor").dataset.table,d=D[table],fd=new FormData(ev.target),id=fd.get("id"),o={};
 
-  d.fields.forEach(x=>{
-    let[n,,t]=x;
-    if(t==="file")return;
-    if(t==="checkbox")o[n]=fd.get(n)==="on";
-    else{
-      o[n]=fd.get(n)||null;
-      if(t==="number"&&o[n])o[n]=+o[n];
+  const form=ev.target;
+  const saveBtn=form.querySelector(".admin-save-btn");
+  const saveStatus=form.querySelector(".admin-save-status");
+
+  const setStatus=(text)=>{
+    if(saveStatus)saveStatus.textContent=text||"";
+  };
+
+  const setBusy=(busy)=>{
+    if(saveBtn){
+      saveBtn.disabled=busy;
+      saveBtn.textContent=busy?"Zapisywanie…":"Zapisz";
+      saveBtn.classList.toggle("is-saving",busy);
     }
-  });
+  };
 
-  if(table==="surveys"){
-    if(o.ends_at)o.ends_at=warsawLocalToISO(o.ends_at);
-  }
+  setBusy(true);
+  setStatus("Przygotowuję wpis…");
 
-  const file=fd.get("file");
-  if(file?.size){
-    const folder=table==="events"?"events":table==="gallery_albums"?"gallery":table==="announcements"?"announcements":"menus";
-    const safeName=(file.name||"image.jpg").replace(/[^a-zA-Z0-9._-]/g,"_");
-    const path=`${folder}/${Date.now()}-${safeName}`;
+  try{
+    const table=q("#editor").dataset.table,
+          d=D[table],
+          fd=new FormData(form),
+          id=fd.get("id"),
+          o={};
 
-    // iOS/Safari/PWA potrafi czasem przekazać wybrany File do uploadu
-    // jako pustą treść. Odczytujemy plik i tworzymy świeży Blob.
-    let mime=file.type||"";
-    if(!mime){
-      const n=safeName.toLowerCase();
-      if(n.endsWith(".png"))mime="image/png";
-      else if(n.endsWith(".webp"))mime="image/webp";
-      else if(n.endsWith(".mov"))mime="video/quicktime";
-      else if(n.endsWith(".mp4"))mime="video/mp4";
-      else mime="image/jpeg";
-    }
-
-    let uploadBody;
-    try{
-      const bytes=await file.arrayBuffer();
-      if(!bytes.byteLength){
-        alert("Wybrany plik jest pusty. Wybierz zdjęcie ponownie.");
-        return;
+    d.fields.forEach(x=>{
+      let[n,,t]=x;
+      if(t==="file")return;
+      if(t==="checkbox")o[n]=fd.get(n)==="on";
+      else{
+        o[n]=fd.get(n)||null;
+        if(t==="number"&&o[n])o[n]=+o[n];
       }
-      uploadBody=new Blob([bytes],{type:mime});
-    }catch(e){
-      alert("Nie udało się odczytać wybranego zdjęcia. Wybierz plik ponownie.");
-      return;
-    }
-
-    const u=await sb.storage.from(cfg.bucket).upload(path,uploadBody,{
-      contentType:mime,
-      cacheControl:"3600",
-      upsert:false
     });
 
-    if(u.error){
-      const msg=String(u.error.message||"");
-      if(msg.toLowerCase().includes("no content provided")){
-        alert("Nie udało się przesłać zdjęcia z telefonu. Wybierz zdjęcie ponownie i spróbuj jeszcze raz.");
-      }else{
-        alert(msg);
-      }
-      return;
+    if(table==="surveys"){
+      if(o.ends_at)o.ends_at=warsawLocalToISO(o.ends_at);
     }
 
-    o.image_url=path;
+    const file=fd.get("file");
+
+    if(file?.size){
+      const folder=
+        table==="events"?"events":
+        table==="gallery_albums"?"gallery":
+        table==="announcements"?"announcements":
+        "menus";
+
+      const safeName=(file.name||"image.jpg")
+        .replace(/[^a-zA-Z0-9._-]/g,"_");
+
+      const path=`${folder}/${Date.now()}-${safeName}`;
+
+      let mime=file.type||"";
+      if(!mime){
+        const n=safeName.toLowerCase();
+        if(n.endsWith(".png"))mime="image/png";
+        else if(n.endsWith(".webp"))mime="image/webp";
+        else if(n.endsWith(".mov"))mime="video/quicktime";
+        else if(n.endsWith(".mp4"))mime="video/mp4";
+        else mime="image/jpeg";
+      }
+
+      setStatus("Odczytuję wybrane zdjęcie…");
+
+      let bytes;
+      try{
+        bytes=await withTimeout(
+          file.arrayBuffer(),
+          30000,
+          "Odczyt zdjęcia trwał zbyt długo. Wybierz zdjęcie ponownie."
+        );
+      }catch(e){
+        throw new Error(
+          e?.message||
+          "Nie udało się odczytać wybranego zdjęcia. Wybierz plik ponownie."
+        );
+      }
+
+      if(!bytes?.byteLength){
+        throw new Error("Wybrany plik jest pusty. Wybierz zdjęcie ponownie.");
+      }
+
+      setStatus("Wysyłam zdjęcie…");
+
+      // WAŻNE: wysyłamy surowy ArrayBuffer zamiast Blob.
+      // Jest to stabilniejsze w Safari/iOS PWA dla zdjęć z biblioteki.
+      const uploadPromise=sb.storage
+        .from(cfg.bucket)
+        .upload(path,bytes,{
+          contentType:mime,
+          cacheControl:"3600",
+          upsert:false
+        });
+
+      const u=await withTimeout(
+        uploadPromise,
+        60000,
+        "Wysyłanie zdjęcia trwało zbyt długo. Sprawdź internet i spróbuj ponownie."
+      );
+
+      if(u.error){
+        const msg=String(u.error.message||"");
+        if(msg.toLowerCase().includes("no content provided")){
+          throw new Error(
+            "Telefon nie przekazał zawartości zdjęcia. Wybierz zdjęcie ponownie i spróbuj jeszcze raz."
+          );
+        }
+        throw new Error(msg||"Nie udało się przesłać zdjęcia.");
+      }
+
+      o.image_url=path;
+    }
+
+    setStatus("Zapisuję wpis…");
+
+    if(!id){
+      try{
+        o.sort_order=await withTimeout(
+          nextSortOrder(table),
+          20000,
+          "Nie udało się ustawić kolejności wpisu."
+        );
+      }catch(e){
+        throw new Error(
+          "Nie udało się ustawić kolejności nowego wpisu: "+(e?.message||e)
+        );
+      }
+    }
+
+    const savePromise=id
+      ? sb.from(table).update(o).eq("id",id)
+      : sb.from(table).insert(o).select().single();
+
+    const r=await withTimeout(
+      savePromise,
+      30000,
+      "Zapisywanie wpisu trwało zbyt długo. Sprawdź internet i spróbuj ponownie."
+    );
+
+    if(r.error)throw new Error(r.error.message);
+
+    if(table==="notifications"&&!id&&r.data){
+      setStatus("Wysyłam powiadomienie PUSH…");
+
+      const sent=await withTimeout(
+        sb.functions.invoke("send-push",{body:{notification_id:r.data.id}}),
+        45000,
+        "Wpis zapisano, ale wysyłanie PUSH trwało zbyt długo."
+      );
+
+      if(sent.error){
+        alert(
+          "Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+
+          sent.error.message
+        );
+      }else{
+        alert(
+          `Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`
+        );
+      }
+    }
+
+    setStatus("✅ Zapisano");
+    await render(table);
+    load();
+    if(table==="notifications")loadNotifications();
+
+  }catch(e){
+    console.error("ADMIN SAVE ERROR:",e);
+    setStatus("❌ Nie udało się zapisać.");
+    alert(e?.message||"Nie udało się zapisać wpisu. Spróbuj ponownie.");
+  }finally{
+    // Po udanym render() stary formularz może już nie istnieć.
+    if(document.body.contains(form))setBusy(false);
   }
-
-  if(!id){
-    try{o.sort_order=await nextSortOrder(table)}
-    catch(e){alert("Nie udało się ustawić kolejności nowego wpisu: "+(e?.message||e));return}
-  }
-
-  let r=id
-    ? await sb.from(table).update(o).eq("id",id)
-    : await sb.from(table).insert(o).select().single();
-
-  if(r.error){alert(r.error.message);return}
-
-  if(table==="notifications"&&!id&&r.data){
-    const sent=await sb.functions.invoke("send-push",{body:{notification_id:r.data.id}});
-    if(sent.error)alert("Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+sent.error.message);
-    else alert(`Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`);
-  }
-
-  render(table);
-  load();
-  if(table==="notifications")loadNotifications();
 }
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 function openMenuPreview(url){

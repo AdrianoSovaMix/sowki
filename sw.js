@@ -1,7 +1,54 @@
-const C="sowki-v0553";const A=["./","index.html","css/style.css?v=0553","js/config.js","js/app.js?v=0553","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
-self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
-self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
+const C="sowki-v0555";const A=["./","index.html","css/style.css?v=0555","js/config.js","js/app.js?v=0555","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+self.addEventListener("install",e=>{
+  e.waitUntil((async()=>{
+    const c=await caches.open(C);
+    await c.addAll(A);
+    await self.skipWaiting();
+  })());
+});
+self.addEventListener("activate",e=>{
+  e.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(x=>x!==C).map(x=>caches.delete(x)));
+    await clients.claim();
+  })());
+});
+self.addEventListener("fetch",e=>{
+  const req=e.request;
+
+  // Bardzo ważne: Service Worker nie może przechwytywać POST/PUT/DELETE
+  // ani zapytań do Supabase (Storage/Auth/RPC/Edge Functions).
+  // W przeciwnym razie iOS potrafi zwrócić:
+  // "FetchEvent.respondWith received an error: Returned response is null."
+  if(req.method!=="GET")return;
+
+  const url=new URL(req.url);
+  if(url.origin!==self.location.origin)return;
+
+  e.respondWith((async()=>{
+    try{
+      return await fetch(req);
+    }catch{
+      const cached=await caches.match(req);
+      if(cached)return cached;
+
+      // Przy nawigacji offline możemy wrócić do głównej aplikacji.
+      if(req.mode==="navigate"){
+        const fallback=
+          await caches.match("./") ||
+          await caches.match("index.html");
+        if(fallback)return fallback;
+      }
+
+      // respondWith MUSI dostać Response, nigdy null/undefined.
+      return new Response("Offline",{
+        status:503,
+        statusText:"Offline",
+        headers:{"Content-Type":"text/plain; charset=utf-8"}
+      });
+    }
+  })());
+});
 self.addEventListener("push",e=>{
   let d={};
   try{d=e.data?e.data.json():{}}

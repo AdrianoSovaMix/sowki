@@ -2227,3 +2227,23 @@ nav > .home .nav-new-dot{
     font-size:20px;
   }
 }
+
+
+/* =========================================================
+   v0.5.5.4 — czytelny stan zapisu w panelu administratora
+   ========================================================= */
+
+.admin-save-btn.is-saving,
+.admin-save-btn:disabled{
+  opacity:.72;
+  cursor:wait;
+}
+
+.admin-save-status{
+  min-height:20px;
+  margin-top:8px;
+  color:#6f6268;
+  font-size:12px;
+  font-weight:700;
+}
+
