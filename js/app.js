@@ -286,7 +286,10 @@ function setActiveAdminTab(table){
     else b.removeAttribute("aria-current");
   });
 }
-qa("[data-tab]").forEach(b=>b.onclick=()=>render(b.dataset.tab));
+qa("[data-tab]").forEach(b=>b.onclick=()=>{
+  if(b.dataset.tab==="stats")renderStats();
+  else render(b.dataset.tab);
+});
 const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["published","Opublikuj od razu na stronie","checkbox"]]},
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[
@@ -350,6 +353,162 @@ async function moveAdminItem(table,id,direction){
   await load();
   if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)loadGallery();
   if(table==="notifications")loadNotifications();
+}
+
+const STATS_PAGES=[
+  ["home","START","🏠"],
+  ["notificationsPage","Powiadomienia","🔔"],
+  ["announcementsPage","Ogłoszenia","📢"],
+  ["menu","Jadłospis","🍽️"],
+  ["calendar","Kalendarz","📅"],
+  ["surveysPage","Ankiety","📊"],
+  ["gallery","Galeria","📸"],
+  ["payments","Rozliczenia","💰"]
+];
+
+function statsTodayWarsaw(){
+  const p=warsawParts(new Date());
+  return p?`${p.year}-${p.month}-${p.day}`:"";
+}
+
+function statsDateLabel(day){
+  if(!day)return "";
+  const m=String(day).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${m[3]}.${m[2]}.${m[1]}`:String(day);
+}
+
+async function renderStats(days=30){
+  setActiveAdminTab("stats");
+  q("#editor").dataset.table="stats";
+  q("#editor").innerHTML=`
+    <section class="stats-panel">
+      <div class="stats-head">
+        <div>
+          <h3>📊 Statystyki aplikacji</h3>
+          <p>Anonimowe statystyki wejść do poszczególnych działów. Nie zapisujemy danych rodziców ani informacji, kto odwiedził dany dział.</p>
+        </div>
+      </div>
+
+      <div class="stats-range" role="group" aria-label="Zakres statystyk">
+        <button type="button" data-stats-days="7" ${days===7?'class="active"':""}>7 dni</button>
+        <button type="button" data-stats-days="30" ${days===30?'class="active"':""}>30 dni</button>
+        <button type="button" data-stats-days="90" ${days===90?'class="active"':""}>90 dni</button>
+        <button type="button" data-stats-days="0" ${days===0?'class="active"':""}>Wszystko</button>
+      </div>
+
+      <div id="statsContent">
+        <div class="stats-loading">Ładowanie statystyk…</div>
+      </div>
+    </section>
+  `;
+
+  qa("[data-stats-days]").forEach(b=>b.onclick=()=>renderStats(Number(b.dataset.statsDays)));
+
+  const [summaryRes,dailyRes]=await Promise.all([
+    sb.rpc("get_page_view_stats",{p_days:days}),
+    sb.rpc("get_page_view_daily",{p_days:days})
+  ]);
+
+  if(summaryRes.error||dailyRes.error){
+    const msg=summaryRes.error?.message||dailyRes.error?.message||"Nie udało się pobrać statystyk.";
+    q("#statsContent").innerHTML=`
+      <div class="admin-order-warning">
+        <b>⚠️ Statystyki nie są jeszcze gotowe.</b><br>
+        ${esc(msg)}<br><br>
+        Jeśli dopiero dodajesz tę funkcję, uruchom plik SQL dołączony do wersji v0.5.5.2.
+      </div>`;
+    return;
+  }
+
+  const summaryMap=new Map((summaryRes.data||[]).map(x=>[String(x.page),Number(x.views)||0]));
+  const daily=dailyRes.data||[];
+
+  const total=STATS_PAGES.reduce((sum,[page])=>sum+(summaryMap.get(page)||0),0);
+  const todayKey=statsTodayWarsaw();
+  const today=daily
+    .filter(x=>String(x.day)===todayKey)
+    .reduce((sum,x)=>sum+(Number(x.views)||0),0);
+
+  let topPage=null,topViews=-1;
+  STATS_PAGES.forEach(([page,label,icon])=>{
+    const n=summaryMap.get(page)||0;
+    if(n>topViews){topViews=n;topPage={page,label,icon,n}}
+  });
+
+  const maxViews=Math.max(1,...STATS_PAGES.map(([page])=>summaryMap.get(page)||0));
+
+  // Dzienny podział
+  const byDay=new Map();
+  daily.forEach(x=>{
+    const day=String(x.day);
+    if(!byDay.has(day))byDay.set(day,new Map());
+    byDay.get(day).set(String(x.page),Number(x.views)||0);
+  });
+
+  const daysSorted=[...byDay.keys()].sort((a,b)=>b.localeCompare(a));
+
+  q("#statsContent").innerHTML=`
+    <div class="stats-overview">
+      <div class="stats-kpi">
+        <span>Łącznie wejść</span>
+        <b>${total.toLocaleString("pl-PL")}</b>
+      </div>
+      <div class="stats-kpi">
+        <span>Dzisiaj</span>
+        <b>${today.toLocaleString("pl-PL")}</b>
+      </div>
+      <div class="stats-kpi stats-kpi-wide">
+        <span>Najczęściej odwiedzany dział</span>
+        <b>${topViews>0?`${topPage.icon} ${esc(topPage.label)} — ${topViews.toLocaleString("pl-PL")}`:"Brak danych"}</b>
+      </div>
+    </div>
+
+    <section class="stats-section">
+      <h4>Wejścia według działów</h4>
+      <div class="stats-page-list">
+        ${STATS_PAGES.map(([page,label,icon])=>{
+          const n=summaryMap.get(page)||0;
+          const pct=Math.round((n/maxViews)*100);
+          return `<div class="stats-page-row">
+            <div class="stats-page-label"><span>${icon}</span><b>${esc(label)}</b></div>
+            <div class="stats-bar"><span style="width:${pct}%"></span></div>
+            <strong>${n.toLocaleString("pl-PL")}</strong>
+          </div>`;
+        }).join("")}
+      </div>
+    </section>
+
+    <section class="stats-section">
+      <div class="stats-section-title">
+        <h4>Podział na poszczególne dni</h4>
+        <span>${daysSorted.length} ${daysSorted.length===1?"dzień":"dni"}</span>
+      </div>
+
+      <div class="stats-days">
+        ${daysSorted.length?daysSorted.map(day=>{
+          const map=byDay.get(day);
+          const dayTotal=[...map.values()].reduce((a,b)=>a+b,0);
+          return `<article class="stats-day-card">
+            <div class="stats-day-head">
+              <b>${statsDateLabel(day)}</b>
+              <strong>${dayTotal.toLocaleString("pl-PL")} ${dayTotal===1?"wejście":"wejść"}</strong>
+            </div>
+            <div class="stats-day-grid">
+              ${STATS_PAGES.map(([page,label,icon])=>{
+                const n=map.get(page)||0;
+                return `<div class="stats-day-item ${n?"has-views":""}">
+                  <span>${icon} ${esc(label)}</span>
+                  <b>${n.toLocaleString("pl-PL")}</b>
+                </div>`;
+              }).join("")}
+            </div>
+          </article>`;
+        }).join(""):`<div class="admin-empty">Nie ma jeszcze danych w wybranym zakresie.</div>`}
+      </div>
+    </section>
+
+    <p class="stats-note">ℹ️ Statystyki zaczynają być zbierane dopiero od momentu uruchomienia tej funkcji. Liczymy wejścia do działów, a nie unikalnych użytkowników.</p>
+  `;
 }
 
 async function render(table,id){
@@ -540,6 +699,33 @@ function openMenuPreview(url){
   d.showModal();
 }
 
+const TRACKED_PAGES=new Set([
+  "home",
+  "notificationsPage",
+  "announcementsPage",
+  "menu",
+  "calendar",
+  "surveysPage",
+  "gallery",
+  "payments"
+]);
+
+let lastTrackedPage=null;
+
+async function trackPageView(page){
+  if(!TRACKED_PAGES.has(page))return;
+  if(lastTrackedPage===page)return;
+
+  lastTrackedPage=page;
+
+  try{
+    await sb.rpc("track_page_view",{p_page:page});
+  }catch(e){
+    // Statystyki są dodatkiem — błąd nie może wpływać na działanie aplikacji.
+    console.debug("Page view tracking unavailable:",e);
+  }
+}
+
 function setActiveNav(id){
  qa("nav [data-go]").forEach(b=>{
    const active=b.dataset.go===id;
@@ -552,11 +738,18 @@ function setActiveNav(id){
 }
 function showPage(id){
  closeSectionInfo();
+
+ const previous=q(".page.active")?.id||"";
  qa(".page").forEach(x=>x.classList.remove("active"));
+
  const page=q("#"+id);
  if(page)page.classList.add("active");
+
  setActiveNav(id);
  markSectionContentSeen(id);
+
+ if(page && previous!==id)trackPageView(id);
+
  scrollTo(0,0);
 }
 setActiveNav(q(".page.active")?.id||"home");
@@ -942,6 +1135,12 @@ function consumePushNotificationOpen(){
 }
 
 consumePushNotificationOpen();
+
+// Jeśli aplikacja została otwarta normalnie, bez przejścia z PUSH-a,
+// liczymy pierwsze wejście do aktualnie widocznego działu.
+if(lastTrackedPage===null){
+  trackPageView(q(".page.active")?.id||"home");
+}
 
 // Gdy aplikacja jest już otwarta w tle, Service Worker może przekazać
 // kliknięcie PUSH-a bez przeładowywania całej aplikacji.

@@ -1959,3 +1959,271 @@ nav > .home .nav-new-dot{
     right:7px;
   }
 }
+
+
+/* =========================================================
+   v0.5.5.2 — Statystyki aplikacji w panelu administratora
+   ========================================================= */
+
+.stats-panel{
+  display:grid;
+  gap:16px;
+}
+
+.stats-head{
+  padding:16px;
+  border:1px solid #eadde3;
+  border-radius:18px;
+  background:#fffafd;
+}
+
+.stats-head h3{
+  margin:0 0 5px;
+  font-size:20px;
+}
+
+.stats-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+}
+
+.stats-range{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.stats-range button{
+  min-height:39px;
+  padding:8px 13px;
+  border:1px solid #dfd1d8;
+  border-radius:999px;
+  background:#fff;
+  color:#554a50;
+  font-weight:800;
+}
+
+.stats-range button.active{
+  border-color:#d81b60;
+  background:#d81b60;
+  color:#fff;
+}
+
+.stats-loading{
+  padding:28px 16px;
+  text-align:center;
+  color:var(--muted);
+}
+
+.stats-overview{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.stats-kpi{
+  min-width:0;
+  padding:14px;
+  border:1px solid #eadde3;
+  border-radius:17px;
+  background:#fff;
+}
+
+.stats-kpi-wide{
+  grid-column:1/-1;
+}
+
+.stats-kpi span{
+  display:block;
+  margin-bottom:5px;
+  color:var(--muted);
+  font-size:11.5px;
+  font-weight:700;
+}
+
+.stats-kpi b{
+  display:block;
+  font-size:23px;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+
+.stats-kpi-wide b{
+  font-size:16px;
+}
+
+.stats-section{
+  padding:15px;
+  border:1px solid #eadde3;
+  border-radius:18px;
+  background:#fff;
+}
+
+.stats-section h4{
+  margin:0 0 13px;
+  font-size:16px;
+}
+
+.stats-page-list{
+  display:grid;
+  gap:10px;
+}
+
+.stats-page-row{
+  display:grid;
+  grid-template-columns:minmax(112px,1fr) minmax(90px,2fr) 48px;
+  align-items:center;
+  gap:10px;
+}
+
+.stats-page-label{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:12px;
+}
+
+.stats-page-label b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.stats-page-row strong{
+  text-align:right;
+  font-size:13px;
+}
+
+.stats-bar{
+  height:9px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#f1e9ed;
+}
+
+.stats-bar span{
+  display:block;
+  height:100%;
+  min-width:0;
+  border-radius:999px;
+  background:#d81b60;
+}
+
+.stats-section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+.stats-section-title h4{
+  margin:0;
+}
+
+.stats-section-title > span{
+  padding:5px 8px;
+  border-radius:999px;
+  background:#f4edf0;
+  color:#65585f;
+  font-size:11px;
+  font-weight:800;
+}
+
+.stats-days{
+  display:grid;
+  gap:11px;
+}
+
+.stats-day-card{
+  border:1px solid #eee3e8;
+  border-radius:15px;
+  overflow:hidden;
+  background:#fffafd;
+}
+
+.stats-day-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:11px 12px;
+  border-bottom:1px solid #eee3e8;
+  background:#fff;
+}
+
+.stats-day-head b{
+  font-size:14px;
+}
+
+.stats-day-head strong{
+  font-size:12px;
+  color:#d81b60;
+}
+
+.stats-day-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1px;
+  background:#eee3e8;
+}
+
+.stats-day-item{
+  min-width:0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  padding:9px 10px;
+  background:#faf7f8;
+  color:#8b7f85;
+  font-size:11.5px;
+}
+
+.stats-day-item.has-views{
+  background:#fff;
+  color:#372f33;
+}
+
+.stats-day-item span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.stats-day-item b{
+  flex:0 0 auto;
+}
+
+.stats-note{
+  margin:0;
+  padding:11px 13px;
+  border-radius:14px;
+  background:#f6f1f3;
+  color:#6c6066;
+  font-size:11.5px;
+  line-height:1.45;
+}
+
+@media(max-width:520px){
+  .stats-page-row{
+    grid-template-columns:minmax(105px,1fr) minmax(58px,1.25fr) 38px;
+    gap:7px;
+  }
+
+  .stats-page-label{
+    font-size:11px;
+  }
+
+  .stats-day-grid{
+    grid-template-columns:1fr;
+  }
+
+  .stats-kpi b{
+    font-size:20px;
+  }
+}
