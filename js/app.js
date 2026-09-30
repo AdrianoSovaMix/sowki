@@ -325,7 +325,63 @@ async function load(){
    ...homeEventRows.map(x=>`event:${x.id}`)
  ]);
  r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
- r=await sb.from("menus").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("menu",(r.data||[]).map(x=>`menu:${x.id}`));for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<div class="item"><div class="date">${date(x.date_from)} – ${date(x.date_to)}</div><h3>${esc(x.title||"Jadłospis")}</h3>${u?`<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="Jadłospis" title="Dotknij, aby powiększyć">`:`<p class="muted">Obraz niedostępny</p>`}</div>`)}q("#menus").innerHTML=a.join("")||empty("Brak jadłospisu.");
+ r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false});
+ const menuRows=r.data||[];
+ setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
+
+ const todayKey=warsawDateKey(new Date());
+
+ function menuDateKey(v){
+   if(!v)return "";
+   return String(v).slice(0,10);
+ }
+
+ async function menuCard(x,extraClass=""){
+   const u=await sign(x.image_url);
+   return `
+     <div class="item menu-history-card ${extraClass}">
+       <div class="date">${date(x.date_from)} – ${date(x.date_to)}</div>
+       <h3>${esc(x.title||"Jadłospis")}</h3>
+       ${u
+         ? `<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Jadłospis")}" title="Dotknij, aby powiększyć">`
+         : `<p class="muted">Obraz niedostępny</p>`}
+     </div>
+   `;
+ }
+
+ const currentMenus=menuRows.filter(x=>{
+   const from=menuDateKey(x.date_from);
+   const to=menuDateKey(x.date_to);
+   return from && to && from<=todayKey && todayKey<=to;
+ });
+
+ const pastMenus=menuRows
+   .filter(x=>{
+     const to=menuDateKey(x.date_to);
+     return to && to<todayKey;
+   })
+   .sort((a,b)=>String(b.date_from||"").localeCompare(String(a.date_from||"")));
+
+
+ const currentHtml=(await Promise.all(currentMenus.map(x=>menuCard(x,"menu-current-card")))).join("");
+ const historyHtml=(await Promise.all(pastMenus.map(x=>menuCard(x,"")))).join("");
+
+ q("#menus").innerHTML=`
+   <section class="menu-current-section">
+     <div class="menu-section-heading">
+       <h2>🍽️ Aktualny jadłospis</h2>
+     </div>
+     ${currentHtml||`<div class="item menu-empty-current"><b>Brak aktualnego jadłospisu.</b><p class="muted">Gdy pojawi się jadłospis obejmujący bieżący okres, zostanie wyświetlony tutaj.</p></div>`}
+   </section>
+
+
+   ${historyHtml?`
+     <details class="menu-history">
+       <summary>🗂️ Historia jadłospisów (${pastMenus.length})</summary>
+       <div class="menu-history-list">${historyHtml}</div>
+     </details>
+   `:""}
+ `;
  qa("[data-menu-photo]").forEach(img=>img.onclick=()=>openMenuPreview(img.dataset.menuPhoto));
  r=await sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  const now=new Date(), active=[], archive=[];

@@ -2553,3 +2553,89 @@ nav > .home .nav-new-dot{
     transform:scale(.86);
   }
 }
+
+
+/* =========================================================
+   v0.5.6.0 — aktualny jadłospis + zwijana historia
+   ========================================================= */
+
+.menu-current-section{
+  display:grid;
+  gap:10px;
+}
+
+.menu-section-heading h2{
+  margin:0 0 2px;
+  font-size:18px;
+}
+
+.menu-current-card{
+  border:2px solid #f0c8d7 !important;
+  background:#fffafd !important;
+}
+
+.menu-empty-current{
+  text-align:center;
+  padding:18px 14px !important;
+}
+
+.menu-empty-current p{
+  margin:6px 0 0;
+}
+
+.menu-history{
+  margin-top:14px;
+  border:1px solid #eadde3;
+  border-radius:17px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.menu-history > summary{
+  padding:13px 15px;
+  cursor:pointer;
+  list-style:none;
+  font-weight:900;
+  font-size:13px;
+  user-select:none;
+  background:#fffafd;
+}
+
+.menu-history > summary::-webkit-details-marker{
+  display:none;
+}
+
+.menu-history > summary::after{
+  content:"⌄";
+  float:right;
+  color:#b86b85;
+  font-size:18px;
+  line-height:1;
+  transition:transform .18s ease;
+}
+
+.menu-history[open] > summary::after{
+  transform:rotate(180deg);
+}
+
+.menu-history-list{
+  display:grid;
+  gap:10px;
+  padding:10px;
+  border-top:1px solid #eadde3;
+  background:#fbf8f9;
+}
+
+.menu-history-list .item{
+  margin:0 !important;
+}
+
+@media(max-width:520px){
+  .menu-history > summary{
+    padding:12px 13px;
+  }
+
+  .menu-section-heading h2{
+    font-size:17px;
+  }
+}
