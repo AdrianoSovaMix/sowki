@@ -329,7 +329,14 @@ async function load(){
  const menuRows=r.data||[];
  setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
 
- const todayKey=warsawDateKey(new Date());
+ const todayParts=new Intl.DateTimeFormat("en-CA",{
+   timeZone:"Europe/Warsaw",
+   year:"numeric",
+   month:"2-digit",
+   day:"2-digit"
+ }).formatToParts(new Date());
+ const todayMap=Object.fromEntries(todayParts.map(p=>[p.type,p.value]));
+ const todayKey=`${todayMap.year}-${todayMap.month}-${todayMap.day}`;
 
  function menuDateKey(v){
    if(!v)return "";
