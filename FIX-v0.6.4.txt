@@ -1,0 +1,12 @@
+Sówki PWA v0.6.4 — FIX
+
+Naprawiono błąd JavaScript z v0.6.3:
+w funkcji generującej miniatury zadeklarowana była drugi raz zmienna const textHeavy,
+co powodowało błąd składni i zatrzymanie całej aplikacji.
+
+Jakość miniaturek HQ pozostaje bez zmian:
+- Jadłospisy: 1100 px / WebP 0.86
+- Ogłoszenia i Wydarzenia: 900 px / WebP 0.82
+- Pozostałe: 760 px / WebP 0.80
+
+Brak zmian w SQL i Workerze.

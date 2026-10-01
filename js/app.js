@@ -1672,9 +1672,9 @@ async function prepareEcoPlusImages(file,table,setStatus){
 
   // Miniatura nadal oszczędza transfer, ale ma wyższą jakość,
   // żeby tekst na jadłospisach i plakatach był wyraźniejszy.
-  const textHeavy=table==="menus"||table==="announcements"||table==="events";
-  const thumbMax=table==="menus"?1100:(textHeavy?900:760);
-  const thumbQuality=table==="menus"?0.86:(textHeavy?0.82:0.80);
+  const thumbTextHeavy=table==="menus"||table==="announcements"||table==="events";
+  const thumbMax=table==="menus"?1100:(thumbTextHeavy?900:760);
+  const thumbQuality=table==="menus"?0.86:(thumbTextHeavy?0.82:0.80);
 
   let thumb=null;
   if(table!=="surveys"){
