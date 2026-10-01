@@ -1,0 +1,11 @@
+// Sówki - referencyjny adres Workera używany przez aplikację:
+// https://sowki-media-upload.adrian-mencel.workers.dev
+//
+// Binding R2 w Cloudflare:
+// MEDIA_BUCKET -> sowki-r2-public
+//
+// Publiczna domena obrazów:
+// https://media.sowkitarczyn.pl
+//
+// Worker został skonfigurowany osobno w panelu Cloudflare.
+// Ten plik ma charakter informacyjny i nie jest uruchamiany przez GitHub Pages.

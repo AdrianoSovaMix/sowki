@@ -908,6 +908,9 @@ function usesPublicMediaBucket(table){
   return ["events","menus","announcements","surveys"].includes(table);
 }
 
+const R2_MEDIA_BASE=(cfg.r2MediaBase||"https://media.sowkitarczyn.pl").replace(/\/+$/,"");
+const MEDIA_WORKER_URL=(cfg.mediaWorker||"https://sowki-media-upload.adrian-mencel.workers.dev").replace(/\/+$/,"");
+
 function mediaBucketForTable(table){
   return usesPublicMediaBucket(table)
     ? (cfg.publicBucket||"sowki-public")
@@ -920,10 +923,15 @@ function publicMediaUrl(objectPath){
   return sb.storage.from(bucket).getPublicUrl(objectPath)?.data?.publicUrl||"";
 }
 
+function r2MediaUrl(objectPath){
+  if(!objectPath)return "";
+  return `${R2_MEDIA_BASE}/${String(objectPath).replace(/^\/+/,"")}`;
+}
+
 function storedMediaValue(table,objectPath){
   if(!objectPath)return "";
   return usesPublicMediaBucket(table)
-    ? publicMediaUrl(objectPath)
+    ? r2MediaUrl(objectPath)
     : objectPath;
 }
 
@@ -933,14 +941,76 @@ function isPublicMediaUrl(path){
   return p.includes(`/storage/v1/object/public/${bucket}/`);
 }
 
+function isR2MediaUrl(path){
+  const p=String(path||"");
+  return p===R2_MEDIA_BASE || p.startsWith(`${R2_MEDIA_BASE}/`);
+}
+
 function hasEcoPlusFileName(path){
   return /-full\.webp(?:$|\?)/i.test(String(path||""));
 }
 
 function isFullyEgressOptimized(table,path){
   if(!hasEcoPlusFileName(path))return false;
-  if(usesPublicMediaBucket(table))return isPublicMediaUrl(path);
+  if(usesPublicMediaBucket(table))return isR2MediaUrl(path);
   return true;
+}
+
+async function getAdminAccessToken(){
+  const {data,error}=await sb.auth.getSession();
+  if(error)throw new Error("Nie udało się odczytać sesji administratora.");
+  const token=data?.session?.access_token;
+  if(!token){
+    throw new Error("Sesja administratora wygasła. Zaloguj się ponownie.");
+  }
+  return token;
+}
+
+async function uploadR2Object(objectPath,bytes){
+  const token=await getAdminAccessToken();
+
+  const response=await withTimeout(
+    fetch(`${MEDIA_WORKER_URL}/upload`,{
+      method:"POST",
+      headers:{
+        "Authorization":`Bearer ${token}`,
+        "Content-Type":"image/webp",
+        "X-Sowki-Path":objectPath
+      },
+      body:bytes
+    }),
+    60000,
+    "Wysyłanie zdjęcia do Cloudflare R2 trwało zbyt długo."
+  );
+
+  let data=null;
+  try{ data=await response.json(); }catch{}
+
+  if(!response.ok || !data?.ok){
+    if(response.status===401){
+      throw new Error("Sesja administratora wygasła. Wyloguj się i zaloguj ponownie.");
+    }
+    throw new Error(data?.error||`Cloudflare R2 zwrócił błąd ${response.status}.`);
+  }
+
+  return data;
+}
+
+async function deleteR2Object(objectPath){
+  const token=await getAdminAccessToken();
+  const response=await fetch(
+    `${MEDIA_WORKER_URL}/delete?path=${encodeURIComponent(objectPath)}`,
+    {
+      method:"DELETE",
+      headers:{"Authorization":`Bearer ${token}`}
+    }
+  );
+
+  if(!response.ok){
+    let data=null;
+    try{data=await response.json();}catch{}
+    throw new Error(data?.error||"Nie udało się usunąć pliku z R2.");
+  }
 }
 
 function adminImagePath(table,row){
@@ -987,9 +1057,9 @@ function ecoBaseName(name){
 async function optimizeExistingAdminImage(table,id,path,button){
   if(!path)return;
 
-  const moveToPublic=usesPublicMediaBucket(table)&&!isPublicMediaUrl(path);
-  const actionText=moveToPublic
-    ? "Przenieść ten obraz do publicznego CDN? Aplikacja utworzy lekką wersję pełną i miniaturę, a wpis zacznie korzystać z publicznego cache."
+  const moveToR2=usesPublicMediaBucket(table)&&!isR2MediaUrl(path);
+  const actionText=moveToR2
+    ? "Przenieść ten obraz do Cloudflare R2? Aplikacja utworzy lekką wersję pełną i miniaturę, zapisze je w R2 i automatycznie podmieni adres w istniejącym wpisie."
     : "Zoptymalizować to zdjęcie? Aplikacja utworzy lekką wersję pełną oraz miniaturę do listy.";
 
   if(!confirm(actionText))return;
@@ -997,7 +1067,7 @@ async function optimizeExistingAdminImage(table,id,path,button){
   const originalText=button?.textContent||"♻️ Optymalizuj zdjęcie";
   if(button){
     button.disabled=true;
-    button.textContent=moveToPublic?"Przenoszę…":"Optymalizuję…";
+    button.textContent=moveToR2?"Przenoszę do R2…":"Optymalizuję…";
   }
 
   try{
@@ -1029,37 +1099,18 @@ async function optimizeExistingAdminImage(table,id,path,button){
     const folder=adminImageFolder(table);
     const base=ecoBaseName(originalName);
     const stamp=Date.now();
-    const targetBucket=mediaBucketForTable(table);
 
     const fullObjectPath=`${folder}/${stamp}-${base}-full.webp`;
 
-    setButtonStatus("Wysyłam pełny…");
+    setButtonStatus(usesPublicMediaBucket(table)?"Wysyłam pełny do R2…":"Wysyłam pełny…");
 
-    const fullUpload=await withTimeout(
-      sb.storage.from(targetBucket).upload(
-        fullObjectPath,
-        eco.full.bytes,
-        {
-          contentType:"image/webp",
-          cacheControl:"31536000",
-          upsert:false
-        }
-      ),
-      60000,
-      "Wysyłanie pełnego zdjęcia trwało zbyt długo."
-    );
-
-    if(fullUpload.error)throw new Error(fullUpload.error.message);
-
-    if(eco.thumb){
-      const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
-
-      setButtonStatus("Wysyłam miniaturę…");
-
-      const thumbUpload=await withTimeout(
-        sb.storage.from(targetBucket).upload(
-          thumbObjectPath,
-          eco.thumb.bytes,
+    if(usesPublicMediaBucket(table)){
+      await uploadR2Object(fullObjectPath,eco.full.bytes);
+    }else{
+      const fullUpload=await withTimeout(
+        sb.storage.from(cfg.bucket).upload(
+          fullObjectPath,
+          eco.full.bytes,
           {
             contentType:"image/webp",
             cacheControl:"31536000",
@@ -1067,11 +1118,36 @@ async function optimizeExistingAdminImage(table,id,path,button){
           }
         ),
         60000,
-        "Wysyłanie miniatury trwało zbyt długo."
+        "Wysyłanie pełnego zdjęcia trwało zbyt długo."
       );
+      if(fullUpload.error)throw new Error(fullUpload.error.message);
+    }
 
-      if(thumbUpload.error){
-        console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+    if(eco.thumb){
+      const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
+
+      setButtonStatus(usesPublicMediaBucket(table)?"Wysyłam miniaturę do R2…":"Wysyłam miniaturę…");
+
+      if(usesPublicMediaBucket(table)){
+        await uploadR2Object(thumbObjectPath,eco.thumb.bytes);
+      }else{
+        const thumbUpload=await withTimeout(
+          sb.storage.from(cfg.bucket).upload(
+            thumbObjectPath,
+            eco.thumb.bytes,
+            {
+              contentType:"image/webp",
+              cacheControl:"31536000",
+              upsert:false
+            }
+          ),
+          60000,
+          "Wysyłanie miniatury trwało zbyt długo."
+        );
+
+        if(thumbUpload.error){
+          console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+        }
       }
     }
 
@@ -1101,12 +1177,12 @@ async function optimizeExistingAdminImage(table,id,path,button){
 
     alert(
       `✅ Gotowe.\n\n`+
-      `${moveToPublic?"Obraz został przeniesiony do publicznego CDN i ":"Obraz został "}zoptymalizowany do ECO+.\n\n`+
+      `${moveToR2?"Obraz został przeniesiony do Cloudflare R2 i ":"Obraz został "}zoptymalizowany do ECO+.\n\n`+
       `Oryginał: ${formatFileSize(eco.originalSize)}\n`+
       `Pełny: ${formatFileSize(eco.full.size)}\n`+
       `${eco.thumb?`Miniatura: ${formatFileSize(eco.thumb.size)}\n`:""}`+
       `Łączna oszczędność miejsca: ${saving}%\n\n`+
-      `${usesPublicMediaBucket(table)?"Lista korzysta teraz ze stałego publicznego adresu i cache zamiast signed URL.":"Galeria pozostaje w prywatnym Storage."}`
+      `${usesPublicMediaBucket(table)?"Rodzice pobierają ten obraz z media.sowkitarczyn.pl, a nie z Supabase Storage.":"Galeria pozostaje w prywatnym Supabase Storage."}`
     );
 
     await render(table);
@@ -1168,7 +1244,7 @@ async function render(table,id){
           const isPublished=!!x.published;
           const imagePath=adminImagePath(table,x);
           const ecoOptimized=isFullyEgressOptimized(table,imagePath);
-          const needsPublicMove=usesPublicMediaBucket(table)&&!isPublicMediaUrl(imagePath);
+          const needsR2Move=usesPublicMediaBucket(table)&&!isR2MediaUrl(imagePath);
           return `<article class="adminitem adminitem-order">
             <div class="admin-order-controls" aria-label="Zmień kolejność">
               <button type="button" class="order-btn" data-move="up" data-id="${x.id}" ${i===0?"disabled":""} title="Przesuń wyżej" aria-label="Przesuń wyżej">↑</button>
@@ -1183,8 +1259,8 @@ async function render(table,id){
               ${imagePath?`
                 <div class="admin-image-eco">
                   ${ecoOptimized
-                    ? `<span class="admin-image-eco-ok">${usesPublicMediaBucket(table)?"✅ ECO+ • publiczny CDN":"✅ Zdjęcie ECO+"}</span>`
-                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">${needsPublicMove?"☁️ Przenieś do CDN":"♻️ Optymalizuj zdjęcie"}</button>`}
+                    ? `<span class="admin-image-eco-ok">${usesPublicMediaBucket(table)?"✅ ECO+ • Cloudflare R2":"✅ Zdjęcie ECO+"}</span>`
+                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">${needsR2Move?"☁️ Przenieś do R2":"♻️ Optymalizuj zdjęcie"}</button>`}
                 </div>
               `:""}
             </div>
@@ -1532,8 +1608,6 @@ async function save(ev){
         table==="surveys"?"survey-results":
         "menus";
 
-      const targetBucket=mediaBucketForTable(table);
-
       setStatus("Przygotowuję zdjęcie…");
 
       const eco=await prepareEcoPlusImages(file,table,setStatus);
@@ -1543,48 +1617,67 @@ async function save(ev){
       const fullObjectPath=`${folder}/${stamp}-${base}-full.${eco.full.ext}`;
 
       setStatus(
-        eco.full.size<eco.originalSize
-          ? `Pełny obraz: ${formatFileSize(eco.originalSize)} → ${formatFileSize(eco.full.size)}. Wysyłam…`
-          : "Wysyłam pełny obraz…"
+        usesPublicMediaBucket(table)
+          ? `Wysyłam pełny obraz do Cloudflare R2 (${formatFileSize(eco.full.size)})…`
+          : (
+              eco.full.size<eco.originalSize
+                ? `Pełny obraz: ${formatFileSize(eco.originalSize)} → ${formatFileSize(eco.full.size)}. Wysyłam…`
+                : "Wysyłam pełny obraz…"
+            )
       );
 
-      const fullUpload=await withTimeout(
-        sb.storage.from(targetBucket).upload(
-          fullObjectPath,
-          eco.full.bytes,
-          {
-            contentType:eco.full.mime,
-            cacheControl:"31536000",
-            upsert:false
-          }
-        ),
-        60000,
-        "Wysyłanie pełnego zdjęcia trwało zbyt długo."
-      );
-
-      if(fullUpload.error)throw new Error(fullUpload.error.message);
-
-      if(eco.thumb){
-        const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
-
-        setStatus(`Wysyłam miniaturę (${formatFileSize(eco.thumb.size)})…`);
-
-        const thumbUpload=await withTimeout(
-          sb.storage.from(targetBucket).upload(
-            thumbObjectPath,
-            eco.thumb.bytes,
+      if(usesPublicMediaBucket(table)){
+        if(eco.full.mime!=="image/webp"){
+          throw new Error("Publiczne materiały muszą być obrazem JPEG/PNG/WebP możliwym do zapisania jako WebP.");
+        }
+        await uploadR2Object(fullObjectPath,eco.full.bytes);
+      }else{
+        const fullUpload=await withTimeout(
+          sb.storage.from(cfg.bucket).upload(
+            fullObjectPath,
+            eco.full.bytes,
             {
-              contentType:"image/webp",
+              contentType:eco.full.mime,
               cacheControl:"31536000",
               upsert:false
             }
           ),
           60000,
-          "Wysyłanie miniatury trwało zbyt długo."
+          "Wysyłanie pełnego zdjęcia trwało zbyt długo."
         );
 
-        if(thumbUpload.error){
-          console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+        if(fullUpload.error)throw new Error(fullUpload.error.message);
+      }
+
+      if(eco.thumb){
+        const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
+
+        setStatus(
+          usesPublicMediaBucket(table)
+            ? `Wysyłam miniaturę do R2 (${formatFileSize(eco.thumb.size)})…`
+            : `Wysyłam miniaturę (${formatFileSize(eco.thumb.size)})…`
+        );
+
+        if(usesPublicMediaBucket(table)){
+          await uploadR2Object(thumbObjectPath,eco.thumb.bytes);
+        }else{
+          const thumbUpload=await withTimeout(
+            sb.storage.from(cfg.bucket).upload(
+              thumbObjectPath,
+              eco.thumb.bytes,
+              {
+                contentType:"image/webp",
+                cacheControl:"31536000",
+                upsert:false
+              }
+            ),
+            60000,
+            "Wysyłanie miniatury trwało zbyt długo."
+          );
+
+          if(thumbUpload.error){
+            console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+          }
         }
       }
 

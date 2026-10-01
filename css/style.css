@@ -2738,3 +2738,11 @@ nav > .home .nav-new-dot{
   flex-wrap:wrap;
 }
 
+
+
+/* =========================================================
+   v0.6.0 — Cloudflare R2
+   ========================================================= */
+.admin-image-eco-ok::after{
+  content:"" !important;
+}
