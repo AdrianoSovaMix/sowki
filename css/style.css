@@ -2639,3 +2639,80 @@ nav > .home .nav-new-dot{
     font-size:17px;
   }
 }
+
+
+/* =========================================================
+   v0.5.6.3 — ECO / ograniczenie transferu Supabase
+   ========================================================= */
+
+.storage-lazy-img:not([src]){
+  display:none !important;
+}
+
+.storage-lazy-img[src]{
+  animation:sowkiImageIn .16s ease-out;
+}
+
+@keyframes sowkiImageIn{
+  from{opacity:.35}
+  to{opacity:1}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .storage-lazy-img[src]{
+    animation:none;
+  }
+}
+
+
+/* =========================================================
+   v0.5.6.4 — optymalizacja istniejących zdjęć z panelu admina
+   ========================================================= */
+
+.admin-image-eco{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-top:7px;
+}
+
+.admin-image-optimize{
+  min-height:31px;
+  padding:5px 9px;
+  border:1px solid #d9c8cf;
+  border-radius:10px;
+  background:#fff;
+  color:#6b5360;
+  font-size:11px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.admin-image-optimize:hover{
+  border-color:#d81b60;
+  color:#d81b60;
+}
+
+.admin-image-optimize:disabled{
+  opacity:.65;
+  cursor:wait;
+}
+
+.admin-image-eco-ok{
+  display:inline-flex;
+  align-items:center;
+  min-height:27px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#edf8f1;
+  color:#247044;
+  font-size:10.5px;
+  font-weight:900;
+}
+
+@media(max-width:520px){
+  .admin-image-optimize{
+    min-height:34px;
+    font-size:10.5px;
+  }
+}

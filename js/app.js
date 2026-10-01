@@ -213,7 +213,111 @@ function formatWarsawDateTime(value){
 }
 const esc=s=>(s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));const date=d=>d?new Date(d+"T12:00:00").toLocaleDateString("pl-PL"):"";const empty=t=>`<div class="item muted">${t}</div>`;
 qa("[data-go]").forEach(b=>b.onclick=()=>showPage(b.dataset.go));
-async function sign(path){if(!path)return"";if(path.startsWith("http"))return path;const {data}=await sb.storage.from(cfg.bucket).createSignedUrl(path,3600);return data?.signedUrl||""}
+const SIGNED_URL_CACHE_KEY="sowki_signed_urls_v1";
+const SIGNED_URL_TTL_SECONDS=21600; // 6 godzin
+const SIGNED_URL_REUSE_MS=5.5*60*60*1000;
+
+function readSignedUrlCache(){
+  try{
+    const v=JSON.parse(localStorage.getItem(SIGNED_URL_CACHE_KEY)||"{}");
+    return v&&typeof v==="object"?v:{};
+  }catch{
+    return {};
+  }
+}
+
+function writeSignedUrlCache(cache){
+  try{
+    const rows=Object.entries(cache||{})
+      .filter(([,v])=>v?.url&&Number(v?.expires)>Date.now())
+      .sort((a,b)=>Number(b[1].expires)-Number(a[1].expires))
+      .slice(0,120);
+    localStorage.setItem(SIGNED_URL_CACHE_KEY,JSON.stringify(Object.fromEntries(rows)));
+  }catch{}
+}
+
+async function sign(path){
+  if(!path)return "";
+  if(path.startsWith("http"))return path;
+
+  const cache=readSignedUrlCache();
+  const cached=cache[path];
+
+  if(cached?.url && Number(cached.expires)>Date.now()+60000){
+    return cached.url;
+  }
+
+  const {data,error}=await sb.storage
+    .from(cfg.bucket)
+    .createSignedUrl(path,SIGNED_URL_TTL_SECONDS);
+
+  if(error||!data?.signedUrl)return "";
+
+  cache[path]={
+    url:data.signedUrl,
+    expires:Date.now()+SIGNED_URL_REUSE_MS
+  };
+  writeSignedUrlCache(cache);
+
+  return data.signedUrl;
+}
+
+function storageImg(path,{className="",alt="",title="",preview=false}={}){
+  if(!path)return "";
+  return `<img
+    class="${esc(className)} storage-lazy-img"
+    data-storage-path="${esc(path)}"
+    ${preview?'data-storage-preview="1"':""}
+    loading="lazy"
+    decoding="async"
+    alt="${esc(alt)}"
+    ${title?`title="${esc(title)}"`:""}
+  >`;
+}
+
+async function hydrateStorageImages(root){
+  const el=typeof root==="string"?q(root):root;
+  if(!el)return;
+
+  const imgs=[...el.querySelectorAll('img[data-storage-path]:not([data-storage-loaded="1"])')];
+
+  await Promise.all(imgs.map(async img=>{
+    const path=img.dataset.storagePath;
+    if(!path)return;
+
+    const url=await sign(path);
+    if(!url)return;
+
+    img.src=url;
+    img.dataset.storageLoaded="1";
+
+    if(img.dataset.storagePreview==="1"){
+      img.onclick=()=>openMenuPreview(url);
+    }
+  }));
+}
+
+function hydratePageImages(id){
+  if(id==="home")hydrateStorageImages("#events");
+  if(id==="announcementsPage")hydrateStorageImages("#announcements");
+
+  if(id==="menu"){
+    hydrateStorageImages(q("#menus .menu-current-section"));
+
+    const history=q("#menus .menu-history");
+    if(history&&!history.dataset.lazyBound){
+      history.dataset.lazyBound="1";
+      history.addEventListener("toggle",()=>{
+        if(history.open)hydrateStorageImages(history);
+      });
+      if(history.open)hydrateStorageImages(history);
+    }
+  }
+
+  if(id==="gallery"&&!q("#galleryAlbums")?.hidden){
+    hydrateStorageImages("#galleryAlbums");
+  }
+}
 function surveyEmbedUrl(url){
  if(!url)return "";
  try{const u=new URL(url);u.searchParams.set("embed","true");return u.toString()}catch{return url+(url.includes("?")?"&":"?")+"embed=true"}
@@ -318,13 +422,15 @@ async function load(){
  r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);
  const homeEventRows=r.data||[];
  let a=[];
- for(const x of homeEventRows){let u=await sign(x.image_url);a.push(`<div class="item">${u?`<img src="${u}">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`)}
+ for(const x of homeEventRows){
+   a.push(`<div class="item">${storageImg(x.image_url,{className:"event-photo",alt:x.title||"Wydarzenie"})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`);
+ }
  q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
  setNewContentTokens("home",[
    ...homeNoticeRows.map(x=>`notice:${x.id}`),
    ...homeEventRows.map(x=>`event:${x.id}`)
  ]);
- r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){let u=await sign(x.image_url);a.push(`<article class="item announcement">${u?`<img class="announcement-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Ogłoszenie")}" title="Dotknij, aby powiększyć">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
+ r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${storageImg(x.image_url,{className:"announcement-photo",alt:x.title||"Ogłoszenie",title:"Dotknij, aby powiększyć",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
  r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false});
  const menuRows=r.data||[];
  setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
@@ -343,14 +449,13 @@ async function load(){
    return String(v).slice(0,10);
  }
 
- async function menuCard(x,extraClass=""){
-   const u=await sign(x.image_url);
+ function menuCard(x,extraClass=""){
    return `
      <div class="item menu-history-card ${extraClass}">
        <div class="date">${date(x.date_from)} – ${date(x.date_to)}</div>
        <h3>${esc(x.title||"Jadłospis")}</h3>
-       ${u
-         ? `<img class="menu-photo" src="${u}" data-menu-photo="${u}" alt="${esc(x.title||"Jadłospis")}" title="Dotknij, aby powiększyć">`
+       ${x.image_url
+         ? storageImg(x.image_url,{className:"menu-photo",alt:x.title||"Jadłospis",title:"Dotknij, aby powiększyć",preview:true})
          : `<p class="muted">Obraz niedostępny</p>`}
      </div>
    `;
@@ -370,8 +475,8 @@ async function load(){
    .sort((a,b)=>String(b.date_from||"").localeCompare(String(a.date_from||"")));
 
 
- const currentHtml=(await Promise.all(currentMenus.map(x=>menuCard(x,"menu-current-card")))).join("");
- const historyHtml=(await Promise.all(pastMenus.map(x=>menuCard(x,"")))).join("");
+ const currentHtml=currentMenus.map(x=>menuCard(x,"menu-current-card")).join("");
+ const historyHtml=pastMenus.map(x=>menuCard(x,"")).join("");
 
  q("#menus").innerHTML=`
    <section class="menu-current-section">
@@ -389,7 +494,7 @@ async function load(){
      </details>
    `:""}
  `;
- qa("[data-menu-photo]").forEach(img=>img.onclick=()=>openMenuPreview(img.dataset.menuPhoto));
+
  r=await sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  const now=new Date(), active=[], archive=[];
  for(const x of r.data||[]){const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;(en&&en<now?archive:(!st||st<=now?active:archive)).push(x)}
@@ -399,12 +504,11 @@ async function load(){
  qa("[data-survey-done]").forEach(b=>b.onclick=()=>{localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");load()});
  let archiveCards=[];
  for(const x of archive){
-   const resultsUrl=await sign(x.results_image_url);
    archiveCards.push(`<div class="item survey-archive-item">
      <h3>${esc(x.title)}</h3>
      ${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}
-     ${resultsUrl
-       ? `<button type="button" class="secondary survey-results-btn" data-survey-results="${esc(resultsUrl)}" data-survey-title="${esc(x.title)}">📊 Pokaż wyniki</button>`
+     ${x.results_image_url
+       ? `<button type="button" class="secondary survey-results-btn" data-survey-results-path="${esc(x.results_image_url)}" data-survey-title="${esc(x.title)}">📊 Pokaż wyniki</button>`
        : `<div class="survey-results-pending">Wyniki nie zostały jeszcze opublikowane.</div>`}
    </div>`);
  }
@@ -412,13 +516,15 @@ async function load(){
    ? `<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archiveCards.join("")}</details>`
    : "";
 
- qa("[data-survey-results]").forEach(b=>b.onclick=()=>openSurveyResults(
-   b.dataset.surveyResults,
-   b.dataset.surveyTitle||"Wyniki ankiety"
- ));
+ qa("[data-survey-results-path]").forEach(b=>b.onclick=async()=>{
+   const url=await sign(b.dataset.surveyResultsPath);
+   if(url)openSurveyResults(url,b.dataset.surveyTitle||"Wyniki ankiety");
+ });
 
  const galleryCheck=await sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  if(!galleryCheck.error)setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
+
+ hydratePageImages(q(".page.active")?.id||"home");
 }
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
@@ -790,6 +896,147 @@ async function renderStats(days=30){
   `;
 }
 
+function adminImagePath(table,row){
+  if(!row)return "";
+  if(table==="surveys")return row.results_image_url||"";
+  if(["events","menus","gallery_albums","announcements"].includes(table)){
+    return row.image_url||"";
+  }
+  return "";
+}
+
+function adminImageColumn(table){
+  return table==="surveys"?"results_image_url":"image_url";
+}
+
+function adminImageFolder(table){
+  return table==="events"?"events":
+    table==="gallery_albums"?"gallery":
+    table==="announcements"?"announcements":
+    table==="surveys"?"survey-results":
+    "menus";
+}
+
+function looksEcoOptimized(path){
+  return /\.webp(?:$|\?)/i.test(String(path||""));
+}
+
+async function optimizeExistingAdminImage(table,id,path,button){
+  if(!path)return;
+
+  if(!confirm("Zoptymalizować to zdjęcie? Aplikacja pobierze je jeden raz, zmniejszy i zapisze lżejszą wersję WebP."))return;
+
+  const originalText=button?.textContent||"♻️ Optymalizuj zdjęcie";
+  if(button){
+    button.disabled=true;
+    button.textContent="Optymalizuję…";
+  }
+
+  try{
+    const signed=await sign(path);
+    if(!signed)throw new Error("Nie udało się przygotować dostępu do obecnego zdjęcia.");
+
+    const response=await withTimeout(
+      fetch(signed,{cache:"no-store"}),
+      60000,
+      "Pobieranie obecnego zdjęcia trwało zbyt długo."
+    );
+
+    if(!response.ok){
+      throw new Error(`Nie udało się pobrać zdjęcia (${response.status}).`);
+    }
+
+    const blob=await response.blob();
+    if(!blob.size)throw new Error("Pobrane zdjęcie jest puste.");
+
+    const originalName=String(path).split("/").pop()||"image.jpg";
+    const file=new File(
+      [blob],
+      originalName,
+      {type:blob.type||"image/jpeg"}
+    );
+
+    const setButtonStatus=text=>{
+      if(button)button.textContent=text;
+    };
+
+    const optimized=await optimizeImageForUpload(
+      file,
+      table,
+      setButtonStatus
+    );
+
+    if(!optimized.optimized){
+      alert(
+        `To zdjęcie jest już wystarczająco lekkie albo dalsza kompresja nie dałaby sensownej oszczędności.\n\nRozmiar: ${formatFileSize(optimized.before)}`
+      );
+      return;
+    }
+
+    const safeName=(optimized.fileName||"image.webp")
+      .replace(/[^a-zA-Z0-9._-]/g,"_");
+
+    const newPath=`${adminImageFolder(table)}/${Date.now()}-${safeName}`;
+
+    setButtonStatus("Wysyłam…");
+
+    const uploaded=await withTimeout(
+      sb.storage.from(cfg.bucket).upload(
+        newPath,
+        optimized.bytes,
+        {
+          contentType:optimized.mime,
+          cacheControl:"31536000",
+          upsert:false
+        }
+      ),
+      60000,
+      "Wysyłanie zoptymalizowanego zdjęcia trwało zbyt długo."
+    );
+
+    if(uploaded.error)throw new Error(uploaded.error.message);
+
+    setButtonStatus("Podmieniam…");
+
+    const column=adminImageColumn(table);
+    const update=await sb
+      .from(table)
+      .update({[column]:newPath})
+      .eq("id",id);
+
+    if(update.error){
+      // Nowy plik istnieje, ale wpis nie został podmieniony.
+      // Nie usuwamy starego zdjęcia, aby nie ryzykować utraty materiału.
+      throw new Error("Zdjęcie zostało przesłane, ale nie udało się podmienić wpisu: "+update.error.message);
+    }
+
+    // Starego pliku celowo nie usuwamy automatycznie.
+    // Nie jest już używany przez aplikację, więc nie generuje egressu.
+    // Dzięki temu operacja pozostaje bezpieczna także bez polityki DELETE w Storage.
+
+    alert(
+      `✅ Zdjęcie zostało zoptymalizowane.\n\n`+
+      `${formatFileSize(optimized.before)} → ${formatFileSize(optimized.after)}\n`+
+      `Oszczędność: ${Math.max(0,Math.round((1-optimized.after/optimized.before)*100))}%`
+    );
+
+    await render(table);
+    await load();
+
+    if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden){
+      await loadGallery();
+    }
+  }catch(e){
+    console.error("EXISTING IMAGE OPTIMIZATION ERROR:",e);
+    alert(e?.message||"Nie udało się zoptymalizować zdjęcia.");
+  }finally{
+    if(button&&document.body.contains(button)){
+      button.disabled=false;
+      button.textContent=originalText;
+    }
+  }
+}
+
 async function render(table,id){
   setActiveAdminTab(table);
   const d=D[table];
@@ -830,6 +1077,8 @@ async function render(table,id){
         ${rows.length ? rows.map((x,i)=>{
           const meta=adminMeta(table,x);
           const isPublished=!!x.published;
+          const imagePath=adminImagePath(table,x);
+          const ecoOptimized=looksEcoOptimized(imagePath);
           return `<article class="adminitem adminitem-order">
             <div class="admin-order-controls" aria-label="Zmień kolejność">
               <button type="button" class="order-btn" data-move="up" data-id="${x.id}" ${i===0?"disabled":""} title="Przesuń wyżej" aria-label="Przesuń wyżej">↑</button>
@@ -841,6 +1090,13 @@ async function render(table,id){
                 <span class="admin-status ${isPublished?"is-published":"is-hidden"}">${isPublished?"● Opublikowane":"○ Ukryte"}</span>
               </div>
               ${meta?`<div class="adminitem-meta">${esc(meta)}</div>`:""}
+              ${imagePath?`
+                <div class="admin-image-eco">
+                  ${ecoOptimized
+                    ? `<span class="admin-image-eco-ok">✅ Zdjęcie ECO</span>`
+                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">♻️ Optymalizuj zdjęcie</button>`}
+                </div>
+              `:""}
             </div>
             <div class="actions adminitem-actions">
               <button type="button" data-e="${x.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
@@ -864,6 +1120,13 @@ async function render(table,id){
     }
   });
   qa("[data-move]").forEach(b=>b.onclick=()=>moveAdminItem(table,b.dataset.id,b.dataset.move));
+
+  qa("[data-optimize-image]").forEach(b=>b.onclick=()=>optimizeExistingAdminImage(
+    table,
+    b.dataset.optimizeImage,
+    b.dataset.imagePath,
+    b
+  ));
 }
 function field(f,e){
  let[n,l,t,opts]=f,v=e?.[n]??"";
@@ -874,6 +1137,144 @@ function field(f,e){
  if(t==="datetime-local"&&v)v=isoToWarsawLocal(v);
  return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`
 }
+function formatFileSize(bytes){
+  const n=Number(bytes)||0;
+  if(n<1024)return `${n} B`;
+  if(n<1024*1024)return `${(n/1024).toFixed(0)} KB`;
+  return `${(n/1024/1024).toFixed(1)} MB`;
+}
+
+function loadImageForOptimization(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+
+    img.onerror=()=>{
+      URL.revokeObjectURL(url);
+      reject(new Error("Nie udało się przygotować zdjęcia do optymalizacji."));
+    };
+
+    img.src=url;
+  });
+}
+
+async function canvasToBlob(canvas,type,quality){
+  return await new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+}
+
+async function optimizeImageForUpload(file,table,setStatus){
+  const originalBytes=await withTimeout(
+    file.arrayBuffer(),
+    30000,
+    "Odczyt zdjęcia trwał zbyt długo. Wybierz zdjęcie ponownie."
+  );
+
+  if(!originalBytes?.byteLength){
+    throw new Error("Wybrany plik jest pusty. Wybierz zdjęcie ponownie.");
+  }
+
+  const type=String(file.type||"").toLowerCase();
+
+  // Nie dotykamy plików, które nie są obrazami.
+  if(!type.startsWith("image/") || type==="image/gif" || type==="image/svg+xml"){
+    return {
+      bytes:originalBytes,
+      mime:type||"application/octet-stream",
+      fileName:file.name||"plik",
+      before:originalBytes.byteLength,
+      after:originalBytes.byteLength,
+      optimized:false
+    };
+  }
+
+  // Małe zdjęcia nie wymagają ponownego kodowania.
+  if(originalBytes.byteLength<=350*1024){
+    return {
+      bytes:originalBytes,
+      mime:type||"image/jpeg",
+      fileName:file.name||"image.jpg",
+      before:originalBytes.byteLength,
+      after:originalBytes.byteLength,
+      optimized:false
+    };
+  }
+
+  try{
+    setStatus("Optymalizuję zdjęcie, aby oszczędzić transfer…");
+
+    const img=await withTimeout(
+      loadImageForOptimization(file),
+      30000,
+      "Optymalizacja zdjęcia trwała zbyt długo."
+    );
+
+    const textHeavy=table==="menus"||table==="surveys";
+    const maxSide=textHeavy?1800:1600;
+    const quality=textHeavy?0.84:0.80;
+
+    let width=img.naturalWidth||img.width;
+    let height=img.naturalHeight||img.height;
+
+    if(!width||!height)throw new Error("Nie udało się odczytać wymiarów zdjęcia.");
+
+    const scale=Math.min(1,maxSide/Math.max(width,height));
+    width=Math.max(1,Math.round(width*scale));
+    height=Math.max(1,Math.round(height*scale));
+
+    const canvas=document.createElement("canvas");
+    canvas.width=width;
+    canvas.height=height;
+
+    const ctx=canvas.getContext("2d",{alpha:true});
+    if(!ctx)throw new Error("Przeglądarka nie obsługuje optymalizacji obrazu.");
+
+    ctx.drawImage(img,0,0,width,height);
+
+    const blob=await canvasToBlob(canvas,"image/webp",quality);
+    if(!blob||!blob.size)throw new Error("Nie udało się utworzyć zoptymalizowanego zdjęcia.");
+
+    // Jeśli optymalizacja nic realnie nie daje, wysyłamy oryginał.
+    if(blob.size>=originalBytes.byteLength*0.92){
+      return {
+        bytes:originalBytes,
+        mime:type||"image/jpeg",
+        fileName:file.name||"image.jpg",
+        before:originalBytes.byteLength,
+        after:originalBytes.byteLength,
+        optimized:false
+      };
+    }
+
+    const optimizedBytes=await blob.arrayBuffer();
+    const originalName=(file.name||"image").replace(/\.[^.]+$/,"");
+
+    return {
+      bytes:optimizedBytes,
+      mime:"image/webp",
+      fileName:`${originalName}.webp`,
+      before:originalBytes.byteLength,
+      after:optimizedBytes.byteLength,
+      optimized:true
+    };
+  }catch(e){
+    // Optymalizacja nie może blokować publikacji.
+    console.debug("IMAGE OPTIMIZATION FALLBACK:",e);
+    return {
+      bytes:originalBytes,
+      mime:type||"image/jpeg",
+      fileName:file.name||"image.jpg",
+      before:originalBytes.byteLength,
+      after:originalBytes.byteLength,
+      optimized:false
+    };
+  }
+}
+
 function withTimeout(promise,ms,message){
   let timer;
   const timeout=new Promise((_,reject)=>{
@@ -935,50 +1336,28 @@ async function save(ev){
         table==="surveys"?"survey-results":
         "menus";
 
-      const safeName=(file.name||"image.jpg")
+      setStatus("Odczytuję wybrane zdjęcie…");
+
+      const optimized=await optimizeImageForUpload(file,table,setStatus);
+
+      const safeName=(optimized.fileName||"image.webp")
         .replace(/[^a-zA-Z0-9._-]/g,"_");
 
       const path=`${folder}/${Date.now()}-${safeName}`;
 
-      let mime=file.type||"";
-      if(!mime){
-        const n=safeName.toLowerCase();
-        if(n.endsWith(".png"))mime="image/png";
-        else if(n.endsWith(".webp"))mime="image/webp";
-        else if(n.endsWith(".mov"))mime="video/quicktime";
-        else if(n.endsWith(".mp4"))mime="video/mp4";
-        else mime="image/jpeg";
+      if(optimized.optimized){
+        setStatus(`Zdjęcie zmniejszone: ${formatFileSize(optimized.before)} → ${formatFileSize(optimized.after)}. Wysyłam…`);
+      }else{
+        setStatus("Wysyłam zdjęcie…");
       }
 
-      setStatus("Odczytuję wybrane zdjęcie…");
-
-      let bytes;
-      try{
-        bytes=await withTimeout(
-          file.arrayBuffer(),
-          30000,
-          "Odczyt zdjęcia trwał zbyt długo. Wybierz zdjęcie ponownie."
-        );
-      }catch(e){
-        throw new Error(
-          e?.message||
-          "Nie udało się odczytać wybranego zdjęcia. Wybierz plik ponownie."
-        );
-      }
-
-      if(!bytes?.byteLength){
-        throw new Error("Wybrany plik jest pusty. Wybierz zdjęcie ponownie.");
-      }
-
-      setStatus("Wysyłam zdjęcie…");
-
-      // WAŻNE: wysyłamy surowy ArrayBuffer zamiast Blob.
-      // Jest to stabilniejsze w Safari/iOS PWA dla zdjęć z biblioteki.
       const uploadPromise=sb.storage
         .from(cfg.bucket)
-        .upload(path,bytes,{
-          contentType:mime,
-          cacheControl:"3600",
+        .upload(path,optimized.bytes,{
+          contentType:optimized.mime,
+          // Nazwa pliku zawiera timestamp i nie jest nadpisywana,
+          // więc możemy bezpiecznie pozwolić CDN/przeglądarce trzymać go długo.
+          cacheControl:"31536000",
           upsert:false
         });
 
@@ -1171,6 +1550,7 @@ function showPage(id){
 
  if(page && previous!==id)trackPageView(id);
 
+ hydratePageImages(id);
  scrollTo(0,0);
 }
 setActiveNav(q(".page.active")?.id||"home");
@@ -1181,8 +1561,11 @@ async function loadGallery(){
  if(error){q("#galleryAlbums").innerHTML=`<div class="item err">${esc(error.message)}</div>`;return}
  setNewContentTokens("gallery",(data||[]).map(x=>`gallery:${x.id}`));
  let out=[];
- for(const x of data||[]){let u=await sign(x.image_url);out.push(`<article class="item">${u?`<img class="album-cover" src="${u}" alt="">`:""}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`)}
+ for(const x of data||[]){
+   out.push(`<article class="item">${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć"})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`);
+ }
  q("#galleryAlbums").innerHTML=out.join("")||empty("Nie ma jeszcze albumów.");
+ hydratePageImages("gallery");
 }
 
 // PWA installation helper
