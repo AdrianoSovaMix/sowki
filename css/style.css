@@ -2728,3 +2728,13 @@ nav > .home .nav-new-dot{
   opacity:.78;
 }
 
+
+
+/* =========================================================
+   v0.5.7.0 — publiczny bucket / lepszy cache CDN
+   ========================================================= */
+
+.admin-image-eco-ok{
+  flex-wrap:wrap;
+}
+

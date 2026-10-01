@@ -904,6 +904,45 @@ async function renderStats(days=30){
   `;
 }
 
+function usesPublicMediaBucket(table){
+  return ["events","menus","announcements","surveys"].includes(table);
+}
+
+function mediaBucketForTable(table){
+  return usesPublicMediaBucket(table)
+    ? (cfg.publicBucket||"sowki-public")
+    : cfg.bucket;
+}
+
+function publicMediaUrl(objectPath){
+  if(!objectPath)return "";
+  const bucket=cfg.publicBucket||"sowki-public";
+  return sb.storage.from(bucket).getPublicUrl(objectPath)?.data?.publicUrl||"";
+}
+
+function storedMediaValue(table,objectPath){
+  if(!objectPath)return "";
+  return usesPublicMediaBucket(table)
+    ? publicMediaUrl(objectPath)
+    : objectPath;
+}
+
+function isPublicMediaUrl(path){
+  const p=String(path||"");
+  const bucket=cfg.publicBucket||"sowki-public";
+  return p.includes(`/storage/v1/object/public/${bucket}/`);
+}
+
+function hasEcoPlusFileName(path){
+  return /-full\.webp(?:$|\?)/i.test(String(path||""));
+}
+
+function isFullyEgressOptimized(table,path){
+  if(!hasEcoPlusFileName(path))return false;
+  if(usesPublicMediaBucket(table))return isPublicMediaUrl(path);
+  return true;
+}
+
 function adminImagePath(table,row){
   if(!row)return "";
   if(table==="surveys")return row.results_image_url||"";
@@ -926,7 +965,7 @@ function adminImageFolder(table){
 }
 
 function looksEcoOptimized(path){
-  return /-full\.webp(?:$|\?)/i.test(String(path||""));
+  return hasEcoPlusFileName(path);
 }
 
 function ecoThumbPath(fullPath){
@@ -948,20 +987,25 @@ function ecoBaseName(name){
 async function optimizeExistingAdminImage(table,id,path,button){
   if(!path)return;
 
-  if(!confirm("Zoptymalizować to zdjęcie? Aplikacja utworzy lekką wersję pełną oraz miniaturę do listy."))return;
+  const moveToPublic=usesPublicMediaBucket(table)&&!isPublicMediaUrl(path);
+  const actionText=moveToPublic
+    ? "Przenieść ten obraz do publicznego CDN? Aplikacja utworzy lekką wersję pełną i miniaturę, a wpis zacznie korzystać z publicznego cache."
+    : "Zoptymalizować to zdjęcie? Aplikacja utworzy lekką wersję pełną oraz miniaturę do listy.";
+
+  if(!confirm(actionText))return;
 
   const originalText=button?.textContent||"♻️ Optymalizuj zdjęcie";
   if(button){
     button.disabled=true;
-    button.textContent="Optymalizuję…";
+    button.textContent=moveToPublic?"Przenoszę…":"Optymalizuję…";
   }
 
   try{
-    const signed=await sign(path);
-    if(!signed)throw new Error("Nie udało się przygotować dostępu do obecnego zdjęcia.");
+    const sourceUrl=await sign(path);
+    if(!sourceUrl)throw new Error("Nie udało się przygotować dostępu do obecnego zdjęcia.");
 
     const response=await withTimeout(
-      fetch(signed,{cache:"no-store"}),
+      fetch(sourceUrl,{cache:"no-store"}),
       60000,
       "Pobieranie obecnego zdjęcia trwało zbyt długo."
     );
@@ -973,7 +1017,7 @@ async function optimizeExistingAdminImage(table,id,path,button){
     const blob=await response.blob();
     if(!blob.size)throw new Error("Pobrane zdjęcie jest puste.");
 
-    const originalName=String(path).split("/").pop()||"image.jpg";
+    const originalName=String(path).split("/").pop()?.split("?")[0]||"image.jpg";
     const file=new File([blob],originalName,{type:blob.type||"image/jpeg"});
 
     const setButtonStatus=text=>{
@@ -985,14 +1029,15 @@ async function optimizeExistingAdminImage(table,id,path,button){
     const folder=adminImageFolder(table);
     const base=ecoBaseName(originalName);
     const stamp=Date.now();
+    const targetBucket=mediaBucketForTable(table);
 
-    const fullPath=`${folder}/${stamp}-${base}-full.webp`;
+    const fullObjectPath=`${folder}/${stamp}-${base}-full.webp`;
 
     setButtonStatus("Wysyłam pełny…");
 
     const fullUpload=await withTimeout(
-      sb.storage.from(cfg.bucket).upload(
-        fullPath,
+      sb.storage.from(targetBucket).upload(
+        fullObjectPath,
         eco.full.bytes,
         {
           contentType:"image/webp",
@@ -1007,13 +1052,13 @@ async function optimizeExistingAdminImage(table,id,path,button){
     if(fullUpload.error)throw new Error(fullUpload.error.message);
 
     if(eco.thumb){
-      const thumbPath=`${folder}/${stamp}-${base}-thumb.webp`;
+      const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
 
       setButtonStatus("Wysyłam miniaturę…");
 
       const thumbUpload=await withTimeout(
-        sb.storage.from(cfg.bucket).upload(
-          thumbPath,
+        sb.storage.from(targetBucket).upload(
+          thumbObjectPath,
           eco.thumb.bytes,
           {
             contentType:"image/webp",
@@ -1033,9 +1078,15 @@ async function optimizeExistingAdminImage(table,id,path,button){
     setButtonStatus("Podmieniam…");
 
     const column=adminImageColumn(table);
+    const storedValue=storedMediaValue(table,fullObjectPath);
+
+    if(!storedValue){
+      throw new Error("Nie udało się utworzyć adresu nowego zdjęcia.");
+    }
+
     const update=await sb
       .from(table)
-      .update({[column]:fullPath})
+      .update({[column]:storedValue})
       .eq("id",id);
 
     if(update.error){
@@ -1049,12 +1100,13 @@ async function optimizeExistingAdminImage(table,id,path,button){
     );
 
     alert(
-      `✅ Zdjęcie zostało zoptymalizowane do ECO+.\n\n`+
+      `✅ Gotowe.\n\n`+
+      `${moveToPublic?"Obraz został przeniesiony do publicznego CDN i ":"Obraz został "}zoptymalizowany do ECO+.\n\n`+
       `Oryginał: ${formatFileSize(eco.originalSize)}\n`+
       `Pełny: ${formatFileSize(eco.full.size)}\n`+
       `${eco.thumb?`Miniatura: ${formatFileSize(eco.thumb.size)}\n`:""}`+
       `Łączna oszczędność miejsca: ${saving}%\n\n`+
-      `Największa oszczędność transferu będzie przy listach, bo rodzice pobiorą miniaturę zamiast pełnego obrazu.`
+      `${usesPublicMediaBucket(table)?"Lista korzysta teraz ze stałego publicznego adresu i cache zamiast signed URL.":"Galeria pozostaje w prywatnym Storage."}`
     );
 
     await render(table);
@@ -1115,7 +1167,8 @@ async function render(table,id){
           const meta=adminMeta(table,x);
           const isPublished=!!x.published;
           const imagePath=adminImagePath(table,x);
-          const ecoOptimized=looksEcoOptimized(imagePath);
+          const ecoOptimized=isFullyEgressOptimized(table,imagePath);
+          const needsPublicMove=usesPublicMediaBucket(table)&&!isPublicMediaUrl(imagePath);
           return `<article class="adminitem adminitem-order">
             <div class="admin-order-controls" aria-label="Zmień kolejność">
               <button type="button" class="order-btn" data-move="up" data-id="${x.id}" ${i===0?"disabled":""} title="Przesuń wyżej" aria-label="Przesuń wyżej">↑</button>
@@ -1130,8 +1183,8 @@ async function render(table,id){
               ${imagePath?`
                 <div class="admin-image-eco">
                   ${ecoOptimized
-                    ? `<span class="admin-image-eco-ok">✅ Zdjęcie ECO+</span>`
-                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">♻️ Optymalizuj zdjęcie</button>`}
+                    ? `<span class="admin-image-eco-ok">${usesPublicMediaBucket(table)?"✅ ECO+ • publiczny CDN":"✅ Zdjęcie ECO+"}</span>`
+                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">${needsPublicMove?"☁️ Przenieś do CDN":"♻️ Optymalizuj zdjęcie"}</button>`}
                 </div>
               `:""}
             </div>
@@ -1479,13 +1532,15 @@ async function save(ev){
         table==="surveys"?"survey-results":
         "menus";
 
+      const targetBucket=mediaBucketForTable(table);
+
       setStatus("Przygotowuję zdjęcie…");
 
       const eco=await prepareEcoPlusImages(file,table,setStatus);
       const base=ecoBaseName(file.name||"image");
       const stamp=Date.now();
 
-      const fullPath=`${folder}/${stamp}-${base}-full.${eco.full.ext}`;
+      const fullObjectPath=`${folder}/${stamp}-${base}-full.${eco.full.ext}`;
 
       setStatus(
         eco.full.size<eco.originalSize
@@ -1494,8 +1549,8 @@ async function save(ev){
       );
 
       const fullUpload=await withTimeout(
-        sb.storage.from(cfg.bucket).upload(
-          fullPath,
+        sb.storage.from(targetBucket).upload(
+          fullObjectPath,
           eco.full.bytes,
           {
             contentType:eco.full.mime,
@@ -1510,13 +1565,13 @@ async function save(ev){
       if(fullUpload.error)throw new Error(fullUpload.error.message);
 
       if(eco.thumb){
-        const thumbPath=`${folder}/${stamp}-${base}-thumb.webp`;
+        const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
 
         setStatus(`Wysyłam miniaturę (${formatFileSize(eco.thumb.size)})…`);
 
         const thumbUpload=await withTimeout(
-          sb.storage.from(cfg.bucket).upload(
-            thumbPath,
+          sb.storage.from(targetBucket).upload(
+            thumbObjectPath,
             eco.thumb.bytes,
             {
               contentType:"image/webp",
@@ -1529,14 +1584,18 @@ async function save(ev){
         );
 
         if(thumbUpload.error){
-          // Pełny obraz jest już zapisany. Nie blokujemy publikacji:
-          // aplikacja po prostu użyje pełnej wersji jako fallback.
           console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
         }
       }
 
-      if(table==="surveys")o.results_image_url=fullPath;
-      else o.image_url=fullPath;
+      const storedValue=storedMediaValue(table,fullObjectPath);
+
+      if(!storedValue){
+        throw new Error("Nie udało się przygotować adresu zapisanego zdjęcia.");
+      }
+
+      if(table==="surveys")o.results_image_url=storedValue;
+      else o.image_url=storedValue;
     }
 
     setStatus("Zapisuję wpis…");
