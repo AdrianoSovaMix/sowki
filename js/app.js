@@ -264,9 +264,13 @@ async function sign(path){
 
 function storageImg(path,{className="",alt="",title="",preview=false}={}){
   if(!path)return "";
+
+  const displayPath=ecoThumbPath(path);
+
   return `<img
     class="${esc(className)} storage-lazy-img"
-    data-storage-path="${esc(path)}"
+    data-storage-path="${esc(displayPath)}"
+    data-storage-full-path="${esc(path)}"
     ${preview?'data-storage-preview="1"':""}
     loading="lazy"
     decoding="async"
@@ -282,17 +286,21 @@ async function hydrateStorageImages(root){
   const imgs=[...el.querySelectorAll('img[data-storage-path]:not([data-storage-loaded="1"])')];
 
   await Promise.all(imgs.map(async img=>{
-    const path=img.dataset.storagePath;
-    if(!path)return;
+    const displayPath=img.dataset.storagePath;
+    if(!displayPath)return;
 
-    const url=await sign(path);
-    if(!url)return;
+    const displayUrl=await sign(displayPath);
+    if(!displayUrl)return;
 
-    img.src=url;
+    img.src=displayUrl;
     img.dataset.storageLoaded="1";
 
     if(img.dataset.storagePreview==="1"){
-      img.onclick=()=>openMenuPreview(url);
+      img.onclick=async()=>{
+        const fullPath=img.dataset.storageFullPath||displayPath;
+        const fullUrl=await sign(fullPath);
+        if(fullUrl)openMenuPreview(fullUrl);
+      };
     }
   }));
 }
@@ -918,13 +926,29 @@ function adminImageFolder(table){
 }
 
 function looksEcoOptimized(path){
-  return /\.webp(?:$|\?)/i.test(String(path||""));
+  return /-full\.webp(?:$|\?)/i.test(String(path||""));
+}
+
+function ecoThumbPath(fullPath){
+  const p=String(fullPath||"");
+  if(/-full\.webp$/i.test(p)){
+    return p.replace(/-full\.webp$/i,"-thumb.webp");
+  }
+  // Starsze zdjęcia nie mają osobnej miniatury.
+  return p;
+}
+
+function ecoBaseName(name){
+  return String(name||"image")
+    .replace(/\.[^.]+$/,"")
+    .replace(/-(full|thumb)$/i,"")
+    .replace(/[^a-zA-Z0-9._-]/g,"_");
 }
 
 async function optimizeExistingAdminImage(table,id,path,button){
   if(!path)return;
 
-  if(!confirm("Zoptymalizować to zdjęcie? Aplikacja pobierze je jeden raz, zmniejszy i zapisze lżejszą wersję WebP."))return;
+  if(!confirm("Zoptymalizować to zdjęcie? Aplikacja utworzy lekką wersję pełną oraz miniaturę do listy."))return;
 
   const originalText=button?.textContent||"♻️ Optymalizuj zdjęcie";
   if(button){
@@ -950,74 +974,87 @@ async function optimizeExistingAdminImage(table,id,path,button){
     if(!blob.size)throw new Error("Pobrane zdjęcie jest puste.");
 
     const originalName=String(path).split("/").pop()||"image.jpg";
-    const file=new File(
-      [blob],
-      originalName,
-      {type:blob.type||"image/jpeg"}
-    );
+    const file=new File([blob],originalName,{type:blob.type||"image/jpeg"});
 
     const setButtonStatus=text=>{
       if(button)button.textContent=text;
     };
 
-    const optimized=await optimizeImageForUpload(
-      file,
-      table,
-      setButtonStatus
-    );
+    const eco=await prepareEcoPlusImages(file,table,setButtonStatus);
 
-    if(!optimized.optimized){
-      alert(
-        `To zdjęcie jest już wystarczająco lekkie albo dalsza kompresja nie dałaby sensownej oszczędności.\n\nRozmiar: ${formatFileSize(optimized.before)}`
-      );
-      return;
-    }
+    const folder=adminImageFolder(table);
+    const base=ecoBaseName(originalName);
+    const stamp=Date.now();
 
-    const safeName=(optimized.fileName||"image.webp")
-      .replace(/[^a-zA-Z0-9._-]/g,"_");
+    const fullPath=`${folder}/${stamp}-${base}-full.webp`;
 
-    const newPath=`${adminImageFolder(table)}/${Date.now()}-${safeName}`;
+    setButtonStatus("Wysyłam pełny…");
 
-    setButtonStatus("Wysyłam…");
-
-    const uploaded=await withTimeout(
+    const fullUpload=await withTimeout(
       sb.storage.from(cfg.bucket).upload(
-        newPath,
-        optimized.bytes,
+        fullPath,
+        eco.full.bytes,
         {
-          contentType:optimized.mime,
+          contentType:"image/webp",
           cacheControl:"31536000",
           upsert:false
         }
       ),
       60000,
-      "Wysyłanie zoptymalizowanego zdjęcia trwało zbyt długo."
+      "Wysyłanie pełnego zdjęcia trwało zbyt długo."
     );
 
-    if(uploaded.error)throw new Error(uploaded.error.message);
+    if(fullUpload.error)throw new Error(fullUpload.error.message);
+
+    if(eco.thumb){
+      const thumbPath=`${folder}/${stamp}-${base}-thumb.webp`;
+
+      setButtonStatus("Wysyłam miniaturę…");
+
+      const thumbUpload=await withTimeout(
+        sb.storage.from(cfg.bucket).upload(
+          thumbPath,
+          eco.thumb.bytes,
+          {
+            contentType:"image/webp",
+            cacheControl:"31536000",
+            upsert:false
+          }
+        ),
+        60000,
+        "Wysyłanie miniatury trwało zbyt długo."
+      );
+
+      if(thumbUpload.error){
+        console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+      }
+    }
 
     setButtonStatus("Podmieniam…");
 
     const column=adminImageColumn(table);
     const update=await sb
       .from(table)
-      .update({[column]:newPath})
+      .update({[column]:fullPath})
       .eq("id",id);
 
     if(update.error){
-      // Nowy plik istnieje, ale wpis nie został podmieniony.
-      // Nie usuwamy starego zdjęcia, aby nie ryzykować utraty materiału.
-      throw new Error("Zdjęcie zostało przesłane, ale nie udało się podmienić wpisu: "+update.error.message);
+      throw new Error("Nie udało się podmienić wpisu: "+update.error.message);
     }
 
-    // Starego pliku celowo nie usuwamy automatycznie.
-    // Nie jest już używany przez aplikację, więc nie generuje egressu.
-    // Dzięki temu operacja pozostaje bezpieczna także bez polityki DELETE w Storage.
+    const totalAfter=eco.full.size+(eco.thumb?.size||0);
+    const saving=Math.max(
+      0,
+      Math.round((1-totalAfter/Math.max(1,eco.originalSize))*100)
+    );
 
     alert(
-      `✅ Zdjęcie zostało zoptymalizowane.\n\n`+
-      `${formatFileSize(optimized.before)} → ${formatFileSize(optimized.after)}\n`+
-      `Oszczędność: ${Math.max(0,Math.round((1-optimized.after/optimized.before)*100))}%`
+      `✅ Zdjęcie zostało zoptymalizowane do ECO+.\n\n`+
+      `Oryginał: ${formatFileSize(eco.originalSize)}\n`+
+      `Pełny: ${formatFileSize(eco.full.size)}\n`+
+      `${eco.thumb?`Miniatura: ${formatFileSize(eco.thumb.size)}\n`:""}`+
+      `Łączna oszczędność miejsca: ${saving}%\n\n`+
+      `Największa oszczędność transferu będzie przy listach, bo rodzice pobiorą miniaturę zamiast pełnego obrazu.`
     );
 
     await render(table);
@@ -1093,7 +1130,7 @@ async function render(table,id){
               ${imagePath?`
                 <div class="admin-image-eco">
                   ${ecoOptimized
-                    ? `<span class="admin-image-eco-ok">✅ Zdjęcie ECO</span>`
+                    ? `<span class="admin-image-eco-ok">✅ Zdjęcie ECO+</span>`
                     : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">♻️ Optymalizuj zdjęcie</button>`}
                 </div>
               `:""}
@@ -1275,6 +1312,112 @@ async function optimizeImageForUpload(file,table,setStatus){
   }
 }
 
+
+async function optimizeImageVariant(file,{maxSide,quality}){
+  const originalBytes=await file.arrayBuffer();
+  if(!originalBytes?.byteLength)throw new Error("Wybrany plik jest pusty.");
+
+  const type=String(file.type||"").toLowerCase();
+  if(!type.startsWith("image/") || type==="image/gif" || type==="image/svg+xml"){
+    return {
+      bytes:originalBytes,
+      mime:type||"application/octet-stream",
+      size:originalBytes.byteLength,
+      optimized:false
+    };
+  }
+
+  const img=await loadImageForOptimization(file);
+  let width=img.naturalWidth||img.width;
+  let height=img.naturalHeight||img.height;
+
+  if(!width||!height)throw new Error("Nie udało się odczytać wymiarów zdjęcia.");
+
+  const scale=Math.min(1,maxSide/Math.max(width,height));
+  width=Math.max(1,Math.round(width*scale));
+  height=Math.max(1,Math.round(height*scale));
+
+  const canvas=document.createElement("canvas");
+  canvas.width=width;
+  canvas.height=height;
+
+  const ctx=canvas.getContext("2d",{alpha:true});
+  if(!ctx)throw new Error("Przeglądarka nie obsługuje optymalizacji obrazu.");
+
+  ctx.drawImage(img,0,0,width,height);
+
+  const blob=await canvasToBlob(canvas,"image/webp",quality);
+  if(!blob?.size)throw new Error("Nie udało się utworzyć obrazu WebP.");
+
+  return {
+    bytes:await blob.arrayBuffer(),
+    mime:"image/webp",
+    size:blob.size,
+    optimized:true
+  };
+}
+
+async function prepareEcoPlusImages(file,table,setStatus){
+  const originalBytes=await withTimeout(
+    file.arrayBuffer(),
+    30000,
+    "Odczyt zdjęcia trwał zbyt długo."
+  );
+
+  if(!originalBytes?.byteLength){
+    throw new Error("Wybrany plik jest pusty.");
+  }
+
+  const type=String(file.type||"").toLowerCase();
+
+  // Dla plików innych niż obrazy zachowujemy dotychczasowy sposób.
+  if(!type.startsWith("image/") || type==="image/gif" || type==="image/svg+xml"){
+    return {
+      originalSize:originalBytes.byteLength,
+      full:{
+        bytes:originalBytes,
+        mime:type||"application/octet-stream",
+        size:originalBytes.byteLength,
+        ext:"bin"
+      },
+      thumb:null
+    };
+  }
+
+  setStatus("Tworzę lekką wersję zdjęcia…");
+
+  const textHeavy=table==="menus"||table==="surveys";
+  const fullMax=textHeavy?1800:1600;
+  const fullQuality=textHeavy?0.84:0.80;
+
+  const full=await withTimeout(
+    optimizeImageVariant(file,{maxSide:fullMax,quality:fullQuality}),
+    45000,
+    "Optymalizacja pełnego zdjęcia trwała zbyt długo."
+  );
+
+  // Miniatura ma być bardzo lekka.
+  // Jadłospisy mają większą miniaturę, aby tekst nadal był czytelny.
+  const thumbMax=table==="menus"?760:560;
+  const thumbQuality=table==="menus"?0.74:0.68;
+
+  let thumb=null;
+  if(table!=="surveys"){
+    setStatus("Tworzę miniaturę…");
+    thumb=await withTimeout(
+      optimizeImageVariant(file,{maxSide:thumbMax,quality:thumbQuality}),
+      45000,
+      "Tworzenie miniatury trwało zbyt długo."
+    );
+  }
+
+  return {
+    originalSize:originalBytes.byteLength,
+    full:{...full,ext:"webp"},
+    thumb:thumb?{...thumb,ext:"webp"}:null
+  };
+}
+
 function withTimeout(promise,ms,message){
   let timer;
   const timeout=new Promise((_,reject)=>{
@@ -1336,49 +1479,64 @@ async function save(ev){
         table==="surveys"?"survey-results":
         "menus";
 
-      setStatus("Odczytuję wybrane zdjęcie…");
+      setStatus("Przygotowuję zdjęcie…");
 
-      const optimized=await optimizeImageForUpload(file,table,setStatus);
+      const eco=await prepareEcoPlusImages(file,table,setStatus);
+      const base=ecoBaseName(file.name||"image");
+      const stamp=Date.now();
 
-      const safeName=(optimized.fileName||"image.webp")
-        .replace(/[^a-zA-Z0-9._-]/g,"_");
+      const fullPath=`${folder}/${stamp}-${base}-full.${eco.full.ext}`;
 
-      const path=`${folder}/${Date.now()}-${safeName}`;
-
-      if(optimized.optimized){
-        setStatus(`Zdjęcie zmniejszone: ${formatFileSize(optimized.before)} → ${formatFileSize(optimized.after)}. Wysyłam…`);
-      }else{
-        setStatus("Wysyłam zdjęcie…");
-      }
-
-      const uploadPromise=sb.storage
-        .from(cfg.bucket)
-        .upload(path,optimized.bytes,{
-          contentType:optimized.mime,
-          // Nazwa pliku zawiera timestamp i nie jest nadpisywana,
-          // więc możemy bezpiecznie pozwolić CDN/przeglądarce trzymać go długo.
-          cacheControl:"31536000",
-          upsert:false
-        });
-
-      const u=await withTimeout(
-        uploadPromise,
-        60000,
-        "Wysyłanie zdjęcia trwało zbyt długo. Sprawdź internet i spróbuj ponownie."
+      setStatus(
+        eco.full.size<eco.originalSize
+          ? `Pełny obraz: ${formatFileSize(eco.originalSize)} → ${formatFileSize(eco.full.size)}. Wysyłam…`
+          : "Wysyłam pełny obraz…"
       );
 
-      if(u.error){
-        const msg=String(u.error.message||"");
-        if(msg.toLowerCase().includes("no content provided")){
-          throw new Error(
-            "Telefon nie przekazał zawartości zdjęcia. Wybierz zdjęcie ponownie i spróbuj jeszcze raz."
-          );
+      const fullUpload=await withTimeout(
+        sb.storage.from(cfg.bucket).upload(
+          fullPath,
+          eco.full.bytes,
+          {
+            contentType:eco.full.mime,
+            cacheControl:"31536000",
+            upsert:false
+          }
+        ),
+        60000,
+        "Wysyłanie pełnego zdjęcia trwało zbyt długo."
+      );
+
+      if(fullUpload.error)throw new Error(fullUpload.error.message);
+
+      if(eco.thumb){
+        const thumbPath=`${folder}/${stamp}-${base}-thumb.webp`;
+
+        setStatus(`Wysyłam miniaturę (${formatFileSize(eco.thumb.size)})…`);
+
+        const thumbUpload=await withTimeout(
+          sb.storage.from(cfg.bucket).upload(
+            thumbPath,
+            eco.thumb.bytes,
+            {
+              contentType:"image/webp",
+              cacheControl:"31536000",
+              upsert:false
+            }
+          ),
+          60000,
+          "Wysyłanie miniatury trwało zbyt długo."
+        );
+
+        if(thumbUpload.error){
+          // Pełny obraz jest już zapisany. Nie blokujemy publikacji:
+          // aplikacja po prostu użyje pełnej wersji jako fallback.
+          console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
         }
-        throw new Error(msg||"Nie udało się przesłać zdjęcia.");
       }
 
-      if(table==="surveys")o.results_image_url=path;
-      else o.image_url=path;
+      if(table==="surveys")o.results_image_url=fullPath;
+      else o.image_url=fullPath;
     }
 
     setStatus("Zapisuję wpis…");

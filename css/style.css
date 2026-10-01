@@ -2716,3 +2716,15 @@ nav > .home .nav-new-dot{
     font-size:10.5px;
   }
 }
+
+
+/* =========================================================
+   v0.5.6.5 — ECO+: miniatury + pełne zdjęcie
+   ========================================================= */
+
+.admin-image-eco-ok::after{
+  content:" • miniatura + pełny";
+  font-weight:700;
+  opacity:.78;
+}
+
