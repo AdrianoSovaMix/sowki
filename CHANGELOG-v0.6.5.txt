@@ -1,0 +1,12 @@
+Sówki PWA v0.6.5
+
+Panel administratora:
+- dodano widoczną wersję aplikacji: v0.6.5,
+- usunięto zbędną informację „ECO+ / Cloudflare R2” przy poprawnie zoptymalizowanych obrazach,
+- przy starych obrazach pozostaje tylko neutralny przycisk „Optymalizuj obraz”,
+- obok Edytuj i Usuń dodano przycisk widoczności:
+  👁️ = wpis jest widoczny; kliknięcie ukrywa,
+  🙈 = wpis jest ukryty; kliknięcie publikuje ponownie.
+- przełączanie widoczności nie usuwa treści ani obrazów.
+
+Brak zmian SQL i brak zmian Workera.

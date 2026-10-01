@@ -1371,16 +1371,22 @@ async function render(table,id){
                 <span class="admin-status ${isPublished?"is-published":"is-hidden"}">${isPublished?"● Opublikowane":"○ Ukryte"}</span>
               </div>
               ${meta?`<div class="adminitem-meta">${esc(meta)}</div>`:""}
-              ${imagePath?`
+              ${imagePath&&!ecoOptimized?`
                 <div class="admin-image-eco">
-                  ${ecoOptimized
-                    ? `<span class="admin-image-eco-ok">${usesPublicMediaBucket(table)?"✅ ECO+ • Cloudflare R2":"✅ Zdjęcie ECO+"}</span>`
-                    : `<button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">${needsR2Move?"☁️ Przenieś do R2":"♻️ Optymalizuj zdjęcie"}</button>`}
+                  <button type="button" class="admin-image-optimize" data-optimize-image="${x.id}" data-image-path="${esc(imagePath)}">♻️ Optymalizuj obraz</button>
                 </div>
               `:""}
             </div>
             <div class="actions adminitem-actions">
               <button type="button" data-e="${x.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+              <button
+                type="button"
+                class="admin-visibility-btn ${isPublished?"is-visible":"is-hidden"}"
+                data-visibility="${x.id}"
+                data-published="${isPublished?"1":"0"}"
+                title="${isPublished?"Ukryj w aplikacji":"Pokaż w aplikacji"}"
+                aria-label="${isPublished?"Ukryj w aplikacji":"Pokaż w aplikacji"}"
+              >${isPublished?"👁️":"🙈"}</button>
               <button type="button" data-d="${x.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
             </div>
           </article>`;
@@ -1392,6 +1398,31 @@ async function render(table,id){
   bindRichEditors();
 
   qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));
+
+  qa("[data-visibility]").forEach(b=>b.onclick=async()=>{
+    const currentlyPublished=b.dataset.published==="1";
+    const nextPublished=!currentlyPublished;
+
+    b.disabled=true;
+
+    const result=await sb
+      .from(table)
+      .update({published:nextPublished})
+      .eq("id",b.dataset.visibility);
+
+    if(result.error){
+      b.disabled=false;
+      alert(result.error.message);
+      return;
+    }
+
+    await render(table);
+    await load();
+
+    if(table==="notifications")await loadNotifications();
+    if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)await loadGallery();
+  });
+
   qa("[data-d]").forEach(b=>b.onclick=async()=>{
     if(!confirm("Usunąć wpis? Jeśli ma przypisane zdjęcie, zostanie ono również usunięte ze Storage."))return;
 

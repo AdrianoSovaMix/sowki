@@ -2751,3 +2751,57 @@ nav > .home .nav-new-dot{
 /* =========================================================
    v0.6.1 — cleanup Storage/R2
    ========================================================= */
+
+
+/* =========================================================
+   v0.6.5 — panel administratora
+   ========================================================= */
+
+.panel-title-line{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+
+.panel-title-line h2{
+  margin:0;
+}
+
+.admin-app-version{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#f7edf2;
+  border:1px solid #ead5df;
+  color:#8a5669;
+  font-size:10.5px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+
+.admin-visibility-btn{
+  transition:transform .15s ease, opacity .15s ease, background .15s ease;
+}
+
+.admin-visibility-btn:hover{
+  transform:translateY(-1px);
+}
+
+.admin-visibility-btn.is-hidden{
+  opacity:.72;
+  background:#f3f3f3;
+}
+
+.admin-visibility-btn:disabled{
+  opacity:.45;
+  cursor:wait;
+}
+
+@media(max-width:520px){
+  .admin-app-version{
+    font-size:10px;
+  }
+}
