@@ -1670,10 +1670,11 @@ async function prepareEcoPlusImages(file,table,setStatus){
     "Optymalizacja pełnego zdjęcia trwała zbyt długo."
   );
 
-  // Miniatura ma być bardzo lekka.
-  // Jadłospisy mają większą miniaturę, aby tekst nadal był czytelny.
-  const thumbMax=table==="menus"?760:560;
-  const thumbQuality=table==="menus"?0.74:0.68;
+  // Miniatura nadal oszczędza transfer, ale ma wyższą jakość,
+  // żeby tekst na jadłospisach i plakatach był wyraźniejszy.
+  const textHeavy=table==="menus"||table==="announcements"||table==="events";
+  const thumbMax=table==="menus"?1100:(textHeavy?900:760);
+  const thumbQuality=table==="menus"?0.86:(textHeavy?0.82:0.80);
 
   let thumb=null;
   if(table!=="surveys"){
