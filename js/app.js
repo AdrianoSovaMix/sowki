@@ -905,7 +905,7 @@ async function renderStats(days=30){
 }
 
 function usesPublicMediaBucket(table){
-  return ["events","menus","announcements","surveys"].includes(table);
+  return ["events","menus","announcements","surveys","gallery_albums"].includes(table);
 }
 
 const R2_MEDIA_BASE=(cfg.r2MediaBase||"https://media.sowkitarczyn.pl").replace(/\/+$/,"");
@@ -1024,6 +1024,108 @@ function adminImagePath(table,row){
 
 function adminImageColumn(table){
   return table==="surveys"?"results_image_url":"image_url";
+}
+
+function relatedEcoPaths(path){
+  const p=String(path||"");
+  if(!p)return [];
+
+  if(/-full\.webp(?:$|\?)/i.test(p)){
+    return [
+      p,
+      p.replace(/-full\.webp(?:$|\?)/i,"-thumb.webp")
+    ];
+  }
+
+  return [p];
+}
+
+function r2ObjectPathFromUrl(url){
+  const p=String(url||"");
+  if(!isR2MediaUrl(p))return "";
+  return p.slice(R2_MEDIA_BASE.length).replace(/^\/+/,"").split("?")[0];
+}
+
+function supabaseStoredObject(table,value){
+  const p=String(value||"").trim();
+  if(!p || isR2MediaUrl(p))return null;
+
+  const publicBucket=cfg.publicBucket||"sowki-public";
+  const privateBucket=cfg.bucket;
+
+  if(p.startsWith("http")){
+    const publicMarker=`/storage/v1/object/public/${publicBucket}/`;
+    const publicIndex=p.indexOf(publicMarker);
+
+    if(publicIndex>=0){
+      return {
+        bucket:publicBucket,
+        path:decodeURIComponent(
+          p.slice(publicIndex+publicMarker.length).split("?")[0]
+        )
+      };
+    }
+
+    const privateMarker=`/storage/v1/object/sign/${privateBucket}/`;
+    const privateIndex=p.indexOf(privateMarker);
+
+    if(privateIndex>=0){
+      return {
+        bucket:privateBucket,
+        path:decodeURIComponent(
+          p.slice(privateIndex+privateMarker.length).split("?")[0]
+        )
+      };
+    }
+
+    return null;
+  }
+
+  return {
+    bucket:usesPublicMediaBucket(table)?publicBucket:privateBucket,
+    path:p
+  };
+}
+
+async function cleanupMediaForRecord(table,imageValue){
+  const value=String(imageValue||"").trim();
+  if(!value)return {ok:true,deleted:0};
+
+  // Cloudflare R2
+  if(isR2MediaUrl(value)){
+    const objectPath=r2ObjectPathFromUrl(value);
+    if(!objectPath)return {ok:true,deleted:0};
+
+    const paths=relatedEcoPaths(objectPath);
+
+    for(const p of paths){
+      try{
+        await deleteR2Object(p);
+      }catch(e){
+        console.warn("R2 cleanup failed:",p,e);
+        return {ok:false,deleted:0,error:e?.message||String(e)};
+      }
+    }
+
+    return {ok:true,deleted:paths.length};
+  }
+
+  // Supabase Storage
+  const stored=supabaseStoredObject(table,value);
+  if(!stored?.path)return {ok:true,deleted:0};
+
+  const paths=relatedEcoPaths(stored.path);
+
+  const result=await sb.storage
+    .from(stored.bucket)
+    .remove(paths);
+
+  if(result.error){
+    console.warn("Supabase cleanup failed:",result.error);
+    return {ok:false,deleted:0,error:result.error.message};
+  }
+
+  return {ok:true,deleted:paths.length};
 }
 
 function adminImageFolder(table){
@@ -1169,6 +1271,14 @@ async function optimizeExistingAdminImage(table,id,path,button){
       throw new Error("Nie udało się podmienić wpisu: "+update.error.message);
     }
 
+    let oldMediaCleanup={ok:true,deleted:0};
+
+    // Po poprawnym przeniesieniu i podmianie wpisu usuwamy
+    // stare pliki z Supabase, żeby nie zajmowały miejsca.
+    if(moveToR2){
+      oldMediaCleanup=await cleanupMediaForRecord(table,path);
+    }
+
     const totalAfter=eco.full.size+(eco.thumb?.size||0);
     const saving=Math.max(
       0,
@@ -1182,7 +1292,12 @@ async function optimizeExistingAdminImage(table,id,path,button){
       `Pełny: ${formatFileSize(eco.full.size)}\n`+
       `${eco.thumb?`Miniatura: ${formatFileSize(eco.thumb.size)}\n`:""}`+
       `Łączna oszczędność miejsca: ${saving}%\n\n`+
-      `${usesPublicMediaBucket(table)?"Rodzice pobierają ten obraz z media.sowkitarczyn.pl, a nie z Supabase Storage.":"Galeria pozostaje w prywatnym Supabase Storage."}`
+      `${usesPublicMediaBucket(table)?"Rodzice pobierają ten obraz z media.sowkitarczyn.pl, a nie z Supabase Storage.":"Okładka galerii jest przechowywana w Cloudflare R2."}`+
+      `${moveToR2
+        ? (oldMediaCleanup.ok
+            ? `\n\n🧹 Stary plik w Supabase został usunięty.`
+            : `\n\n⚠️ Obraz działa już z R2, ale nie udało się usunąć starego pliku z Supabase: ${oldMediaCleanup.error||"nieznany błąd"}`)
+        : ""}`
     );
 
     await render(table);
@@ -1278,12 +1393,42 @@ async function render(table,id){
 
   qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));
   qa("[data-d]").forEach(b=>b.onclick=async()=>{
-    if(confirm("Usunąć wpis?")){
-      const del=await sb.from(table).delete().eq("id",b.dataset.d);
-      if(del.error){alert(del.error.message);return}
-      render(table);load();
-      if(table==="notifications")loadNotifications();
+    if(!confirm("Usunąć wpis? Jeśli ma przypisane zdjęcie, zostanie ono również usunięte ze Storage."))return;
+
+    const row=rows.find(x=>String(x.id)===String(b.dataset.d));
+    const imageValue=adminImagePath(table,row);
+
+    // Najpierw usuwamy rekord z bazy. Dzięki temu ewentualny błąd
+    // czyszczenia pliku nie pozostawi wpisu wskazującego na usunięty obraz.
+    const del=await sb.from(table).delete().eq("id",b.dataset.d);
+
+    if(del.error){
+      alert(del.error.message);
+      return;
     }
+
+    let cleanup={ok:true,deleted:0};
+
+    if(imageValue){
+      try{
+        cleanup=await cleanupMediaForRecord(table,imageValue);
+      }catch(e){
+        cleanup={ok:false,deleted:0,error:e?.message||String(e)};
+      }
+    }
+
+    if(!cleanup.ok){
+      alert(
+        "Wpis został usunięty, ale nie udało się usunąć powiązanego obrazu.\n\n"+
+        (cleanup.error||"Nieznany błąd.")
+      );
+    }
+
+    render(table);
+    load();
+
+    if(table==="notifications")loadNotifications();
+    if(table==="gallery_albums"&&!q("#galleryAlbums")?.hidden)loadGallery();
   });
   qa("[data-move]").forEach(b=>b.onclick=()=>moveAdminItem(table,b.dataset.id,b.dataset.move));
 

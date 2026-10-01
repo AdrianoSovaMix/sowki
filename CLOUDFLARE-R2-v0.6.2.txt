@@ -1,0 +1,11 @@
+Sówki PWA v0.6.2 — Galeria w Cloudflare R2
+
+- Okładki Galerii są teraz zapisywane w Cloudflare R2 tak jak:
+  Wydarzenia, Jadłospisy, Ogłoszenia i Wyniki ankiet.
+- Linki do pełnych albumów (OneDrive) pozostają bez zmian.
+- Istniejące okładki Galerii można przenieść przyciskiem „Przenieś do R2”.
+- Po migracji stary plik z Supabase jest usuwany.
+- Usunięcie albumu z panelu administratora usuwa też jego okładkę z R2.
+- ECO+ nadal tworzy miniaturę + pełną wersję WebP.
+- Brak nowego SQL.
+- WYMAGANE: zaktualizować kod Workera do wersji v0.6.2, aby akceptował folder gallery/.
