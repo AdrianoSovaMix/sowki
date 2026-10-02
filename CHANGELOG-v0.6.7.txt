@@ -1,0 +1,15 @@
+Sówki PWA v0.6.7 — Harmonogram PUSH
+
+- Wyślij teraz albo Zaplanuj.
+- Planowanie: data + pełna godzina.
+- Strefa czasu obsługiwana przez istniejącą logikę aplikacji, bez etykiety w UI.
+- Cron sprawdza raz na godzinę.
+- Edge Function uruchamia się tylko, kiedy faktycznie jest oczekujące powiadomienie.
+- push_sent_at chroni przed podwójnym wysłaniem.
+- Przyszłe powiadomienia nie są widoczne w centrum przed terminem.
+- Widoczność w centrum powiadomień pozostaje niezależna od harmonogramu wysyłki.
+
+Kolejność:
+1. wdroż send-push-v0.6.7.ts,
+2. uruchom SUPABASE-v0.6.7-harmonogram-push.sql,
+3. wgraj aplikację v0.6.7.

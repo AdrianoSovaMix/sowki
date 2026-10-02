@@ -652,6 +652,8 @@ notifications:{title:"Powiadomienia",fields:[
 ["gallery","Galeria"],
 ["payments","Rozliczenia"]
 ]],
+["__send_mode","Sposób wysyłki","notification-mode"],
+["__schedule","Termin wysyłki","notification-schedule"],
 ["published","Dodaj do centrum powiadomień","checkbox"]
 ]},
 gallery_albums:{title:"Galeria",fields:[["title","Tytuł albumu","text"],["description","Opis","textarea"],["event_date","Data","date"],["download_url","Link OneDrive do pobrania","url"],["file","Zdjęcie okładkowe","file"],["published","Opublikuj od razu na stronie","checkbox"]]}};
@@ -668,7 +670,9 @@ function adminMeta(table,x){
     return parts.join(" • ");
   }
   if(table==="notifications"){
-    return x.created_at ? new Date(x.created_at).toLocaleString("pl-PL") : "";
+    if(x.push_sent_at)return "✅ Wysłane: "+formatWarsawDateTime(x.push_sent_at);
+    if(x.scheduled_at)return "🕒 Zaplanowane: "+formatWarsawDateTime(x.scheduled_at);
+    return x.created_at ? "Utworzono: "+formatWarsawDateTime(x.created_at) : "";
   }
   const d=x.event_date;
   return d?date(d):"";
@@ -1482,6 +1486,7 @@ async function render(table,id){
 
   q("#f").onsubmit=save;
   bindRichEditors();
+  bindNotificationScheduleFields();
 
   qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));
 
@@ -1556,6 +1561,15 @@ async function render(table,id){
     b
   ));
 }
+function bindNotificationScheduleFields(){
+  const mode=q(".notification-send-mode");
+  const schedule=q(".notification-schedule-fields");
+  if(!mode||!schedule)return;
+  const sync=()=>{schedule.hidden=mode.value!=="scheduled"};
+  mode.addEventListener("change",sync);
+  sync();
+}
+
 function field(f,e){
  let[n,l,t,opts]=f,v=e?.[n]??"";
  if(t==="textarea")return richEditor(n,l,v);
@@ -1564,6 +1578,39 @@ function field(f,e){
    return `<label>${l}</label>
      <textarea name="${n}" class="admin-plain-textarea" rows="6" maxlength="1500">${esc(plain)}</textarea>
      <div class="admin-field-note">Powiadomienia PUSH są wysyłane jako zwykły tekst – bez kolorów, pogrubienia i innych stylów.</div>`;
+ }
+ if(t==="notification-mode"){
+   if(e?.push_sent_at){
+     return `<div class="notification-sent-info">✅ To powiadomienie zostało już wysłane.</div><input type="hidden" name="send_mode" value="sent">`;
+   }
+   const mode=e?.scheduled_at?"scheduled":"now";
+   return `<label>${l}</label>
+     <select name="send_mode" class="admin-select notification-send-mode">
+       <option value="now" ${mode==="now"?"selected":""}>Wyślij teraz</option>
+       <option value="scheduled" ${mode==="scheduled"?"selected":""}>Zaplanuj</option>
+     </select>`;
+ }
+ if(t==="notification-schedule"){
+   if(e?.push_sent_at)return "";
+   let scheduleDate="";
+   let scheduleHour="08:00";
+   if(e?.scheduled_at){
+     const local=isoToWarsawLocal(e.scheduled_at);
+     const parts=String(local||"").split("T");
+     scheduleDate=parts[0]||"";
+     scheduleHour=(parts[1]||"08:00").slice(0,2)+":00";
+   }
+   const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,"0")+":00");
+   return `<div class="notification-schedule-fields">
+     <label>${l}</label>
+     <div class="notification-schedule-grid">
+       <input type="date" name="schedule_date" value="${esc(scheduleDate)}">
+       <select name="schedule_hour" class="admin-select">
+         ${hours.map(h=>`<option value="${h}" ${h===scheduleHour?"selected":""}>${h}</option>`).join("")}
+       </select>
+     </div>
+     <div class="admin-field-note">Powiadomienie zostanie wysłane o wybranej pełnej godzinie.</div>
+   </div>`;
  }
  if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;
  if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;
@@ -1855,7 +1902,7 @@ async function save(ev){
 
     d.fields.forEach(x=>{
       let[n,,t]=x;
-      if(t==="file")return;
+      if(["file","notification-mode","notification-schedule"].includes(t))return;
       if(t==="checkbox")o[n]=fd.get(n)==="on";
       else{
         o[n]=fd.get(n)||null;
@@ -1867,9 +1914,41 @@ async function save(ev){
       if(o.ends_at)o.ends_at=warsawLocalToISO(o.ends_at);
     }
 
+    let notificationSendMode="";
     if(table==="notifications"){
       o.title=notificationPlainText(o.title||"");
       o.body=notificationPlainText(o.body||"");
+
+      notificationSendMode=String(fd.get("send_mode")||"now");
+
+      if(notificationSendMode==="scheduled"){
+        const scheduleDate=String(fd.get("schedule_date")||"").trim();
+        const scheduleHour=String(fd.get("schedule_hour")||"").trim();
+
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(scheduleDate)){
+          throw new Error("Wybierz datę wysyłki powiadomienia.");
+        }
+        if(!/^\d{2}:00$/.test(scheduleHour)){
+          throw new Error("Wybierz pełną godzinę wysyłki.");
+        }
+
+        const scheduledISO=warsawLocalToISO(`${scheduleDate}T${scheduleHour}`);
+        if(!scheduledISO||Number.isNaN(new Date(scheduledISO).getTime())){
+          throw new Error("Nie udało się ustawić terminu wysyłki.");
+        }
+        if(new Date(scheduledISO).getTime()<=Date.now()){
+          throw new Error("Termin wysyłki musi być w przyszłości.");
+        }
+
+        o.scheduled_at=scheduledISO;
+        o.push_sent_at=null;
+      }else if(notificationSendMode==="now"){
+        o.scheduled_at=null;
+        if(!id)o.push_sent_at=null;
+      }else if(notificationSendMode==="sent"){
+        delete o.scheduled_at;
+        delete o.push_sent_at;
+      }
     }
 
     const file=fd.get("file");
@@ -1982,7 +2061,9 @@ async function save(ev){
     }
 
     const savePromise=id
-      ? sb.from(table).update(o).eq("id",id)
+      ? (table==="notifications"
+          ? sb.from(table).update(o).eq("id",id).select().single()
+          : sb.from(table).update(o).eq("id",id))
       : sb.from(table).insert(o).select().single();
 
     const r=await withTimeout(
@@ -1993,24 +2074,28 @@ async function save(ev){
 
     if(r.error)throw new Error(r.error.message);
 
-    if(table==="notifications"&&!id&&r.data){
-      setStatus("Wysyłam powiadomienie PUSH…");
+    if(table==="notifications"&&r.data){
+      if(notificationSendMode==="now"&&!r.data.push_sent_at){
+        setStatus("Wysyłam powiadomienie PUSH…");
 
-      const sent=await withTimeout(
-        sb.functions.invoke("send-push",{body:{notification_id:r.data.id}}),
-        45000,
-        "Wpis zapisano, ale wysyłanie PUSH trwało zbyt długo."
-      );
+        const sent=await withTimeout(
+          sb.functions.invoke("send-push",{body:{notification_id:r.data.id}}),
+          45000,
+          "Wpis zapisano, ale wysyłanie PUSH trwało zbyt długo."
+        );
 
-      if(sent.error){
-        alert(
-          "Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+
-          sent.error.message
-        );
-      }else{
-        alert(
-          `Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`
-        );
+        if(sent.error){
+          alert(
+            "Powiadomienie zapisano, ale wysyłka push zgłosiła błąd: "+
+            sent.error.message
+          );
+        }else{
+          alert(
+            `Powiadomienie zapisane i wysłane. Urządzenia: ${sent.data?.sent??0}`
+          );
+        }
+      }else if(notificationSendMode==="scheduled"){
+        alert(`✅ Powiadomienie zaplanowane na ${formatWarsawDateTime(r.data.scheduled_at)}.`);
       }
     }
 
@@ -2441,9 +2526,11 @@ function updateNotificationItemState(el,read){
 }
 
 async function loadNotifications(){
+  const nowISO=new Date().toISOString();
   const {data,error}=await sb.from("notifications")
     .select("*")
     .eq("published",true)
+    .or(`scheduled_at.is.null,scheduled_at.lte.${nowISO}`)
     .order("sort_order",{ascending:true})
     .order("id",{ascending:false})
     .limit(30);
