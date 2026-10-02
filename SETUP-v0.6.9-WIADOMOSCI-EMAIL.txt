@@ -29,3 +29,8 @@ Wymagane:
 Uwaga:
 - SQL i Edge Function zawierają wspólny wewnętrzny sekret wywołania.
   Należy używać plików z tego samego pakietu v0.6.9.
+
+
+Uwaga po poprawce dostarczalności:
+- plik send-parent-message-email-v0.6.9.ts w tym pakiecie zawiera prostszy temat i uproszczony HTML wiadomości, zgodny z aktualnie działającą konfiguracją,
+- w SQL dodano jawne SELECT/UPDATE dla service_role, aby Edge Function mogła czytać odbiorców i aktualizować status wiadomości.

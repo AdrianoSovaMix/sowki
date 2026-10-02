@@ -2971,3 +2971,133 @@ nav > .home .nav-new-dot{
   word-break:break-all;
   color:#66545c;
 }
+
+
+/* =========================================================
+   v0.7.0 — „Daj Sówkę” / lokalne oznaczenie przeczytania
+   ========================================================= */
+.sowki-read-row{
+  margin-top:14px;
+  padding-top:11px;
+  border-top:1px solid #f2e4ea;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.sowki-read-btn{
+  position:relative;
+  min-height:48px;
+  min-width:174px;
+  padding:4px 13px 4px 7px;
+  border:1px solid #f3abc4;
+  border-radius:999px;
+  background:linear-gradient(135deg,#fff3f7,#ffe3ed);
+  color:#d81b60;
+  box-shadow:0 4px 13px rgba(216,27,96,.10);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font:inherit;
+  font-weight:800;
+  cursor:pointer;
+  overflow:visible;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .2s ease,color .2s ease;
+}
+.sowki-read-btn:not(.is-read):hover{
+  transform:translateY(-1px);
+  box-shadow:0 7px 18px rgba(216,27,96,.16);
+  border-color:#ed80a7;
+}
+.sowki-read-btn:not(.is-read):active{transform:scale(.98)}
+.sowki-read-btn:focus-visible{outline:3px solid rgba(216,27,96,.22);outline-offset:2px}
+.sowki-read-btn:disabled{opacity:1;cursor:default}
+.sowki-read-btn.is-read{
+  min-width:171px;
+  color:#128044;
+  border-color:#a8dfba;
+  background:linear-gradient(135deg,#f0fbf3,#dcf5e5);
+  box-shadow:0 4px 13px rgba(18,128,68,.08);
+}
+.sowki-read-owl-svg{
+  width:40px!important;
+  height:40px!important;
+  max-height:none!important;
+  flex:0 0 40px;
+  margin:0!important;
+  object-fit:contain!important;
+  overflow:visible;
+  transform-origin:50% 82%;
+}
+.sowki-read-label{font-size:14px;line-height:1;white-space:nowrap}
+.sowki-read-arrow{width:19px;height:19px;flex:0 0 19px;margin-left:auto;opacity:.58}
+.sowki-read-check{width:22px;height:22px;flex:0 0 22px;margin-left:auto}
+.sowki-read-note{font-size:11px;color:#8b7f85;line-height:1.25}
+.sowki-read-row.is-read .sowki-read-note{color:#568566}
+.sowki-owl-happy-eye{fill:none;stroke:#2f211c;stroke-width:2.3;stroke-linecap:round}
+.sowki-read-burst{position:absolute;left:18px;top:12px;width:42px;height:35px;pointer-events:none;z-index:4}
+.sowki-burst-heart{position:absolute;width:14px!important;height:14px!important;margin:0!important;opacity:0;overflow:visible;fill:#ff3e6f;filter:drop-shadow(0 2px 2px rgba(216,27,96,.16))}
+.sowki-burst-heart.h1{left:3px;top:5px}
+.sowki-burst-heart.h2{left:22px;top:0;width:11px!important;height:11px!important}
+.sowki-burst-heart.h3{left:27px;top:16px;width:9px!important;height:9px!important;fill:#ff789b}
+.sowki-owl-heart{transform-box:fill-box;transform-origin:center}
+.sowki-owl-eyes{transform-box:fill-box;transform-origin:center}
+
+.sowki-read-btn.is-celebrating{
+  border-color:#ff7da4;
+  box-shadow:0 8px 24px rgba(216,27,96,.22);
+}
+.sowki-read-btn.is-celebrating .sowki-read-owl-svg{animation:sowkiOwlHop .9s cubic-bezier(.2,.8,.25,1)}
+.sowki-read-btn.is-celebrating .sowki-owl-heart{animation:sowkiHeartBeat .75s ease-in-out}
+.sowki-read-btn.is-celebrating .sowki-owl-eyes{animation:sowkiOwlBlink .75s ease-in-out}
+.sowki-read-btn.is-celebrating .sowki-burst-heart.h1{animation:sowkiFloatHeartOne .85s ease-out .10s both}
+.sowki-read-btn.is-celebrating .sowki-burst-heart.h2{animation:sowkiFloatHeartTwo .9s ease-out .16s both}
+.sowki-read-btn.is-celebrating .sowki-burst-heart.h3{animation:sowkiFloatHeartThree .82s ease-out .23s both}
+
+@keyframes sowkiOwlHop{
+  0%{transform:translateY(0) scale(1)}
+  28%{transform:translateY(-5px) scale(1.07) rotate(-2deg)}
+  54%{transform:translateY(0) scale(1.02) rotate(2deg)}
+  75%{transform:translateY(-2px) scale(1.04)}
+  100%{transform:translateY(0) scale(1)}
+}
+@keyframes sowkiHeartBeat{
+  0%,100%{transform:scale(1)}
+  20%{transform:scale(1.28)}
+  38%{transform:scale(.96)}
+  58%{transform:scale(1.34)}
+  78%{transform:scale(1.02)}
+}
+@keyframes sowkiOwlBlink{
+  0%,30%,48%,100%{transform:scaleY(1)}
+  38%,42%{transform:scaleY(.08)}
+}
+@keyframes sowkiFloatHeartOne{
+  0%{opacity:0;transform:translate(0,4px) scale(.55) rotate(-10deg)}
+  18%{opacity:1}
+  100%{opacity:0;transform:translate(-13px,-34px) scale(1.05) rotate(-25deg)}
+}
+@keyframes sowkiFloatHeartTwo{
+  0%{opacity:0;transform:translate(0,5px) scale(.5) rotate(8deg)}
+  20%{opacity:1}
+  100%{opacity:0;transform:translate(8px,-39px) scale(1.15) rotate(20deg)}
+}
+@keyframes sowkiFloatHeartThree{
+  0%{opacity:0;transform:translate(0,4px) scale(.5)}
+  20%{opacity:1}
+  100%{opacity:0;transform:translate(18px,-26px) scale(.95) rotate(18deg)}
+}
+
+@media(max-width:520px){
+  .sowki-read-row{gap:7px}
+  .sowki-read-btn{min-height:46px;min-width:164px;padding-right:11px}
+  .sowki-read-btn.is-read{min-width:164px}
+  .sowki-read-owl-svg{width:38px!important;height:38px!important;flex-basis:38px}
+  .sowki-read-label{font-size:13px}
+  .sowki-read-note{font-size:10.5px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .sowki-read-btn,.sowki-read-btn *{animation:none!important;transition:none!important}
+}

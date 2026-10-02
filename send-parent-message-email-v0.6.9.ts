@@ -141,42 +141,39 @@ Deno.serve(async (req) => {
   const messageText = textValue(message.message, 1500);
   const sentDate = formatDate(message.created_at);
 
-  const subject = `Sówki – wiadomość dotycząca: ${childName}`;
+  const subject = `Wiadomość od rodzica – ${childName}`;
 
   const html = `
-    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#2c2226">
-      <div style="background:#fff0f5;border-radius:16px;padding:20px;margin-bottom:18px">
-        <h2 style="margin:0 0 6px;color:#d81b60">✉️ Nowa wiadomość z aplikacji Sówki</h2>
-        <div style="font-size:13px;color:#725f67">${htmlEscape(sentDate)}</div>
-      </div>
-
-      <table style="width:100%;border-collapse:collapse;margin-bottom:18px">
-        <tr>
-          <td style="padding:7px 0;color:#725f67;width:150px">Dziecko:</td>
-          <td style="padding:7px 0"><strong>${htmlEscape(childName)}</strong></td>
-        </tr>
-        <tr>
-          <td style="padding:7px 0;color:#725f67">Rodzic:</td>
-          <td style="padding:7px 0"><strong>${htmlEscape(parentName)}</strong></td>
-        </tr>
-      </table>
-
-      <div style="background:#faf7f8;border:1px solid #eddde4;border-radius:14px;padding:16px;white-space:pre-wrap;line-height:1.55">${htmlEscape(messageText)}</div>
-
-      <p style="margin-top:18px;font-size:12px;color:#8b7a81">
-        Wiadomość została wysłana przez formularz „Napisz do Pani Kasi” w aplikacji Sówki.
-      </p>
-    </div>
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#222222;line-height:1.5">
+  <p>Dzień dobry,</p>
+  <p>przez formularz w aplikacji Sówki została przesłana nowa wiadomość.</p>
+  <p>
+    <strong>Dziecko:</strong> ${htmlEscape(childName)}<br>
+    <strong>Rodzic:</strong> ${htmlEscape(parentName)}<br>
+    <strong>Data:</strong> ${htmlEscape(sentDate)}
+  </p>
+  <p><strong>Treść wiadomości:</strong></p>
+  <div style="white-space:pre-wrap">${htmlEscape(messageText)}</div>
+  <p style="margin-top:24px;font-size:12px;color:#666666">
+    Wiadomość została wysłana automatycznie z formularza kontaktowego aplikacji Sówki.
+  </p>
+</div>
   `;
 
   const text = [
-    "Nowa wiadomość z aplikacji Sówki",
-    sentDate,
+    "Dzień dobry,",
+    "",
+    "przez formularz w aplikacji Sówki została przesłana nowa wiadomość.",
     "",
     `Dziecko: ${childName}`,
     `Rodzic: ${parentName}`,
+    `Data: ${sentDate}`,
+    "",
+    "Treść wiadomości:",
     "",
     messageText,
+    "",
+    "Wiadomość została wysłana automatycznie z formularza kontaktowego aplikacji Sówki.",
   ].join("\n");
 
   let success = 0;

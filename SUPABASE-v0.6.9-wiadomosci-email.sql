@@ -29,6 +29,16 @@ grant select, insert, update, delete
 on public.message_recipients
 to authenticated;
 
+-- Edge Function korzysta z roli service_role.
+-- Jawne uprawnienia są potrzebne także przy włączonym RLS.
+grant select
+on public.message_recipients
+to service_role;
+
+grant select, update
+on public.parent_messages
+to service_role;
+
 drop policy if exists "sowki_admin_read_message_recipients" on public.message_recipients;
 create policy "sowki_admin_read_message_recipients"
 on public.message_recipients

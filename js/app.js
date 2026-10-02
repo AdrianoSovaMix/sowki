@@ -546,23 +546,145 @@ function markSectionContentSeen(page){
   updateNewContentDots();
 }
 
+
+// v0.7.0 — „Daj Sówkę”: lokalne oznaczanie przeczytanych informacji.
+// Stan jest zapisany wyłącznie na urządzeniu rodzica (localStorage), bez wysyłania do Supabase.
+const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
+
+function sowkiReadStorageKey(kind,id){
+  return `${SOWKI_READ_STORAGE_PREFIX}:${String(kind||"")}:${String(id||"")}`;
+}
+
+function sowkiIsMarkedRead(kind,id){
+  try{
+    return localStorage.getItem(sowkiReadStorageKey(kind,id))==="1";
+  }catch{
+    return false;
+  }
+}
+
+function sowkiMarkRead(kind,id){
+  try{
+    localStorage.setItem(sowkiReadStorageKey(kind,id),"1");
+    return true;
+  }catch{
+    return false;
+  }
+}
+
+function sowkiHeartPath(){
+  return 'M12 21.1 10.55 19.78C5.4 15.1 2 12.02 2 8.25 2 5.17 4.42 2.75 7.5 2.75c1.74 0 3.41.81 4.5 2.09a6.02 6.02 0 0 1 4.5-2.09c3.08 0 5.5 2.42 5.5 5.5 0 3.77-3.4 6.85-8.55 11.54L12 21.1Z';
+}
+
+function sowkiOwlSvg(read=false){
+  const eyes=read
+    ? `<path class="sowki-owl-happy-eye" d="M18.5 22.5c2-2.4 5.2-2.4 7.2 0"/><path class="sowki-owl-happy-eye" d="M38.3 22.5c2-2.4 5.2-2.4 7.2 0"/>`
+    : `<g class="sowki-owl-eyes"><circle cx="22" cy="21" r="6.5" fill="#fff"/><circle cx="42" cy="21" r="6.5" fill="#fff"/><circle cx="22" cy="21" r="3.1" fill="#2f211c"/><circle cx="42" cy="21" r="3.1" fill="#2f211c"/><circle cx="20.9" cy="19.7" r="1" fill="#fff"/><circle cx="40.9" cy="19.7" r="1" fill="#fff"/></g>`;
+  return `<svg class="sowki-read-owl-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    <ellipse cx="32" cy="58" rx="17" ry="3" fill="#6a3b2b" opacity=".13"/>
+    <path d="M15 18 12 8l10 6c3-2 6.4-3 10-3s7 1 10 3l10-6-3 10c4 4.2 6 9.7 6 16 0 14-9.5 24-23 24S9 48 9 34c0-6.3 2-11.8 6-16Z" fill="#9b5a32"/>
+    <path d="M18 17c4-4.2 9-6 14-6s10 1.8 14 6c-2 7-7.3 11-14 11S20 24 18 17Z" fill="#c77b43"/>
+    <ellipse cx="32" cy="39" rx="15" ry="16" fill="#f2c98f"/>
+    <path d="M14 32c-4 5-4 11 1 15 2.7 2.2 5.5 1.7 8-.1-4.3-3.6-6.9-8.8-9-14.9ZM50 32c4 5 4 11-1 15-2.7 2.2-5.5 1.7-8-.1 4.3-3.6 6.9-8.8 9-14.9Z" fill="#7b4328"/>
+    ${eyes}
+    <path d="m32 26-4 4h8l-4-4Z" fill="#f59b32"/>
+    <path d="M24 54c2.7 1 5.3 1.4 8 1.4s5.3-.4 8-1.4" fill="none" stroke="#7b4328" stroke-width="2" stroke-linecap="round"/>
+    <g transform="translate(22 33) scale(.82)">
+      <g class="sowki-owl-heart">
+        <path d="${sowkiHeartPath()}" fill="#ff3e6f"/>
+        <path d="M7.6 5.4c1.2-.8 2.8-.7 3.8.5" fill="none" stroke="#ff9ab6" stroke-width="1.4" stroke-linecap="round" opacity=".9"/>
+      </g>
+    </g>
+  </svg>`;
+}
+
+function sowkiCheckSvg(){
+  return `<svg class="sowki-read-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.4 12.4 3 3.1 6.4-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function sowkiArrowSvg(){
+  return `<svg class="sowki-read-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function sowkiBurstHearts(){
+  const p=sowkiHeartPath();
+  return `<span class="sowki-read-burst" aria-hidden="true">
+    <svg class="sowki-burst-heart h1" viewBox="0 0 24 24"><path d="${p}"/></svg>
+    <svg class="sowki-burst-heart h2" viewBox="0 0 24 24"><path d="${p}"/></svg>
+    <svg class="sowki-burst-heart h3" viewBox="0 0 24 24"><path d="${p}"/></svg>
+  </span>`;
+}
+
+function sowkiReadButtonInner(read){
+  if(read){
+    return `${sowkiOwlSvg(true)}<span class="sowki-read-label">Przeczytane</span>${sowkiCheckSvg()}`;
+  }
+  return `${sowkiOwlSvg(false)}<span class="sowki-read-label">Daj Sówkę</span>${sowkiArrowSvg()}${sowkiBurstHearts()}`;
+}
+
+function sowkiReadReaction(kind,id){
+  const read=sowkiIsMarkedRead(kind,id);
+  const safeKind=esc(kind);
+  const safeId=esc(id);
+  return `<div class="sowki-read-row ${read?"is-read":""}">
+    <button type="button" class="sowki-read-btn ${read?"is-read":""}" data-sowki-read data-kind="${safeKind}" data-id="${safeId}" ${read?"disabled":""} aria-label="${read?"Przeczytane. Sówka została już dana na tym urządzeniu.":"Daj Sówkę, aby oznaczyć tę informację jako przeczytaną."}">
+      ${sowkiReadButtonInner(read)}
+    </button>
+    <span class="sowki-read-note">${read?"Zapamiętane na tym urządzeniu":"Oznacz jako przeczytane"}</span>
+  </div>`;
+}
+
+function sowkiSetReadButtonState(btn,read){
+  if(!btn)return;
+  const row=btn.closest(".sowki-read-row");
+  btn.classList.remove("is-celebrating");
+  btn.classList.toggle("is-read",read);
+  btn.disabled=!!read;
+  btn.innerHTML=sowkiReadButtonInner(read);
+  btn.setAttribute("aria-label",read
+    ? "Przeczytane. Sówka została już dana na tym urządzeniu."
+    : "Daj Sówkę, aby oznaczyć tę informację jako przeczytaną.");
+  if(row){
+    row.classList.toggle("is-read",read);
+    const note=row.querySelector(".sowki-read-note");
+    if(note)note.textContent=read?"Zapamiętane na tym urządzeniu":"Oznacz jako przeczytane";
+  }
+}
+
+document.addEventListener("click",e=>{
+  const btn=e.target.closest?.("[data-sowki-read]");
+  if(!btn||btn.disabled||btn.classList.contains("is-read"))return;
+
+  const kind=btn.dataset.kind||"";
+  const id=btn.dataset.id||"";
+  if(!kind||!id)return;
+
+  // Zapisujemy od razu, żeby nawet szybkie zamknięcie strony nie zgubiło odczytania.
+  sowkiMarkRead(kind,id);
+  btn.disabled=true;
+  btn.classList.add("is-celebrating");
+
+  const reduced=window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  window.setTimeout(()=>sowkiSetReadButtonState(btn,true),reduced?80:1050);
+});
+
 async function load(){
  let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
  const homeNoticeRows=r.data||[];
- q("#notices").innerHTML=homeNoticeRows.length?homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div></div>`).join(""):empty("Brak nowych ogłoszeń.");
+ q("#notices").innerHTML=homeNoticeRows.length?homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div>${sowkiReadReaction("notice",x.id)}</div>`).join(""):empty("Brak nowych ogłoszeń.");
 
  r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);
  const homeEventRows=r.data||[];
  let a=[];
  for(const x of homeEventRows){
-   a.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`);
+   a.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p>${sowkiReadReaction("event",x.id)}</div>`);
  }
  q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
  setNewContentTokens("home",[
    ...homeNoticeRows.map(x=>`notice:${x.id}`),
    ...homeEventRows.map(x=>`event:${x.id}`)
  ]);
- r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
+ r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}${sowkiReadReaction("announcement",x.id)}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
  r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false});
  const menuRows=r.data||[];
  setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
