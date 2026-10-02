@@ -1,0 +1,12 @@
+Sówki PWA v0.7.1 — kompaktowa „Daj Sówkę”
+
+Zmiany:
+- Reakcja została zmniejszona i przeniesiona na prawą stronę pod treścią wpisu.
+- Zamiast dużego przycisku jest mała okrągła ikona sówki 36–38 px.
+- Obok widoczny jest tylko krótki podpis „Daj Sówkę” / „Przeczytane”.
+- Usunięto dodatkową linię i długą adnotację „Zapamiętane na tym urządzeniu”.
+- Po kliknięciu nadal działa animacja serduszka i odlatujących serduszek.
+- Po odczytaniu ikonka zmienia się na zieloną i dostaje mały znaczek ✓.
+- Stan nadal jest zapamiętywany lokalnie na urządzeniu.
+- Nie wymaga zmian w Supabase ani SQL.
+- Service Worker: cache sowki-v0701.

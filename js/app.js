@@ -547,7 +547,7 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.0 — „Daj Sówkę”: lokalne oznaczanie przeczytanych informacji.
+// v0.7.1 — kompaktowa „Daj Sówkę”: lokalne oznaczanie przeczytanych informacji.
 // Stan jest zapisany wyłącznie na urządzeniu rodzica (localStorage), bez wysyłania do Supabase.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
 
@@ -617,9 +617,9 @@ function sowkiBurstHearts(){
 
 function sowkiReadButtonInner(read){
   if(read){
-    return `${sowkiOwlSvg(true)}<span class="sowki-read-label">Przeczytane</span>${sowkiCheckSvg()}`;
+    return `${sowkiOwlSvg(true)}${sowkiCheckSvg()}`;
   }
-  return `${sowkiOwlSvg(false)}<span class="sowki-read-label">Daj Sówkę</span>${sowkiArrowSvg()}${sowkiBurstHearts()}`;
+  return `${sowkiOwlSvg(false)}${sowkiBurstHearts()}`;
 }
 
 function sowkiReadReaction(kind,id){
@@ -627,10 +627,10 @@ function sowkiReadReaction(kind,id){
   const safeKind=esc(kind);
   const safeId=esc(id);
   return `<div class="sowki-read-row ${read?"is-read":""}">
-    <button type="button" class="sowki-read-btn ${read?"is-read":""}" data-sowki-read data-kind="${safeKind}" data-id="${safeId}" ${read?"disabled":""} aria-label="${read?"Przeczytane. Sówka została już dana na tym urządzeniu.":"Daj Sówkę, aby oznaczyć tę informację jako przeczytaną."}">
+    <span class="sowki-read-note">${read?"Przeczytane":"Daj Sówkę"}</span>
+    <button type="button" class="sowki-read-btn ${read?"is-read":""}" data-sowki-read data-kind="${safeKind}" data-id="${safeId}" ${read?"disabled":""} title="${read?"Przeczytane na tym urządzeniu":"Daj Sówkę – oznacz jako przeczytane"}" aria-label="${read?"Przeczytane. Sówka została już dana na tym urządzeniu.":"Daj Sówkę, aby oznaczyć tę informację jako przeczytaną."}">
       ${sowkiReadButtonInner(read)}
     </button>
-    <span class="sowki-read-note">${read?"Zapamiętane na tym urządzeniu":"Oznacz jako przeczytane"}</span>
   </div>`;
 }
 
@@ -644,10 +644,11 @@ function sowkiSetReadButtonState(btn,read){
   btn.setAttribute("aria-label",read
     ? "Przeczytane. Sówka została już dana na tym urządzeniu."
     : "Daj Sówkę, aby oznaczyć tę informację jako przeczytaną.");
+  btn.setAttribute("title",read ? "Przeczytane na tym urządzeniu" : "Daj Sówkę – oznacz jako przeczytane");
   if(row){
     row.classList.toggle("is-read",read);
     const note=row.querySelector(".sowki-read-note");
-    if(note)note.textContent=read?"Zapamiętane na tym urządzeniu":"Oznacz jako przeczytane";
+    if(note)note.textContent=read?"Przeczytane":"Daj Sówkę";
   }
 }
 
