@@ -673,8 +673,158 @@ function setActiveAdminTab(table){
 qa("[data-tab]").forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==="stats")renderStats();
   else if(b.dataset.tab==="parent_messages")renderParentMessages();
+  else if(b.dataset.tab==="message_recipients")renderMessageRecipients();
   else render(b.dataset.tab);
 });
+
+async function renderMessageRecipients(editId=null){
+  setActiveAdminTab("message_recipients");
+  q("#editor").dataset.table="message_recipients";
+  q("#editor").innerHTML=`<div class="admin-messages-loading">Ładowanie odbiorców…</div>`;
+
+  const {data,error}=await sb
+    .from("message_recipients")
+    .select("*")
+    .order("active",{ascending:false})
+    .order("display_name",{ascending:true});
+
+  if(error){
+    q("#editor").innerHTML=`
+      <div class="admin-order-warning">
+        <b>⚠️ Nie udało się pobrać odbiorców.</b><br>
+        ${esc(error.message)}<br><br>
+        Uruchom plik SQL dołączony do wersji v0.6.9.
+      </div>`;
+    return;
+  }
+
+  const rows=data||[];
+  const editRow=editId?rows.find(x=>String(x.id)===String(editId)):null;
+
+  q("#editor").innerHTML=`
+    <section class="admin-message-recipients">
+      <div class="admin-content-head">
+        <div>
+          <h3>Odbiorcy wiadomości</h3>
+          <p>Aktywne osoby otrzymują osobny e-mail po wysłaniu formularza „Napisz do Pani Kasi”. Adresy są widoczne tylko w panelu administratora.</p>
+        </div>
+        <span class="admin-count">${rows.filter(x=>x.active).length} aktywnych</span>
+      </div>
+
+      <div class="form recipient-form-wrap">
+        <h3>${editRow?"Edytuj odbiorcę":"Dodaj odbiorcę"}</h3>
+        <form id="recipientForm">
+          <label>Imię / nazwa</label>
+          <input name="display_name" type="text" maxlength="120" required value="${esc(editRow?.display_name||"")}">
+
+          <label>Rola / opis</label>
+          <input name="role" type="text" maxlength="120" placeholder="np. Wychowawczyni, Trójka klasowa" value="${esc(editRow?.role||"")}">
+
+          <label>Adres e-mail</label>
+          <input name="email" type="email" maxlength="254" autocomplete="off" required value="${esc(editRow?.email||"")}">
+
+          <label class="check">
+            <input name="active" type="checkbox" ${editRow?(editRow.active?"checked":""):"checked"}>
+            Aktywny odbiorca
+          </label>
+
+          <input name="id" type="hidden" value="${editRow?.id||""}">
+          <div class="recipient-form-actions">
+            <button class="primary" type="submit">${editRow?"Zapisz zmiany":"Dodaj odbiorcę"}</button>
+            ${editRow?`<button class="secondary" type="button" id="recipientCancelEdit">Anuluj</button>`:""}
+          </div>
+          <div id="recipientStatus" class="admin-save-status" aria-live="polite"></div>
+        </form>
+      </div>
+
+      <div class="admin-recipient-list">
+        ${rows.length?rows.map(x=>`
+          <article class="adminitem recipient-item">
+            <div class="adminitem-main">
+              <div class="adminitem-title-row">
+                <b>${esc(x.display_name)}</b>
+                <span class="admin-status ${x.active?"is-published":"is-hidden"}">${x.active?"● Aktywny":"○ Wyłączony"}</span>
+              </div>
+              ${x.role?`<div class="adminitem-meta">${esc(x.role)}</div>`:""}
+              <div class="recipient-email">${esc(x.email)}</div>
+            </div>
+            <div class="actions adminitem-actions">
+              <button type="button" data-recipient-edit="${x.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+              <button type="button"
+                class="admin-visibility-btn ${x.active?"is-visible":"is-hidden"}"
+                data-recipient-toggle="${x.id}"
+                data-active="${x.active?"1":"0"}"
+                title="${x.active?"Wyłącz odbiorcę":"Włącz odbiorcę"}"
+                aria-label="${x.active?"Wyłącz odbiorcę":"Włącz odbiorcę"}">${x.active?"👁️":"🙈"}</button>
+              <button type="button" class="danger-lite" data-recipient-delete="${x.id}" title="Usuń" aria-label="Usuń">🗑️</button>
+            </div>
+          </article>
+        `).join(""):`<div class="admin-empty">Nie dodano jeszcze żadnych odbiorców.</div>`}
+      </div>
+    </section>
+  `;
+
+  q("#recipientForm").onsubmit=async e=>{
+    e.preventDefault();
+    const form=e.currentTarget;
+    const fd=new FormData(form);
+    const status=q("#recipientStatus");
+    const id=String(fd.get("id")||"").trim();
+
+    const payload={
+      display_name:String(fd.get("display_name")||"").trim(),
+      role:String(fd.get("role")||"").trim()||null,
+      email:String(fd.get("email")||"").trim().toLowerCase(),
+      active:fd.get("active")==="on"
+    };
+
+    if(!payload.display_name||!payload.email){
+      status.textContent="Uzupełnij nazwę i adres e-mail.";
+      return;
+    }
+
+    status.textContent="Zapisywanie…";
+
+    const result=id
+      ? await sb.from("message_recipients").update(payload).eq("id",id)
+      : await sb.from("message_recipients").insert(payload);
+
+    if(result.error){
+      status.textContent="❌ "+result.error.message;
+      return;
+    }
+
+    renderMessageRecipients();
+  };
+
+  q("#recipientCancelEdit")?.addEventListener("click",()=>renderMessageRecipients());
+
+  qa("[data-recipient-edit]").forEach(b=>b.onclick=()=>renderMessageRecipients(b.dataset.recipientEdit));
+
+  qa("[data-recipient-toggle]").forEach(b=>b.onclick=async()=>{
+    const next=b.dataset.active!=="1";
+    const {error}=await sb
+      .from("message_recipients")
+      .update({active:next})
+      .eq("id",b.dataset.recipientToggle);
+
+    if(error){alert(error.message);return}
+    renderMessageRecipients();
+  });
+
+  qa("[data-recipient-delete]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Usunąć tego odbiorcę wiadomości?"))return;
+
+    const {error}=await sb
+      .from("message_recipients")
+      .delete()
+      .eq("id",b.dataset.recipientDelete);
+
+    if(error){alert(error.message);return}
+    renderMessageRecipients();
+  });
+}
+
 const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["images","Zdjęcia (maksymalnie 4)","multi-file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["file","Zdjęcie wyników ankiety","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["images","Zdjęcia ogłoszenia (maksymalnie 4)","multi-file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[
@@ -779,6 +929,34 @@ function parentMessageDate(value){
   });
 }
 
+function parentMessageEmailStatus(row){
+  const status=String(row?.email_status||"legacy");
+  const total=Number(row?.email_recipient_count||0);
+  const sent=Number(row?.email_success_count||0);
+
+  if(status==="sent"){
+    return `<span class="message-email-status is-sent">📧 E-mail wysłany${sent?` do ${sent} ${sent===1?"osoby":"osób"}`:""}</span>`;
+  }
+
+  if(status==="partial"){
+    return `<span class="message-email-status is-warning">⚠️ E-mail wysłany do ${sent}/${total} odbiorców</span>`;
+  }
+
+  if(status==="failed"){
+    return `<span class="message-email-status is-error" title="${esc(row?.email_error||"")}">⚠️ Błąd wysyłki e-mail</span>`;
+  }
+
+  if(status==="no_recipients"){
+    return `<span class="message-email-status is-warning">ℹ️ Brak aktywnych odbiorców e-mail</span>`;
+  }
+
+  if(status==="pending"){
+    return `<span class="message-email-status is-pending">⏳ Przekazywanie e-mail…</span>`;
+  }
+
+  return `<span class="message-email-status is-legacy">Starsza wiadomość</span>`;
+}
+
 async function renderParentMessages(){
   setActiveAdminTab("parent_messages");
   q("#editor").dataset.table="parent_messages";
@@ -824,6 +1002,9 @@ async function renderParentMessages(){
                 </div>
                 <div class="admin-parent-message-meta">
                   Dziecko: <b>${esc(x.child_name)}</b> • ${parentMessageDate(x.created_at)}
+                </div>
+                <div class="admin-parent-message-email">
+                  ${parentMessageEmailStatus(x)}
                 </div>
               </div>
             </div>

@@ -1,0 +1,31 @@
+Sówki PWA v0.6.9 — Wiadomości e-mail
+
+Co dodano:
+- nowa zakładka „Odbiorcy” w panelu administratora,
+- dodawanie wielu odbiorców: nazwa, rola, e-mail, aktywny/wyłączony,
+- każdy aktywny odbiorca dostaje osobny e-mail,
+- adresy odbiorców nie są widoczne dla rodziców,
+- wiadomość nadal zapisuje się w panelu administratora,
+- przy wiadomości widać status przekazania e-mail,
+- działa także ze starszą wersją formularza, ponieważ wysyłkę uruchamia trigger bazy.
+
+Wymagane:
+1. Utworzyć konto Resend.
+2. Zweryfikować domenę sowkitarczyn.pl w Resend.
+3. Utworzyć klucz API w Resend.
+4. W Supabase Edge Function Secrets ustawić:
+   RESEND_API_KEY = klucz z Resend
+   MESSAGE_EMAIL_FROM = Sówki <powiadomienia@sowkitarczyn.pl>
+5. Utworzyć Edge Function o nazwie:
+   send-parent-message-email
+   i wkleić kod z send-parent-message-email-v0.6.9.ts
+6. Dla tej funkcji wyłączyć Verify JWT.
+7. Dopiero potem uruchomić:
+   SUPABASE-v0.6.9-wiadomosci-email.sql
+8. Wgrać aplikację v0.6.9.
+9. W panelu Administratora → Odbiorcy dodać osoby i ich e-maile.
+10. Wysłać testową wiadomość z formularza.
+
+Uwaga:
+- SQL i Edge Function zawierają wspólny wewnętrzny sekret wywołania.
+  Należy używać plików z tego samego pakietu v0.6.9.
