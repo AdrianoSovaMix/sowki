@@ -547,9 +547,12 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.1 — kompaktowa „Daj Sówkę”: lokalne oznaczanie przeczytanych informacji.
-// Stan jest zapisany wyłącznie na urządzeniu rodzica (localStorage), bez wysyłania do Supabase.
+// v0.7.3 — „Daj Sówkę” + anonimowy licznik odczytań w panelu administratora.
+// Rodzic nadal ma lokalne oznaczenie w localStorage. Dodatkowo aplikacja wysyła do Supabase
+// anonimowe potwierdzenie urządzenia, bez imienia, e-maila, numeru telefonu ani konta rodzica.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
+const SOWKI_DEVICE_STORAGE_KEY="sowki_reader_device_v1";
+const SOWKI_SYNC_STORAGE_PREFIX="sowki_read_synced_v1";
 
 function sowkiReadStorageKey(kind,id){
   return `${SOWKI_READ_STORAGE_PREFIX}:${String(kind||"")}:${String(id||"")}`;
@@ -570,6 +573,104 @@ function sowkiMarkRead(kind,id){
   }catch{
     return false;
   }
+}
+
+function sowkiDeviceToken(){
+  try{
+    let token=localStorage.getItem(SOWKI_DEVICE_STORAGE_KEY);
+    if(token && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(token))return token;
+
+    if(globalThis.crypto?.randomUUID){
+      token=crypto.randomUUID();
+    }else{
+      token="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{
+        const r=Math.random()*16|0;
+        const v=c==="x"?r:(r&0x3|0x8);
+        return v.toString(16);
+      });
+    }
+
+    localStorage.setItem(SOWKI_DEVICE_STORAGE_KEY,token);
+    return token;
+  }catch{
+    return null;
+  }
+}
+
+function sowkiSyncStorageKey(kind,id){
+  return `${SOWKI_SYNC_STORAGE_PREFIX}:${String(kind||"")}:${String(id||"")}`;
+}
+
+function sowkiIsSynced(kind,id){
+  try{return localStorage.getItem(sowkiSyncStorageKey(kind,id))==="1"}catch{return false}
+}
+
+function sowkiMarkSynced(kind,id){
+  try{localStorage.setItem(sowkiSyncStorageKey(kind,id),"1")}catch{}
+}
+
+async function sowkiSyncReceipt(kind,id){
+  if(!["notice","event","announcement"].includes(String(kind||"")))return false;
+  if(!id || sowkiIsSynced(kind,id))return true;
+
+  const deviceToken=sowkiDeviceToken();
+  if(!deviceToken)return false;
+
+  try{
+    const {data,error}=await sb.rpc("give_sowka",{
+      p_kind:String(kind),
+      p_item_id:Number(id),
+      p_device_token:deviceToken
+    });
+
+    if(error){
+      console.warn("Nie udało się zsynchronizować Sówki:",error.message);
+      return false;
+    }
+
+    if(data===true){
+      sowkiMarkSynced(kind,id);
+      return true;
+    }
+  }catch(error){
+    console.warn("Nie udało się zsynchronizować Sówki:",error);
+  }
+
+  return false;
+}
+
+function sowkiKindForTable(table){
+  return table==="monthly_notices"?"notice":
+    table==="events"?"event":
+    table==="announcements"?"announcement":"";
+}
+
+async function loadAdminSowkaCounts(kind){
+  if(!kind)return null;
+  try{
+    const {data,error}=await sb.rpc("get_sowka_counts",{p_kind:kind});
+    if(error){
+      console.warn("Nie udało się pobrać liczników Sówek:",error.message);
+      return null;
+    }
+    return new Map((data||[]).map(x=>[String(x.item_id),Number(x.sowka_count)||0]));
+  }catch(error){
+    console.warn("Nie udało się pobrać liczników Sówek:",error);
+    return null;
+  }
+}
+
+function adminSowkaCountBadge(id,counts){
+  if(!(counts instanceof Map))return "";
+  const count=counts.get(String(id))||0;
+  const label=count===1
+    ? "1 urządzenie oznaczyło tę informację jako przeczytaną"
+    : `${count} urządzeń oznaczyło tę informację jako przeczytaną`;
+
+  return `<span class="admin-sowka-count" title="${esc(label)}" aria-label="${esc(label)}">
+    ${sowkiOwlSvg(true)}
+    <strong>${count}</strong>
+  </span>`;
 }
 
 function sowkiHeartPath(){
@@ -624,6 +725,9 @@ function sowkiReadButtonInner(read){
 
 function sowkiReadReaction(kind,id){
   const read=sowkiIsMarkedRead(kind,id);
+  if(read && !sowkiIsSynced(kind,id)){
+    queueMicrotask(()=>sowkiSyncReceipt(kind,id));
+  }
   const safeKind=esc(kind);
   const safeId=esc(id);
   return `<div class="sowki-read-row ${read?"is-read":""}">
@@ -660,8 +764,10 @@ document.addEventListener("click",e=>{
   const id=btn.dataset.id||"";
   if(!kind||!id)return;
 
-  // Zapisujemy od razu, żeby nawet szybkie zamknięcie strony nie zgubiło odczytania.
+  // Zapisujemy od razu lokalnie, żeby nawet szybkie zamknięcie strony nie zgubiło odczytania.
   sowkiMarkRead(kind,id);
+  // Licznik administratora jest anonimowy i nie blokuje animacji/interfejsu.
+  sowkiSyncReceipt(kind,id);
   btn.disabled=true;
   btn.classList.add("is-celebrating");
 
@@ -1773,6 +1879,8 @@ async function render(table,id){
 
   const rows=data||[];
   const e=id?rows.find(x=>String(x.id)===String(id)):null;
+  const sowkaKind=sowkiKindForTable(table);
+  const sowkaCounts=sowkaKind?await loadAdminSowkaCounts(sowkaKind):null;
 
   q("#editor").dataset.table=table;
   q("#editor").innerHTML=`
@@ -1811,6 +1919,7 @@ async function render(table,id){
               <div class="adminitem-title-row">
                 <b>${esc(x.title||"#"+x.id)}</b>
                 <span class="admin-status ${isPublished?"is-published":"is-hidden"}">${isPublished?"● Opublikowane":"○ Ukryte"}</span>
+                ${isPublished&&sowkaKind?adminSowkaCountBadge(x.id,sowkaCounts):""}
               </div>
               ${meta?`<div class="adminitem-meta">${esc(meta)}</div>`:""}
               ${imagePath&&!ecoOptimized?`

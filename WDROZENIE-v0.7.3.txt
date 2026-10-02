@@ -1,0 +1,18 @@
+Sówki v0.7.3 — wdrożenie licznika „Daj Sówkę"
+
+1. NAJPIERW Supabase → SQL Editor:
+   uruchom cały plik SUPABASE-v0.7.3-LICZNIK-SOWEK.sql
+
+2. POTEM GitHub Pages:
+   wgraj zawartość folderu Sowki-PWA-v0.7.3-SOWKA-LICZNIK do głównego katalogu repozytorium.
+
+3. Poczekaj na zakończenie GitHub Actions i odśwież PWA.
+
+TEST:
+- na telefonie rodzica kliknij „Daj Sówkę” pod nowym wpisem,
+- w Panelu Admin otwórz odpowiednią zakładkę ponownie,
+- przy statusie „Opublikowane” powinna pojawić się mała sówka i liczba większa o 1.
+
+UWAGA:
+Licznik oznacza liczbę unikalnych urządzeń/instalacji, nie zweryfikowanych osób.
+Ten sam rodzic używający dwóch urządzeń może zostać policzony dwa razy.

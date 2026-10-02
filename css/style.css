@@ -3110,3 +3110,50 @@ nav > .home .nav-new-dot{
   .sowki-read-btn,.sowki-read-btn *{animation:none!important;transition:none!important}
 }
 }
+
+
+/* =========================================================
+   v0.7.3 — anonimowy licznik „Daj Sówkę” w panelu admina
+   ========================================================= */
+#panel .admin-sowka-count{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  height:25px!important;
+  min-width:39px!important;
+  padding:1px 7px 1px 3px!important;
+  border:1px solid #ead8c8!important;
+  border-radius:999px!important;
+  background:#fffaf5!important;
+  color:#74452d!important;
+  box-shadow:0 1px 4px rgba(87,51,33,.06)!important;
+  cursor:help!important;
+}
+#panel .admin-sowka-count .sowki-read-owl-svg{
+  width:21px!important;
+  height:21px!important;
+  flex:0 0 21px!important;
+  margin:0!important;
+}
+#panel .admin-sowka-count .sowki-read-check{
+  display:none!important;
+}
+#panel .admin-sowka-count strong{
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  color:#74452d!important;
+}
+@media(max-width:520px){
+  #panel .admin-sowka-count{
+    height:24px!important;
+    min-width:37px!important;
+    padding-right:6px!important;
+  }
+  #panel .admin-sowka-count .sowki-read-owl-svg{
+    width:20px!important;
+    height:20px!important;
+    flex-basis:20px!important;
+  }
+}

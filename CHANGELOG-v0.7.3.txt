@@ -1,0 +1,13 @@
+Sówki PWA v0.7.3 — LICZNIK SÓWEK
+
+- „Daj Sówkę” nadal działa lokalnie i pamięta odczyt na urządzeniu rodzica.
+- Po kliknięciu wysyłane jest także anonimowe potwierdzenie do Supabase.
+- Jedno urządzenie może zostać policzone tylko raz dla danego wpisu.
+- Panel Admin pokazuje małą sówkę + liczbę przy opublikowanych:
+  • Najważniejszych informacjach
+  • Wydarzeniach
+  • Ogłoszeniach
+- Najazd/kursor nad licznikiem wyjaśnia, że jest to liczba urządzeń, nie zweryfikowanych osób.
+- Odczytania zapisane wcześniej lokalnie w v0.7.1 są automatycznie dosyłane do licznika, gdy rodzic ponownie zobaczy dany wpis.
+- Brak imienia, e-maila, telefonu i konta rodzica w tabeli reakcji.
+- Wersja PWA/cache: v0.7.3.
