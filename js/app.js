@@ -365,6 +365,44 @@ function storageImg(path,{className="",alt="",title="",preview=false}={}){
   >`;
 }
 
+function recordImageUrls(row){
+  if(!row)return [];
+
+  let urls=[];
+  const raw=row.image_urls;
+
+  if(Array.isArray(raw)){
+    urls=raw;
+  }else if(typeof raw==="string"&&raw.trim()){
+    try{
+      const parsed=JSON.parse(raw);
+      if(Array.isArray(parsed))urls=parsed;
+    }catch{}
+  }
+
+  urls=urls.map(x=>String(x||"").trim()).filter(Boolean);
+
+  if(!urls.length&&row.image_url){
+    urls=[String(row.image_url).trim()];
+  }
+
+  return [...new Set(urls)].slice(0,4);
+}
+
+function multiStorageImages(row,{className="",alt="",preview=true}={}){
+  const urls=recordImageUrls(row);
+  if(!urls.length)return "";
+
+  return `<div class="post-image-grid post-image-count-${urls.length}">
+    ${urls.map((url,i)=>storageImg(url,{
+      className:`${className} post-image-grid-item`,
+      alt:urls.length>1?`${alt} – zdjęcie ${i+1}`:alt,
+      title:preview?"Dotknij, aby powiększyć":"",
+      preview
+    })).join("")}
+  </div>`;
+}
+
 async function hydrateStorageImages(root){
   const el=typeof root==="string"?q(root):root;
   if(!el)return;
@@ -517,14 +555,14 @@ async function load(){
  const homeEventRows=r.data||[];
  let a=[];
  for(const x of homeEventRows){
-   a.push(`<div class="item">${storageImg(x.image_url,{className:"event-photo",alt:x.title||"Wydarzenie"})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`);
+   a.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p></div>`);
  }
  q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
  setNewContentTokens("home",[
    ...homeNoticeRows.map(x=>`notice:${x.id}`),
    ...homeEventRows.map(x=>`event:${x.id}`)
  ]);
- r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${storageImg(x.image_url,{className:"announcement-photo",alt:x.title||"Ogłoszenie",title:"Dotknij, aby powiększyć",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
+ r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
  r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false});
  const menuRows=r.data||[];
  setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
@@ -637,8 +675,8 @@ qa("[data-tab]").forEach(b=>b.onclick=()=>{
   else if(b.dataset.tab==="parent_messages")renderParentMessages();
   else render(b.dataset.tab);
 });
-const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["file","Zdjęcie wyników ankiety","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
-announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
+const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text"],["content","Opis","textarea"],["event_date","Data","date"],["published","Opublikuj od razu na stronie","checkbox"]]},events:{title:"Wydarzenia",fields:[["title","Tytuł","text"],["content","Treść","textarea"],["event_date","Data","date"],["images","Zdjęcia (maksymalnie 4)","multi-file"],["published","Opublikuj od razu na stronie","checkbox"]]},menus:{title:"Jadłospis",fields:[["title","Tytuł","text"],["date_from","Od","date"],["date_to","Do","date"],["file","Zdjęcie","file"],["published","Opublikuj od razu na stronie","checkbox"]]},surveys:{title:"Ankiety",fields:[["title","Tytuł","text"],["form_url","Link do Microsoft Forms","url"],["ends_at","Koniec","datetime-local"],["file","Zdjęcie wyników ankiety","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
+announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["images","Zdjęcia ogłoszenia (maksymalnie 4)","multi-file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[
 ["title","Tytuł","text"],
 ["body","Treść powiadomienia","plain-textarea"],
@@ -1103,13 +1141,23 @@ async function deleteR2Object(objectPath){
   }
 }
 
-function adminImagePath(table,row){
-  if(!row)return "";
-  if(table==="surveys")return row.results_image_url||"";
-  if(["events","menus","gallery_albums","announcements"].includes(table)){
-    return row.image_url||"";
+function adminImageValues(table,row){
+  if(!row)return [];
+  if(table==="surveys")return row.results_image_url?[row.results_image_url]:[];
+
+  if(table==="events"||table==="announcements"){
+    return recordImageUrls(row);
   }
-  return "";
+
+  if(["menus","gallery_albums"].includes(table)){
+    return row.image_url?[row.image_url]:[];
+  }
+
+  return [];
+}
+
+function adminImagePath(table,row){
+  return adminImageValues(table,row)[0]||"";
 }
 
 function adminImageColumn(table){
@@ -1518,7 +1566,7 @@ async function render(table,id){
     if(!confirm("Usunąć wpis? Jeśli ma przypisane zdjęcie, zostanie ono również usunięte ze Storage."))return;
 
     const row=rows.find(x=>String(x.id)===String(b.dataset.d));
-    const imageValue=adminImagePath(table,row);
+    const imageValues=adminImageValues(table,row);
 
     // Najpierw usuwamy rekord z bazy. Dzięki temu ewentualny błąd
     // czyszczenia pliku nie pozostawi wpisu wskazującego na usunięty obraz.
@@ -1529,20 +1577,21 @@ async function render(table,id){
       return;
     }
 
-    let cleanup={ok:true,deleted:0};
+    let cleanupErrors=[];
 
-    if(imageValue){
+    for(const imageValue of imageValues){
       try{
-        cleanup=await cleanupMediaForRecord(table,imageValue);
+        const cleanup=await cleanupMediaForRecord(table,imageValue);
+        if(!cleanup.ok)cleanupErrors.push(cleanup.error||"Nieznany błąd.");
       }catch(e){
-        cleanup={ok:false,deleted:0,error:e?.message||String(e)};
+        cleanupErrors.push(e?.message||String(e));
       }
     }
 
-    if(!cleanup.ok){
+    if(cleanupErrors.length){
       alert(
-        "Wpis został usunięty, ale nie udało się usunąć powiązanego obrazu.\n\n"+
-        (cleanup.error||"Nieznany błąd.")
+        "Wpis został usunięty, ale nie udało się usunąć wszystkich powiązanych obrazów.\n\n"+
+        cleanupErrors.join("\n")
       );
     }
 
@@ -1614,6 +1663,15 @@ function field(f,e){
  }
  if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;
  if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;
+ if(t==="multi-file"){
+   const existing=recordImageUrls(e);
+   return `<label>${l}</label>
+     <input type="file" name="${n}" accept="image/*" multiple data-max-files="4">
+     <div class="admin-field-note">
+       ${existing.length?`Aktualnie: ${existing.length} ${existing.length===1?"zdjęcie":"zdjęcia"}. `:""}
+       Możesz wybrać od 1 do 4 zdjęć jednocześnie. Wybranie nowych zdjęć zastąpi obecny zestaw.
+     </div>`;
+ }
  if(t==="select")return`<label>${l}</label><select name="${n}" class="admin-select">${(opts||[]).map(([value,label])=>`<option value="${esc(value)}" ${String(v)===String(value)?"selected":""}>${esc(label)}</option>`).join("")}</select>`;
  if(t==="datetime-local"&&v)v=isoToWarsawLocal(v);
  return`<label>${l}</label><input type="${t}" name="${n}" value="${esc(v)}">`
@@ -1871,6 +1929,78 @@ function withTimeout(promise,ms,message){
   return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
 
+async function uploadAdminImageFile(table,file,setStatus,label="Zdjęcie"){
+  const folder=adminImageFolder(table);
+
+  setStatus(`Przygotowuję: ${label}…`);
+
+  const eco=await prepareEcoPlusImages(file,table,setStatus);
+  const base=ecoBaseName(file.name||"image");
+  const stamp=Date.now()+"-"+Math.random().toString(36).slice(2,7);
+
+  const fullObjectPath=`${folder}/${stamp}-${base}-full.${eco.full.ext}`;
+
+  setStatus(
+    usesPublicMediaBucket(table)
+      ? `Wysyłam: ${label} (${formatFileSize(eco.full.size)})…`
+      : `Wysyłam: ${label}…`
+  );
+
+  if(usesPublicMediaBucket(table)){
+    if(eco.full.mime!=="image/webp"){
+      throw new Error("Nie udało się przygotować obrazu WebP.");
+    }
+    await uploadR2Object(fullObjectPath,eco.full.bytes);
+  }else{
+    const fullUpload=await withTimeout(
+      sb.storage.from(cfg.bucket).upload(
+        fullObjectPath,
+        eco.full.bytes,
+        {
+          contentType:eco.full.mime,
+          cacheControl:"31536000",
+          upsert:false
+        }
+      ),
+      60000,
+      "Wysyłanie pełnego zdjęcia trwało zbyt długo."
+    );
+
+    if(fullUpload.error)throw new Error(fullUpload.error.message);
+  }
+
+  if(eco.thumb){
+    const thumbObjectPath=`${folder}/${stamp}-${base}-thumb.webp`;
+
+    if(usesPublicMediaBucket(table)){
+      await uploadR2Object(thumbObjectPath,eco.thumb.bytes);
+    }else{
+      const thumbUpload=await withTimeout(
+        sb.storage.from(cfg.bucket).upload(
+          thumbObjectPath,
+          eco.thumb.bytes,
+          {
+            contentType:"image/webp",
+            cacheControl:"31536000",
+            upsert:false
+          }
+        ),
+        60000,
+        "Wysyłanie miniatury trwało zbyt długo."
+      );
+
+      if(thumbUpload.error){
+        console.warn("THUMB UPLOAD ERROR:",thumbUpload.error);
+      }
+    }
+  }
+
+  const storedValue=storedMediaValue(table,fullObjectPath);
+  if(!storedValue)throw new Error("Nie udało się przygotować adresu zapisanego zdjęcia.");
+
+  return storedValue;
+}
+
 async function save(ev){
   ev.preventDefault();
 
@@ -1902,7 +2032,7 @@ async function save(ev){
 
     d.fields.forEach(x=>{
       let[n,,t]=x;
-      if(["file","notification-mode","notification-schedule"].includes(t))return;
+      if(["file","multi-file","notification-mode","notification-schedule"].includes(t))return;
       if(t==="checkbox")o[n]=fd.get(n)==="on";
       else{
         o[n]=fd.get(n)||null;
@@ -1949,6 +2079,50 @@ async function save(ev){
         delete o.scheduled_at;
         delete o.push_sent_at;
       }
+    }
+
+    const multiInput=form.querySelector('input[type="file"][name="images"]');
+    const multiFiles=multiInput?[...multiInput.files]:[];
+    let oldMultiImageValues=[];
+
+    if(multiFiles.length){
+      if(!["events","announcements"].includes(table)){
+        throw new Error("Wielokrotny upload zdjęć jest niedostępny w tym dziale.");
+      }
+
+      if(multiFiles.length>4){
+        throw new Error("Możesz dodać maksymalnie 4 zdjęcia do jednego wpisu.");
+      }
+
+      if(id){
+        const oldRowResult=await sb
+          .from(table)
+          .select("image_url,image_urls")
+          .eq("id",id)
+          .single();
+
+        if(oldRowResult.error){
+          throw new Error("Nie udało się odczytać obecnych zdjęć wpisu: "+oldRowResult.error.message);
+        }
+
+        oldMultiImageValues=recordImageUrls(oldRowResult.data);
+      }
+
+      const uploadedValues=[];
+
+      for(let i=0;i<multiFiles.length;i++){
+        uploadedValues.push(
+          await uploadAdminImageFile(
+            table,
+            multiFiles[i],
+            setStatus,
+            `zdjęcie ${i+1} z ${multiFiles.length}`
+          )
+        );
+      }
+
+      o.image_urls=uploadedValues;
+      o.image_url=uploadedValues[0]||null;
     }
 
     const file=fd.get("file");
@@ -2073,6 +2247,18 @@ async function save(ev){
     );
 
     if(r.error)throw new Error(r.error.message);
+
+    if(multiFiles.length&&oldMultiImageValues.length){
+      const keep=new Set((o.image_urls||[]).map(String));
+
+      for(const oldValue of oldMultiImageValues){
+        if(keep.has(String(oldValue)))continue;
+        const cleanup=await cleanupMediaForRecord(table,oldValue);
+        if(!cleanup.ok){
+          console.warn("Nie udało się usunąć starego zdjęcia po podmianie:",oldValue,cleanup.error);
+        }
+      }
+    }
 
     if(table==="notifications"&&r.data){
       if(notificationSendMode==="now"&&!r.data.push_sent_at){
