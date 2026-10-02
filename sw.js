@@ -1,4 +1,4 @@
-const C="sowki-v0650";const A=["./","index.html","css/style.css?v=0650","js/config.js?v=0650","js/app.js?v=0650","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0660";const A=["./","index.html","css/style.css?v=0660","js/config.js?v=0660","js/app.js?v=0660","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>{
   e.waitUntil((async()=>{
     const c=await caches.open(C);
@@ -49,6 +49,24 @@ self.addEventListener("fetch",e=>{
     }
   })());
 });
+function pushPlainText(v){
+  return String(v||"")
+    .replace(/<br\s*\/?>/gi,"\n")
+    .replace(/<li\b[^>]*>/gi,"• ")
+    .replace(/<\/(?:p|div|li|ul|ol|h[1-6])>/gi,"\n")
+    .replace(/<[^>]+>/g,"")
+    .replace(/&nbsp;/gi," ")
+    .replace(/&amp;/gi,"&")
+    .replace(/&lt;/gi,"<")
+    .replace(/&gt;/gi,">")
+    .replace(/&quot;/gi,'"')
+    .replace(/&#39;/gi,"'")
+    .replace(/\r\n?/g,"\n")
+    .replace(/[ \t]+\n/g,"\n")
+    .replace(/\n{3,}/g,"\n\n")
+    .trim();
+}
+
 self.addEventListener("push",e=>{
   let d={};
   try{d=e.data?e.data.json():{}}
@@ -59,8 +77,8 @@ self.addEventListener("push",e=>{
   const notificationId=d.notification_id||d.notificationId||(fromTag?fromTag[1]:"");
 
   e.waitUntil((async()=>{
-    await self.registration.showNotification(d.title||"Sówki",{
-      body:d.body||"Nowa wiadomość dla rodziców.",
+    await self.registration.showNotification(pushPlainText(d.title)||"Sówki",{
+      body:pushPlainText(d.body)||"Nowa wiadomość dla rodziców.",
       icon:"icon-192.png",
       badge:"favicon.png",
       tag,

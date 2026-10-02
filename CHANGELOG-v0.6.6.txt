@@ -1,0 +1,16 @@
+Sówki PWA v0.6.6 — Powiadomienia PUSH
+
+- Treść powiadomień w panelu administratora jest teraz zwykłym tekstem.
+- Usunięto z pola Treść powiadomienia: pogrubienie, kursywę, podkreślenie,
+  kolory, listy, linki i inne formatowanie.
+- Stare powiadomienia zawierające HTML są automatycznie wyświetlane i wysyłane
+  jako czysty tekst, więc znaczniki <span>, style itp. nie trafiają do PUSH.
+- Service Worker dodatkowo czyści treść PUSH przed pokazaniem powiadomienia.
+- Do paczki dołączono zaktualizowaną Edge Function send-push-v0.6.6.ts,
+  która również czyści HTML po stronie serwera.
+- Naprawiono zachowanie zaznaczenia przy wyborze koloru w pozostałych
+  edytorach rich-text (Ogłoszenia/Wydarzenia/Najważniejsze).
+- Systemowego napisu typu „from Sówki” na telefonie nie można niezależnie
+  zmienić — dodaje go system/przegladarka jako informację o źródle powiadomienia.
+
+Brak zmian SQL.

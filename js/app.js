@@ -25,6 +25,26 @@ function richDisplay(v){
  if(/<\/?(?:b|strong|i|em|u|br|p|div|ul|ol|li|a|span)\b/i.test(v)) return richSanitize(v);
  return esc(v).replace(/\n/g,"<br>");
 }
+
+function notificationPlainText(v){
+ let s=String(v||"");
+
+ s=s
+   .replace(/<br\s*\/?>/gi,"\n")
+   .replace(/<li\b[^>]*>/gi,"• ")
+   .replace(/<\/(?:p|div|li|ul|ol|h[1-6])>/gi,"\n")
+   .replace(/<[^>]+>/g,"");
+
+ const ta=document.createElement("textarea");
+ ta.innerHTML=s;
+ s=ta.value;
+
+ return s
+   .replace(/\r\n?/g,"\n")
+   .replace(/[ \t]+\n/g,"\n")
+   .replace(/\n{3,}/g,"\n\n")
+   .trim();
+}
 function richEditor(name,label,value){
  const id="rich_"+name, safe=richDisplay(value||"");
  return `<label>${label}</label><div class="rich-wrap">
@@ -44,12 +64,78 @@ function richEditor(name,label,value){
 function bindRichEditors(){
  qa(".rich-wrap").forEach(w=>{
    const ed=w.querySelector(".rich-editor"), hidden=w.querySelector(".rich-hidden");
+   let savedRange=null;
+
    const sync=()=>hidden.value=richSanitize(ed.innerHTML);
-   w.querySelectorAll("[data-cmd]").forEach(b=>b.onclick=()=>{ed.focus();document.execCommand(b.dataset.cmd,false,null);sync()});
-   const cp=w.querySelector('input[type="color"]'); if(cp) cp.oninput=()=>{ed.focus();document.execCommand("foreColor",false,cp.value);sync()};
-   const link=w.querySelector("[data-link]"); if(link) link.onclick=()=>{const u=prompt("Wklej adres linku (https://...)");if(u&&/^https?:\/\//i.test(u)){ed.focus();document.execCommand("createLink",false,u);sync()}};
-   const clear=w.querySelector("[data-clear]"); if(clear) clear.onclick=()=>{ed.focus();document.execCommand("removeFormat",false,null);sync()};
-   ed.addEventListener("input",sync); sync();
+
+   const saveSelection=()=>{
+     const sel=window.getSelection();
+     if(!sel?.rangeCount)return;
+     const range=sel.getRangeAt(0);
+     if(ed.contains(range.commonAncestorContainer)){
+       savedRange=range.cloneRange();
+     }
+   };
+
+   const restoreSelection=()=>{
+     ed.focus();
+     if(!savedRange)return;
+     const sel=window.getSelection();
+     sel.removeAllRanges();
+     sel.addRange(savedRange);
+   };
+
+   ed.addEventListener("mouseup",saveSelection);
+   ed.addEventListener("keyup",saveSelection);
+   ed.addEventListener("input",()=>{sync();saveSelection()});
+
+   w.querySelectorAll("[data-cmd]").forEach(b=>{
+     b.onmousedown=e=>e.preventDefault();
+     b.onclick=()=>{
+       restoreSelection();
+       document.execCommand(b.dataset.cmd,false,null);
+       sync();
+       saveSelection();
+     };
+   });
+
+   const cp=w.querySelector('input[type="color"]');
+   if(cp){
+     cp.addEventListener("mousedown",saveSelection);
+     cp.oninput=()=>{
+       restoreSelection();
+       document.execCommand("foreColor",false,cp.value);
+       sync();
+       saveSelection();
+     };
+   }
+
+   const link=w.querySelector("[data-link]");
+   if(link){
+     link.onmousedown=e=>e.preventDefault();
+     link.onclick=()=>{
+       const u=prompt("Wklej adres linku (https://...)");
+       if(u&&/^https?:\/\//i.test(u)){
+         restoreSelection();
+         document.execCommand("createLink",false,u);
+         sync();
+         saveSelection();
+       }
+     };
+   }
+
+   const clear=w.querySelector("[data-clear]");
+   if(clear){
+     clear.onmousedown=e=>e.preventDefault();
+     clear.onclick=()=>{
+       restoreSelection();
+       document.execCommand("removeFormat",false,null);
+       sync();
+       saveSelection();
+     };
+   }
+
+   sync();
  });
 }
 
@@ -555,7 +641,7 @@ const D={monthly_notices:{title:"Najważniejsze",fields:[["title","Tytuł","text
 announcements:{title:"Ogłoszenia",fields:[["title","Tytuł","text"],["description","Opis","textarea"],["event_date","Data","date"],["file","Zdjęcie ogłoszenia","file"],["published","Opublikuj od razu na stronie","checkbox"]]},
 notifications:{title:"Powiadomienia",fields:[
 ["title","Tytuł","text"],
-["body","Treść powiadomienia","textarea"],
+["body","Treść powiadomienia","plain-textarea"],
 ["target_page","Wybierz gdzie ma przejść po kliknięciu w powiadomienie","select",[
 ["","Brak – nie przechodź do żadnej karty"],
 ["home","START"],
@@ -1473,6 +1559,12 @@ async function render(table,id){
 function field(f,e){
  let[n,l,t,opts]=f,v=e?.[n]??"";
  if(t==="textarea")return richEditor(n,l,v);
+ if(t==="plain-textarea"){
+   const plain=notificationPlainText(v);
+   return `<label>${l}</label>
+     <textarea name="${n}" class="admin-plain-textarea" rows="6" maxlength="1500">${esc(plain)}</textarea>
+     <div class="admin-field-note">Powiadomienia PUSH są wysyłane jako zwykły tekst – bez kolorów, pogrubienia i innych stylów.</div>`;
+ }
  if(t==="checkbox")return`<label class="check"><input type="checkbox" name="${n}" ${e?(v?"checked":""):"checked"}>${l}</label>`;
  if(t==="file")return`<label>${l}</label><input type="file" name="${n}" accept="image/*">`;
  if(t==="select")return`<label>${l}</label><select name="${n}" class="admin-select">${(opts||[]).map(([value,label])=>`<option value="${esc(value)}" ${String(v)===String(value)?"selected":""}>${esc(label)}</option>`).join("")}</select>`;
@@ -1773,6 +1865,11 @@ async function save(ev){
 
     if(table==="surveys"){
       if(o.ends_at)o.ends_at=warsawLocalToISO(o.ends_at);
+    }
+
+    if(table==="notifications"){
+      o.title=notificationPlainText(o.title||"");
+      o.body=notificationPlainText(o.body||"");
     }
 
     const file=fd.get("file");
@@ -2372,8 +2469,8 @@ async function loadNotifications(){
           <div class="notification-meta">${new Date(x.created_at).toLocaleString("pl-PL")}</div>
           <span class="notification-read-status ${wasRead?"is-read":"is-unread"}">${wasRead?"✓ Odczytane":"● Nieodczytane"}</span>
         </div>
-        <h3>${esc(x.title)}</h3>
-        <div>${richDisplay(x.body||"")}</div>
+        <h3>${esc(notificationPlainText(x.title||""))}</h3>
+        <div class="notification-plain-body">${esc(notificationPlainText(x.body||"")).replace(/\n/g,"<br>")}</div>
         ${x.target_page?'<div class="notification-target">Dotknij, aby przejść do informacji →</div>':""}
       </article>`;
   }).join("")||empty("Nie wysłano jeszcze żadnych powiadomień.");

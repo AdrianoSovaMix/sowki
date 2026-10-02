@@ -2805,3 +2805,27 @@ nav > .home .nav-new-dot{
     font-size:10px;
   }
 }
+
+
+/* =========================================================
+   v0.6.6 — powiadomienia jako czysty tekst
+   ========================================================= */
+
+.admin-plain-textarea{
+  width:100%;
+  min-height:132px;
+  resize:vertical;
+  line-height:1.45;
+}
+
+.admin-field-note{
+  margin:-2px 0 10px;
+  color:#7a6970;
+  font-size:11px;
+  line-height:1.35;
+}
+
+.notification-plain-body{
+  white-space:normal;
+  line-height:1.45;
+}
