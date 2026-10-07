@@ -3856,3 +3856,64 @@ nav > .home .nav-new-dot{
     justify-content:flex-start;
   }
 }
+
+
+/* =========================================================
+   v0.7.12 — Kontakt z Panią Kasią: telefon rodzica/opiekuna
+   ========================================================= */
+
+.parent-message-field-hint{
+  display:block;
+  margin-top:-2px;
+  color:#7b7076;
+  font-size:10.5px;
+  line-height:1.35;
+}
+
+#parentMessageForm input[type="tel"]{
+  letter-spacing:.1px;
+}
+
+.admin-parent-message-contact{
+  margin-top:5px;
+}
+
+.admin-parent-message-phone{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-height:26px;
+  padding:4px 8px;
+  border-radius:9px;
+  background:#f3f8ff;
+  color:#245d8a;
+  font-size:11.5px;
+  font-weight:800;
+  text-decoration:none;
+  border:1px solid #dcecf8;
+}
+
+.admin-parent-message-phone:hover{
+  text-decoration:underline;
+}
+
+.admin-parent-message-phone.is-missing{
+  background:#f7f4f5;
+  color:#81767c;
+  border-color:#ebe3e7;
+}
+
+@media(max-width:520px){
+  .parent-message-card{
+    padding:17px;
+  }
+  .parent-message-title{
+    margin-bottom:12px;
+  }
+  #parentMessageForm{
+    gap:6px;
+  }
+  #parentMessageForm textarea{
+    min-height:115px;
+  }
+}

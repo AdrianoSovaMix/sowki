@@ -179,7 +179,7 @@ document.addEventListener("keydown",e=>{
 });
 
 // =========================================================
-// v0.5.5.7 — prosta skrzynka wiadomości do wychowawczyni
+// v0.7.12 — kontakt z Panią Kasią: dane dziecka, rodzica/opiekuna, telefon i wiadomość
 // =========================================================
 const parentMessageDlg=q("#parentMessageDlg");
 const parentMessageForm=q("#parentMessageForm");
@@ -206,11 +206,18 @@ parentMessageForm.addEventListener("submit",async e=>{
   const payload={
     p_parent_name:String(fd.get("parent_name")||"").trim(),
     p_child_name:String(fd.get("child_name")||"").trim(),
+    p_contact:String(fd.get("contact")||"").trim(),
     p_message:String(fd.get("message")||"").trim()
   };
 
-  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_message){
+  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_contact||!payload.p_message){
     parentMessageStatus.textContent="Uzupełnij wszystkie pola.";
+    return;
+  }
+
+  const contactDigits=payload.p_contact.replace(/\D/g,"");
+  if(!/^[0-9+() .-]+$/.test(payload.p_contact)||contactDigits.length<9||contactDigits.length>15){
+    parentMessageStatus.textContent="Podaj prawidłowy numer telefonu (9–15 cyfr).";
     return;
   }
 
@@ -1310,6 +1317,13 @@ function parentMessageEmailStatus(row){
   return `<span class="message-email-status is-legacy">Starsza wiadomość</span>`;
 }
 
+function parentMessagePhone(row){
+  const raw=String(row?.contact||"").trim();
+  if(!raw)return `<span class="admin-parent-message-phone is-missing">☎️ Brak numeru (starsza wiadomość)</span>`;
+  const tel=raw.replace(/[^\d+]/g,"");
+  return `<a class="admin-parent-message-phone" href="tel:${esc(tel)}">☎️ ${esc(raw)}</a>`;
+}
+
 async function renderParentMessages(){
   setActiveAdminTab("parent_messages");
   q("#editor").dataset.table="parent_messages";
@@ -1339,7 +1353,7 @@ async function renderParentMessages(){
       <div class="admin-content-head">
         <div>
           <h3>Wiadomości od rodziców</h3>
-          <p>Rodzic wysyła wiadomość bez logowania. To szybki kontakt służący do przekazania informacji wychowawczyni.</p>
+          <p>Rodzic/opiekun wysyła wiadomość bez logowania. W wiadomości przekazuje dane dziecka, swoje imię i nazwisko, numer telefonu oraz treść kontaktu.</p>
         </div>
         <span class="admin-count">${unread?`${unread} nowych`:`${rows.length} wiadomości`}</span>
       </div>
@@ -1355,6 +1369,9 @@ async function renderParentMessages(){
                 </div>
                 <div class="admin-parent-message-meta">
                   Dziecko: <b>${esc(x.child_name)}</b> • ${parentMessageDate(x.created_at)}
+                </div>
+                <div class="admin-parent-message-contact">
+                  ${parentMessagePhone(x)}
                 </div>
                 <div class="admin-parent-message-email">
                   ${parentMessageEmailStatus(x)}

@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0711"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0712"></head><body>
 <header class="app-header">
 <div class="header-left-actions">
   <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
@@ -109,10 +109,14 @@
 
     <form id="parentMessageForm">
       <label>Imię i nazwisko dziecka, którego dotyczy kontakt</label>
-      <input name="child_name" type="text" maxlength="120" required>
+      <input name="child_name" type="text" maxlength="120" autocomplete="off" required>
 
-      <label>Imię rodzica</label>
-      <input name="parent_name" type="text" maxlength="100" autocomplete="given-name" required>
+      <label>Imię i nazwisko rodzica/opiekuna</label>
+      <input name="parent_name" type="text" maxlength="100" autocomplete="name" required>
+
+      <label>Kontakt do rodzica/opiekuna (numer telefonu)</label>
+      <input name="contact" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" required placeholder="+48 500 123 456">
+      <small class="parent-message-field-hint">Podaj numer, pod którym Pani Wychowawczyni może skontaktować się z rodzicem/opiekunem.</small>
 
       <label>Wiadomość</label>
       <textarea name="message" rows="6" maxlength="1500" required placeholder="Napisz wiadomość do wychowawczyni…"></textarea>
@@ -123,7 +127,7 @@
       <div id="parentMessageStatus" class="parent-message-status" aria-live="polite"></div>
     </form>
 
-    <p class="parent-message-note">ℹ️ To szybka skrzynka kontaktowa do przekazania krótkiej wiadomości Pani Wychowawczyni. Jeśli będzie potrzebna odpowiedź, może zostać przekazana poza aplikacją w dogodny sposób. 😊</p>
+    <p class="parent-message-note">ℹ️ To szybka skrzynka kontaktowa służąca do przekazania krótkiej wiadomości Pani Wychowawczyni. Jeśli będzie potrzebna odpowiedź, Pani Wychowawczyni może skontaktować się z rodzicem/opiekunem w dogodny dla siebie sposób — osobiście lub telefonicznie z sekretariatu szkoły. 😊</p>
   </div>
 </dialog>
 <dialog id="installDlg" class="install-dialog">
@@ -164,7 +168,7 @@
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.7.11</span>
+        <span class="admin-app-version">v0.7.12</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -231,4 +235,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0711"></script><script src="js/app.js?v=0711"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0712"></script><script src="js/app.js?v=0712"></script></body></html>
