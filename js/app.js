@@ -3199,7 +3199,7 @@ async function loadSowkiCalendarMonth(force=false){
         .gte("date_to",calendarLocalToday())
         .order("date_from",{ascending:true})
         .order("id",{ascending:true})
-        .limit(5)
+        .limit(3)
     )
   ]);
 
@@ -3333,7 +3333,7 @@ function renderSowkiCalendarUpcoming(){
   if(!box||!count)return;
 
   count.textContent=sowkiCalendarUpcomingRows.length
-    ?`${sowkiCalendarUpcomingRows.length} najbliższych`
+    ?`${sowkiCalendarUpcomingRows.length} ${sowkiCalendarUpcomingRows.length===1?"najbliższy":"najbliższe"}`
     :"";
 
   box.innerHTML=sowkiCalendarUpcomingRows.length
