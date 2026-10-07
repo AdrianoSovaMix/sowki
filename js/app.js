@@ -4707,7 +4707,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.16 — bezpieczny dostęp do Galerii i Rozliczeń
+// v0.8.17 — hasła bezpiecznie w Supabase, arkusz Rozliczeń działa jak wcześniej
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================
@@ -4834,21 +4834,9 @@ function unlockGalleryView(data){
   renderProtectedGallery(data?.payload?.albums||[]);
 }
 
-function renderProtectedPayments(data){
+function renderProtectedPayments(){
   const pay=q("#pay");
-  const embedUrl=String(data?.payload?.embed_url||"");
-  const openUrl=String(data?.payload?.open_url||"");
-
   if(!pay)return;
-
-  pay.innerHTML=`
-    ${embedUrl?`<iframe class="bigframe desktop" src="${esc(embedUrl)}"></iframe>`:""}
-    <div class="card mobile">
-      <h3>Arkusz Excel</h3>
-      ${openUrl
-        ?`<a class="primary" target="_blank" rel="noopener" href="${esc(openUrl)}">Otwórz arkusz</a>`
-        :`<p class="err">Brak skonfigurowanego linku do arkusza.</p>`}
-    </div>`;
 
   q("#gate").hidden=true;
   pay.hidden=false;
