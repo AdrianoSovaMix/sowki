@@ -3588,17 +3588,30 @@ async function renderSowkiCalendarAdmin(editId=null){
           <textarea name="description" rows="4" maxlength="2000" placeholder="Dodatkowe informacje dla rodziców…">${esc(edit?.description||"")}</textarea>
         </label>
 
-        <div class="calendar-admin-date-grid">
-          <label>Data od
-            <input type="date" name="date_from" value="${esc(edit?.date_from||"")}" required>
-          </label>
-          <label>Data do
-            <input type="date" name="date_to" value="${esc(edit?.date_to||edit?.date_from||"")}" required>
-          </label>
-          <label>Godzina
-            <input type="time" name="event_time" value="${esc(edit?.event_time?String(edit.event_time).slice(0,5):"")}">
-          </label>
-        </div>
+        ${(()=>{
+          const isMultiDay=Boolean(edit && String(edit.date_to||edit.date_from)>String(edit.date_from||""));
+          return `
+            <div class="calendar-admin-date-grid">
+              <label>
+                <span id="calendarDateFromLabel">${isMultiDay?"Data od":"Data wydarzenia"}</span>
+                <input type="date" name="date_from" value="${esc(edit?.date_from||"")}" required>
+              </label>
+
+              <label id="calendarDateToWrap" class="calendar-date-to-wrap" ${isMultiDay?"":"hidden"}>
+                Data do
+                <input type="date" name="date_to" value="${esc(edit?.date_to||edit?.date_from||"")}">
+              </label>
+
+              <label>Godzina
+                <input type="time" name="event_time" value="${esc(edit?.event_time?String(edit.event_time).slice(0,5):"")}">
+              </label>
+            </div>
+
+            <label class="check calendar-multiday-check">
+              <input type="checkbox" name="multi_day" ${isMultiDay?"checked":""}>
+              Wydarzenie trwa kilka dni
+            </label>`;
+        })()}
 
         <label class="check">
           <input type="checkbox" name="all_day" ${edit?(edit.all_day?"checked":""):"checked"}>
@@ -3678,14 +3691,52 @@ async function renderSowkiCalendarAdmin(editId=null){
   const form=q("#calendarAdminForm");
   const allDay=form.querySelector('[name="all_day"]');
   const timeInput=form.querySelector('[name="event_time"]');
+  const multiDay=form.querySelector('[name="multi_day"]');
+  const dateFromInput=form.querySelector('[name="date_from"]');
+  const dateToInput=form.querySelector('[name="date_to"]');
+  const dateToWrap=q("#calendarDateToWrap");
+  const dateFromLabel=q("#calendarDateFromLabel");
 
   const syncTime=()=>{
     timeInput.disabled=allDay.checked;
     if(allDay.checked)timeInput.value="";
   };
 
+  const syncMultiDay=()=>{
+    const enabled=Boolean(multiDay?.checked);
+
+    if(dateToWrap)dateToWrap.hidden=!enabled;
+    if(dateFromLabel)dateFromLabel.textContent=enabled?"Data od":"Data wydarzenia";
+
+    if(dateToInput){
+      dateToInput.required=enabled;
+
+      if(enabled){
+        if(!dateToInput.value){
+          dateToInput.value=dateFromInput?.value||"";
+        }
+        if(dateFromInput?.value && dateToInput.value<dateFromInput.value){
+          dateToInput.value=dateFromInput.value;
+        }
+      }else{
+        dateToInput.value=dateFromInput?.value||"";
+      }
+    }
+  };
+
   allDay.addEventListener("change",syncTime);
+  multiDay?.addEventListener("change",syncMultiDay);
+
+  dateFromInput?.addEventListener("change",()=>{
+    if(!multiDay?.checked){
+      if(dateToInput)dateToInput.value=dateFromInput.value;
+    }else if(dateToInput && (!dateToInput.value || dateToInput.value<dateFromInput.value)){
+      dateToInput.value=dateFromInput.value;
+    }
+  });
+
   syncTime();
+  syncMultiDay();
 
   form.onsubmit=saveSowkiCalendarAdmin;
 
@@ -3740,7 +3791,10 @@ async function saveSowkiCalendarAdmin(ev){
   const status=form.querySelector(".admin-save-status");
 
   const dateFrom=String(fd.get("date_from")||"");
-  const dateTo=String(fd.get("date_to")||dateFrom);
+  const multiDay=fd.get("multi_day")==="on";
+  const dateTo=multiDay
+    ?String(fd.get("date_to")||dateFrom)
+    :dateFrom;
   const allDay=fd.get("all_day")==="on";
 
   const payload={
@@ -3757,7 +3811,7 @@ async function saveSowkiCalendarAdmin(ev){
   };
 
   if(!payload.title)return alert("Podaj tytuł wpisu.");
-  if(!payload.date_from||!payload.date_to)return alert("Uzupełnij datę.");
+  if(!payload.date_from||!payload.date_to)return alert("Uzupełnij datę wydarzenia.");
   if(payload.date_to<payload.date_from)return alert("Data końcowa nie może być wcześniejsza od początkowej.");
   if(!SOWKI_CALENDAR_CATEGORIES[payload.category])return alert("Wybierz prawidłową kategorię.");
 

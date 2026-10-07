@@ -5622,3 +5622,38 @@ nav > .home .nav-new-dot{
     align-self:center;
   }
 }
+
+
+/* =========================================================
+   v0.8.7 — prostsze dodawanie dat w Panelu Administratora
+   ========================================================= */
+
+.calendar-date-to-wrap[hidden]{
+  display:none !important;
+}
+
+.calendar-multiday-check{
+  margin-top:1px;
+  margin-bottom:3px;
+}
+
+.calendar-multiday-check input{
+  accent-color:#d81b60;
+}
+
+/* Gdy Data do jest ukryta, pozostałe pola wykorzystują miejsce naturalnie. */
+.calendar-admin-date-grid{
+  align-items:end;
+}
+
+@media(min-width:701px){
+  .calendar-admin-date-grid:has(.calendar-date-to-wrap[hidden]){
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media(max-width:700px){
+  .calendar-admin-date-grid{
+    grid-template-columns:1fr !important;
+  }
+}
