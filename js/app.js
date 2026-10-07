@@ -1190,7 +1190,8 @@ notifications:{title:"Powiadomienia",fields:[
 ["calendar","Kalendarz"],
 ["surveysPage","Ankiety"],
 ["gallery","Galeria"],
-["payments","Rozliczenia"]
+["payments","Rozliczenia"],
+["owlTripsPage","Sowie podróże"]
 ]],
 ["__send_mode","Sposób wysyłki","notification-mode"],
 ["__schedule","Termin wysyłki","notification-schedule"],
@@ -3295,6 +3296,9 @@ async function renderOwlTripsAdmin(editId=null){
               <div class="owl-trips-admin-row-head">
                 <b>📅 ${esc(owlTripsAdminDateRange(row))}</b>
                 <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
+                ${row.friday_push_sent_at
+                  ? `<span class="admin-status is-published">🔔 PUSH: ${formatWarsawDateTime(row.friday_push_sent_at)}</span>`
+                  : `<span class="admin-status">🔔 piątek 13:00</span>`}
               </div>
               <div class="owl-trips-admin-mini-members">
                 ${OWL_TRIP_MEMBERS.map(member=>`
