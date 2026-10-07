@@ -888,7 +888,7 @@ async function load(){
 
  const [noticesResult,eventsResult,announcementsResult,menusResult,surveysResult,galleryCheck]=await Promise.all([
    publicQueryWithRetry("najważniejszych informacji",()=>sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("wydarzeń",()=>sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5)),
+   publicQueryWithRetry("wydarzeń",()=>sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
    publicQueryWithRetry("ogłoszeń",()=>sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
    publicQueryWithRetry("jadłospisu",()=>sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false})),
    publicQueryWithRetry("ankiet",()=>sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
