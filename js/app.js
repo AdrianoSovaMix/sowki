@@ -1074,6 +1074,7 @@ qa("[data-tab]").forEach(b=>b.onclick=()=>{
   else if(b.dataset.tab==="parent_messages")renderParentMessages();
   else if(b.dataset.tab==="message_recipients")renderMessageRecipients();
   else if(b.dataset.tab==="owl_trips")renderOwlTripsAdmin();
+  else if(b.dataset.tab==="sowki_calendar")renderSowkiCalendarAdmin();
   else render(b.dataset.tab);
 });
 
@@ -3050,6 +3051,638 @@ async function save(ev){
   }
 }
 
+
+// =========================================================
+// v0.8.0 — natywny Kalendarz Sówki
+// Moduł pozostaje niezależny od „Wydarzeń przedszkolaków”.
+// =========================================================
+
+const SOWKI_CALENDAR_CATEGORIES={
+  ogolne:{label:"Ogólne",className:"cat-ogolne"},
+  urodziny:{label:"Urodziny",className:"cat-urodziny"},
+  swieta:{label:"Święta",className:"cat-swieta"},
+  dyzury:{label:"Dyżury",className:"cat-dyzury"}
+};
+
+let sowkiCalendarMonthStart=null;
+let sowkiCalendarSelectedDate=null;
+let sowkiCalendarMonthRows=[];
+let sowkiCalendarUpcomingRows=[];
+let sowkiCalendarLoadedMonthKey="";
+
+function calendarLocalToday(){
+  return statsTodayWarsaw();
+}
+
+function calendarIsoFromDateUTC(d){
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+}
+
+function calendarParseIso(iso){
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return null;
+  return new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),12));
+}
+
+function calendarMonthStartFromIso(iso){
+  const d=calendarParseIso(iso)||new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1,12));
+}
+
+function calendarMonthKey(d){
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}`;
+}
+
+function calendarMonthName(d){
+  const value=new Intl.DateTimeFormat("pl-PL",{
+    month:"long",
+    year:"numeric",
+    timeZone:"UTC"
+  }).format(d);
+  return value.charAt(0).toUpperCase()+value.slice(1);
+}
+
+function calendarPolishDate(iso,withWeekday=false){
+  const d=calendarParseIso(iso);
+  if(!d)return "";
+  return new Intl.DateTimeFormat("pl-PL",{
+    ...(withWeekday?{weekday:"long"}:{}),
+    day:"numeric",
+    month:"long",
+    year:"numeric",
+    timeZone:"UTC"
+  }).format(d);
+}
+
+function calendarRangeLabel(row){
+  const a=String(row?.date_from||"");
+  const b=String(row?.date_to||a);
+  if(!a)return "";
+  if(!b||a===b)return calendarPolishDate(a,true);
+  return `${calendarPolishDate(a)} – ${calendarPolishDate(b)}`;
+}
+
+function calendarTimeLabel(row){
+  return row?.all_day||!row?.event_time ? "Cały dzień" : String(row.event_time).slice(0,5);
+}
+
+function calendarCategory(row){
+  return SOWKI_CALENDAR_CATEGORIES[String(row?.category||"ogolne")]||SOWKI_CALENDAR_CATEGORIES.ogolne;
+}
+
+function calendarEventIncludesDate(row,iso){
+  const from=String(row?.date_from||"");
+  const to=String(row?.date_to||from);
+  return Boolean(from&&from<=iso&&iso<=to);
+}
+
+function calendarEventsForDate(iso){
+  return sowkiCalendarMonthRows.filter(row=>calendarEventIncludesDate(row,iso));
+}
+
+function calendarMonthBounds(d){
+  return {
+    first:calendarIsoFromDateUTC(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1,12))),
+    last:calendarIsoFromDateUTC(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0,12)))
+  };
+}
+
+function calendarNormalizeState(){
+  const today=calendarLocalToday();
+  if(!sowkiCalendarMonthStart)sowkiCalendarMonthStart=calendarMonthStartFromIso(today);
+
+  if(!sowkiCalendarSelectedDate){
+    const key=calendarMonthKey(sowkiCalendarMonthStart);
+    sowkiCalendarSelectedDate=today.startsWith(key)?today:`${key}-01`;
+  }
+}
+
+async function loadSowkiCalendarMonth(force=false){
+  calendarNormalizeState();
+
+  const key=calendarMonthKey(sowkiCalendarMonthStart);
+  const bounds=calendarMonthBounds(sowkiCalendarMonthStart);
+  const title=q("#calendarMonthTitle");
+  if(title)title.textContent=calendarMonthName(sowkiCalendarMonthStart);
+
+  if(!force&&sowkiCalendarLoadedMonthKey===key){
+    renderSowkiCalendar();
+    return;
+  }
+
+  const grid=q("#calendarGrid");
+  if(grid)grid.innerHTML=`<div class="calendar-loading">Ładowanie kalendarza…</div>`;
+
+  const [monthResult,upcomingResult]=await Promise.all([
+    publicQueryWithRetry(
+      "kalendarza",
+      ()=>sb.from("sowki_calendar")
+        .select("*")
+        .eq("published",true)
+        .lte("date_from",bounds.last)
+        .gte("date_to",bounds.first)
+        .order("date_from",{ascending:true})
+        .order("id",{ascending:true})
+    ),
+    publicQueryWithRetry(
+      "najbliższych terminów kalendarza",
+      ()=>sb.from("sowki_calendar")
+        .select("*")
+        .eq("published",true)
+        .gte("date_to",calendarLocalToday())
+        .order("date_from",{ascending:true})
+        .order("id",{ascending:true})
+        .limit(5)
+    )
+  ]);
+
+  if(monthResult.error){
+    if(grid)grid.innerHTML=publicLoadErrorCard("kalendarza");
+    return;
+  }
+
+  sowkiCalendarMonthRows=monthResult.data||[];
+  sowkiCalendarUpcomingRows=upcomingResult.error?[]:(upcomingResult.data||[]);
+  sowkiCalendarLoadedMonthKey=key;
+  renderSowkiCalendar();
+}
+
+function renderSowkiCalendar(){
+  calendarNormalizeState();
+
+  const d=sowkiCalendarMonthStart;
+  const y=d.getUTCFullYear();
+  const m=d.getUTCMonth();
+  const first=new Date(Date.UTC(y,m,1,12));
+  const mondayIndex=(first.getUTCDay()+6)%7;
+  const today=calendarLocalToday();
+
+  const monthTitle=q("#calendarMonthTitle");
+  if(monthTitle)monthTitle.textContent=calendarMonthName(d);
+
+  const cells=[];
+
+  for(let i=0;i<42;i++){
+    const relativeDay=i-mondayIndex+1;
+    const cellDate=new Date(Date.UTC(y,m,relativeDay,12));
+    const iso=calendarIsoFromDateUTC(cellDate);
+    const inMonth=cellDate.getUTCMonth()===m;
+    const events=calendarEventsForDate(iso);
+    const categories=[...new Set(events.map(x=>String(x.category||"ogolne")))].slice(0,4);
+
+    cells.push(`
+      <button type="button"
+        class="calendar-day${inMonth?"":" is-outside"}${iso===today?" is-today":""}${iso===sowkiCalendarSelectedDate?" is-selected":""}"
+        data-calendar-date="${iso}">
+        <span class="calendar-day-number">${cellDate.getUTCDate()}</span>
+        <span class="calendar-day-dots">
+          ${categories.map(cat=>{
+            const meta=SOWKI_CALENDAR_CATEGORIES[cat]||SOWKI_CALENDAR_CATEGORIES.ogolne;
+            return `<i class="calendar-dot ${meta.className}"></i>`;
+          }).join("")}
+        </span>
+      </button>`);
+  }
+
+  q("#calendarGrid").innerHTML=cells.join("");
+
+  qa("[data-calendar-date]").forEach(btn=>btn.onclick=()=>{
+    const iso=String(btn.dataset.calendarDate||"");
+    const clicked=calendarParseIso(iso);
+
+    if(clicked&&clicked.getUTCMonth()!==sowkiCalendarMonthStart.getUTCMonth()){
+      sowkiCalendarMonthStart=new Date(Date.UTC(clicked.getUTCFullYear(),clicked.getUTCMonth(),1,12));
+      sowkiCalendarSelectedDate=iso;
+      sowkiCalendarLoadedMonthKey="";
+      loadSowkiCalendarMonth();
+      return;
+    }
+
+    sowkiCalendarSelectedDate=iso;
+    renderSowkiCalendar();
+  });
+
+  renderSowkiCalendarUpcoming();
+  renderSowkiCalendarSelectedDay();
+}
+
+function calendarEventCard(row){
+  const cat=calendarCategory(row);
+  const dateObj=calendarParseIso(row.date_from);
+  const day=dateObj?dateObj.getUTCDate():"";
+  const month=dateObj
+    ?new Intl.DateTimeFormat("pl-PL",{month:"short",timeZone:"UTC"}).format(dateObj).replace(".","")
+    :"";
+
+  return `
+    <button type="button" class="calendar-event-card ${cat.className}" data-calendar-event="${row.id}">
+      <span class="calendar-event-datebox">
+        <strong>${esc(day)}</strong>
+        <small>${esc(month)}</small>
+      </span>
+      <span class="calendar-event-content">
+        <span class="calendar-event-title">${esc(row.title)}</span>
+        <span class="calendar-event-meta">
+          <i class="calendar-dot ${cat.className}"></i>
+          ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}
+        </span>
+        ${row.description?`<span class="calendar-event-desc">${esc(row.description).replace(/\n/g," ")}</span>`:""}
+      </span>
+      <span class="calendar-event-arrow">›</span>
+    </button>`;
+}
+
+function bindCalendarEventCards(){
+  qa("[data-calendar-event]").forEach(btn=>btn.onclick=()=>{
+    const id=String(btn.dataset.calendarEvent||"");
+    const row=[...sowkiCalendarMonthRows,...sowkiCalendarUpcomingRows]
+      .find(x=>String(x.id)===id);
+
+    if(row)openSowkiCalendarEvent(row);
+  });
+}
+
+function renderSowkiCalendarUpcoming(){
+  const box=q("#calendarUpcoming");
+  const count=q("#calendarUpcomingCount");
+  if(!box||!count)return;
+
+  count.textContent=sowkiCalendarUpcomingRows.length
+    ?`${sowkiCalendarUpcomingRows.length} najbliższych`
+    :"";
+
+  box.innerHTML=sowkiCalendarUpcomingRows.length
+    ?sowkiCalendarUpcomingRows.map(calendarEventCard).join("")
+    :`<div class="calendar-empty">Brak nadchodzących terminów.</div>`;
+
+  bindCalendarEventCards();
+}
+
+function renderSowkiCalendarSelectedDay(){
+  const box=q("#calendarSelectedEvents");
+  const label=q("#calendarSelectedLabel");
+  if(!box||!label)return;
+
+  const iso=sowkiCalendarSelectedDate;
+  label.textContent=calendarPolishDate(iso);
+
+  const rows=calendarEventsForDate(iso);
+  box.innerHTML=rows.length
+    ?rows.map(calendarEventCard).join("")
+    :`<div class="calendar-empty">W tym dniu nie ma wpisów w kalendarzu.</div>`;
+
+  bindCalendarEventCards();
+}
+
+function ensureSowkiCalendarDialog(){
+  let dlg=q("#sowkiCalendarEventDlg");
+  if(dlg)return dlg;
+
+  dlg=document.createElement("dialog");
+  dlg.id="sowkiCalendarEventDlg";
+  dlg.className="calendar-event-dialog";
+  dlg.innerHTML=`
+    <div class="calendar-dialog-card">
+      <button type="button" class="calendar-dialog-close" aria-label="Zamknij">×</button>
+      <div id="sowkiCalendarDialogBody"></div>
+    </div>`;
+
+  document.body.appendChild(dlg);
+  dlg.querySelector(".calendar-dialog-close").onclick=()=>dlg.close();
+  dlg.onclick=e=>{if(e.target===dlg)dlg.close()};
+  return dlg;
+}
+
+function openSowkiCalendarEvent(row){
+  const dlg=ensureSowkiCalendarDialog();
+  const cat=calendarCategory(row);
+  const body=dlg.querySelector("#sowkiCalendarDialogBody");
+
+  body.innerHTML=`
+    <div class="calendar-detail-head">
+      <div class="calendar-detail-category ${cat.className}">
+        <i class="calendar-dot ${cat.className}"></i>${esc(cat.label)}
+      </div>
+      <h2>${esc(row.title)}</h2>
+    </div>
+
+    <div class="calendar-detail-facts">
+      <div><span>📅</span><b>Data</b><p>${esc(calendarRangeLabel(row))}</p></div>
+      <div><span>🕒</span><b>Godzina</b><p>${esc(calendarTimeLabel(row))}</p></div>
+    </div>
+
+    ${row.description?`
+      <div class="calendar-detail-description">
+        ${esc(row.description).replace(/\n/g,"<br>")}
+      </div>`:""}
+
+    <div class="calendar-detail-note">
+      🔔 Jeśli administrator włączył przypomnienie, dzień wcześniej o 18:00 aplikacja wyśle automatyczny PUSH.
+    </div>`;
+
+  dlg.showModal();
+}
+
+function initSowkiCalendarControls(){
+  q("#calendarPrev")?.addEventListener("click",()=>{
+    calendarNormalizeState();
+    sowkiCalendarMonthStart=new Date(Date.UTC(
+      sowkiCalendarMonthStart.getUTCFullYear(),
+      sowkiCalendarMonthStart.getUTCMonth()-1,
+      1,12
+    ));
+    sowkiCalendarSelectedDate=`${calendarMonthKey(sowkiCalendarMonthStart)}-01`;
+    sowkiCalendarLoadedMonthKey="";
+    loadSowkiCalendarMonth();
+  });
+
+  q("#calendarNext")?.addEventListener("click",()=>{
+    calendarNormalizeState();
+    sowkiCalendarMonthStart=new Date(Date.UTC(
+      sowkiCalendarMonthStart.getUTCFullYear(),
+      sowkiCalendarMonthStart.getUTCMonth()+1,
+      1,12
+    ));
+    sowkiCalendarSelectedDate=`${calendarMonthKey(sowkiCalendarMonthStart)}-01`;
+    sowkiCalendarLoadedMonthKey="";
+    loadSowkiCalendarMonth();
+  });
+
+  q("#calendarToday")?.addEventListener("click",()=>{
+    const today=calendarLocalToday();
+    sowkiCalendarMonthStart=calendarMonthStartFromIso(today);
+    sowkiCalendarSelectedDate=today;
+    sowkiCalendarLoadedMonthKey="";
+    loadSowkiCalendarMonth();
+  });
+}
+
+initSowkiCalendarControls();
+
+function calendarAdminReminderLabel(row){
+  if(!row.reminder_enabled){
+    return `<span class="admin-status calendar-reminder-off">🔕 Przypomnienie wyłączone</span>`;
+  }
+
+  if(row.reminder_sent_at){
+    return `<span class="admin-status calendar-reminder-sent">✅ PUSH wysłany: ${esc(formatWarsawDateTime(row.reminder_sent_at))}</span>`;
+  }
+
+  if(String(row.date_from||"")<=calendarLocalToday()){
+    return `<span class="admin-status calendar-reminder-missed">⚠️ Przypomnienie niewysłane</span>`;
+  }
+
+  return `<span class="admin-status calendar-reminder-planned">🔔 Dzień wcześniej • 18:00</span>`;
+}
+
+function calendarAdminDateText(row){
+  return row.all_day
+    ?calendarRangeLabel(row)
+    :`${calendarRangeLabel(row)} • ${calendarTimeLabel(row)}`;
+}
+
+async function renderSowkiCalendarAdmin(editId=null){
+  setActiveAdminTab("sowki_calendar");
+  q("#editor").dataset.table="sowki_calendar";
+  q("#editor").innerHTML=`<div class="admin-messages-loading">Ładowanie kalendarza…</div>`;
+
+  const {data,error}=await sb
+    .from("sowki_calendar")
+    .select("*")
+    .order("date_from",{ascending:true})
+    .order("id",{ascending:true});
+
+  if(error){
+    q("#editor").innerHTML=`
+      <div class="admin-order-warning">
+        <b>⚠️ Nie udało się pobrać kalendarza.</b><br>
+        ${esc(error.message)}
+      </div>`;
+    return;
+  }
+
+  const rows=data||[];
+  const edit=editId?rows.find(x=>String(x.id)===String(editId)):null;
+  const today=calendarLocalToday();
+
+  q("#editor").innerHTML=`
+    <section class="calendar-admin-manager">
+      <div class="admin-content-head">
+        <div>
+          <h3>📅 Kalendarz Sówki</h3>
+          <p>Ten kalendarz jest niezależny od „Wydarzeń przedszkolaków”.</p>
+        </div>
+        <span class="admin-count">${rows.length} ${rows.length===1?"wpis":"wpisów"}</span>
+      </div>
+
+      <div class="calendar-admin-list">
+        ${rows.length?rows.map(row=>{
+          const cat=calendarCategory(row);
+          const isPast=String(row.date_to||row.date_from)<today;
+          return `
+            <article class="calendar-admin-row ${isPast?"is-past":""}">
+              <div class="calendar-admin-main">
+                <div class="calendar-admin-title-line">
+                  <i class="calendar-dot ${cat.className}"></i>
+                  <b>${esc(row.title)}</b>
+                  <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
+                  ${calendarAdminReminderLabel(row)}
+                </div>
+                <div class="calendar-admin-meta">
+                  ${esc(calendarAdminDateText(row))} • ${esc(cat.label)}
+                </div>
+                ${row.description?`<div class="calendar-admin-desc">${esc(row.description).replace(/\n/g," ")}</div>`:""}
+              </div>
+              <div class="actions adminitem-actions">
+                <button type="button" data-calendar-admin-edit="${row.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+                <button type="button" data-calendar-admin-visibility="${row.id}" data-published="${row.published?"1":"0"}" title="${row.published?"Ukryj":"Pokaż"}" aria-label="${row.published?"Ukryj":"Pokaż"}">${row.published?"👁️":"🙈"}</button>
+                <button type="button" data-calendar-admin-delete="${row.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
+              </div>
+            </article>`;
+        }).join(""):`<div class="admin-empty">Nie ma jeszcze żadnych wpisów w kalendarzu.</div>`}
+      </div>
+    </section>
+
+    <div class="form calendar-admin-form" id="calendarAdminFormPanel">
+      <div class="calendar-admin-form-head">
+        <div>
+          <h3>${edit?"Edytuj wpis":"Dodaj wpis do kalendarza"}</h3>
+          <p>Przypomnienie PUSH może zostać wysłane dzień wcześniej o 18:00.</p>
+        </div>
+        ${edit?`<button type="button" class="secondary" id="calendarAdminCancel">Anuluj edycję</button>`:""}
+      </div>
+
+      <form id="calendarAdminForm">
+        <input type="hidden" name="id" value="${edit?.id||""}">
+
+        <label>Tytuł
+          <input type="text" name="title" maxlength="160" value="${esc(edit?.title||"")}" required placeholder="Np. Teatrzyk dla dzieci 🎭">
+        </label>
+
+        <label>Opis
+          <textarea name="description" rows="4" maxlength="2000" placeholder="Dodatkowe informacje dla rodziców…">${esc(edit?.description||"")}</textarea>
+        </label>
+
+        <div class="calendar-admin-date-grid">
+          <label>Data od
+            <input type="date" name="date_from" value="${esc(edit?.date_from||"")}" required>
+          </label>
+          <label>Data do
+            <input type="date" name="date_to" value="${esc(edit?.date_to||edit?.date_from||"")}" required>
+          </label>
+          <label>Godzina
+            <input type="time" name="event_time" value="${esc(edit?.event_time?String(edit.event_time).slice(0,5):"")}">
+          </label>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="all_day" ${edit?(edit.all_day?"checked":""):"checked"}>
+          Wydarzenie całodniowe
+        </label>
+
+        <label>Kategoria
+          <select name="category" required>
+            ${Object.entries(SOWKI_CALENDAR_CATEGORIES).map(([key,meta])=>`
+              <option value="${key}" ${String(edit?.category||"ogolne")===key?"selected":""}>${esc(meta.label)}</option>`).join("")}
+          </select>
+        </label>
+
+        <div class="calendar-admin-options">
+          <label class="check">
+            <input type="checkbox" name="reminder_enabled" ${edit?(edit.reminder_enabled?"checked":""):"checked"}>
+            🔔 Wyślij przypomnienie dzień wcześniej o 18:00
+          </label>
+
+          <label class="check">
+            <input type="checkbox" name="published" ${edit?(edit.published?"checked":""):"checked"}>
+            Opublikuj w kalendarzu
+          </label>
+        </div>
+
+        <button class="primary calendar-admin-save" type="submit">${edit?"Zapisz zmiany":"Dodaj do kalendarza"}</button>
+        <div class="admin-save-status" aria-live="polite"></div>
+      </form>
+    </div>
+  `;
+
+  const form=q("#calendarAdminForm");
+  const allDay=form.querySelector('[name="all_day"]');
+  const timeInput=form.querySelector('[name="event_time"]');
+
+  const syncTime=()=>{
+    timeInput.disabled=allDay.checked;
+    if(allDay.checked)timeInput.value="";
+  };
+
+  allDay.addEventListener("change",syncTime);
+  syncTime();
+
+  form.onsubmit=saveSowkiCalendarAdmin;
+
+  q("#calendarAdminCancel")?.addEventListener("click",()=>renderSowkiCalendarAdmin());
+
+  qa("[data-calendar-admin-edit]").forEach(btn=>btn.onclick=async()=>{
+    await renderSowkiCalendarAdmin(btn.dataset.calendarAdminEdit);
+    q("#calendarAdminFormPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+
+  qa("[data-calendar-admin-visibility]").forEach(btn=>btn.onclick=async()=>{
+    const next=btn.dataset.published!=="1";
+    const {error}=await sb.from("sowki_calendar")
+      .update({published:next,updated_at:new Date().toISOString()})
+      .eq("id",btn.dataset.calendarAdminVisibility);
+
+    if(error){alert(error.message);return}
+
+    sowkiCalendarLoadedMonthKey="";
+    await renderSowkiCalendarAdmin();
+
+    if(q("#calendar")?.classList.contains("active")){
+      await loadSowkiCalendarMonth(true);
+    }
+  });
+
+  qa("[data-calendar-admin-delete]").forEach(btn=>btn.onclick=async()=>{
+    if(!confirm("Usunąć ten wpis z kalendarza?"))return;
+
+    const {error}=await sb.from("sowki_calendar")
+      .delete()
+      .eq("id",btn.dataset.calendarAdminDelete);
+
+    if(error){alert(error.message);return}
+
+    sowkiCalendarLoadedMonthKey="";
+    await renderSowkiCalendarAdmin();
+
+    if(q("#calendar")?.classList.contains("active")){
+      await loadSowkiCalendarMonth(true);
+    }
+  });
+}
+
+async function saveSowkiCalendarAdmin(ev){
+  ev.preventDefault();
+
+  const form=ev.target;
+  const fd=new FormData(form);
+  const id=String(fd.get("id")||"");
+  const btn=form.querySelector(".calendar-admin-save");
+  const status=form.querySelector(".admin-save-status");
+
+  const dateFrom=String(fd.get("date_from")||"");
+  const dateTo=String(fd.get("date_to")||dateFrom);
+  const allDay=fd.get("all_day")==="on";
+
+  const payload={
+    title:String(fd.get("title")||"").trim(),
+    description:String(fd.get("description")||"").trim()||null,
+    date_from:dateFrom,
+    date_to:dateTo,
+    all_day:allDay,
+    event_time:allDay?null:(String(fd.get("event_time")||"").trim()||null),
+    category:String(fd.get("category")||"ogolne"),
+    reminder_enabled:fd.get("reminder_enabled")==="on",
+    published:fd.get("published")==="on",
+    updated_at:new Date().toISOString()
+  };
+
+  if(!payload.title)return alert("Podaj tytuł wpisu.");
+  if(!payload.date_from||!payload.date_to)return alert("Uzupełnij datę.");
+  if(payload.date_to<payload.date_from)return alert("Data końcowa nie może być wcześniejsza od początkowej.");
+  if(!SOWKI_CALENDAR_CATEGORIES[payload.category])return alert("Wybierz prawidłową kategorię.");
+
+  btn.disabled=true;
+  btn.textContent="Zapisywanie…";
+  status.textContent="Zapisuję wpis…";
+
+  try{
+    const result=id
+      ?await sb.from("sowki_calendar").update(payload).eq("id",id)
+      :await sb.from("sowki_calendar").insert(payload);
+
+    if(result.error)throw result.error;
+
+    status.textContent="✅ Zapisano";
+    sowkiCalendarLoadedMonthKey="";
+    sowkiCalendarUpcomingRows=[];
+    await renderSowkiCalendarAdmin();
+
+    if(q("#calendar")?.classList.contains("active")){
+      await loadSowkiCalendarMonth(true);
+    }
+  }catch(e){
+    console.error("CALENDAR SAVE ERROR",e);
+    status.textContent="❌ Nie udało się zapisać.";
+    alert(e?.message||"Nie udało się zapisać wpisu.");
+  }finally{
+    if(document.body.contains(btn)){
+      btn.disabled=false;
+      btn.textContent=id?"Zapisz zmiany":"Dodaj do kalendarza";
+    }
+  }
+}
+
+
 // =========================================================
 // v0.7.10 — Bajkowe podróże: status realizacji i status wysłania PUSH
 // Harmonogram jest publiczny, anonimowy i edytowalny przez administratora.
@@ -3734,6 +4367,10 @@ function showPage(id){
  if(id==="owlTripsPage"){
    renderOwlTripsFullPage();
    loadOwlTripsFullSchedule();
+ }
+
+ if(id==="calendar"){
+   loadSowkiCalendarMonth();
  }
 
  scrollTo(0,0);

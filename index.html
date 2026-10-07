@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0716"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0800"></head><body>
 <header class="app-header">
 <div class="header-left-actions">
   <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
@@ -25,7 +25,65 @@
 <section id="notificationsPage" class="page"><div class="notification-head"><div class="section-title-row"><h1>🔔 Powiadomienia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Powiadomienia" aria-expanded="false" aria-controls="info-notifications">i</button><div id="info-notifications" class="section-info-popover" hidden>Tutaj znajdziesz ostatnie wiadomości wysłane do rodziców Grupy 3 „Sówki”. Kliknij wybrane powiadomienie, aby oznaczyć je jako odczytane lub przejść do wskazanej sekcji.</div></div><button id="enablePush" class="primary">🔔 Włącz powiadomienia</button></div><div id="notificationsList"></div></section>
 <section id="announcementsPage" class="page"><div class="section-title-row"><h1>📢 Ogłoszenia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Ogłoszenia" aria-expanded="false" aria-controls="info-announcements">i</button><div id="info-announcements" class="section-info-popover" hidden>Tutaj znajdziesz zdjęcia aktualnych ogłoszeń pojawiających się w przedszkolu na tablicach informacyjnych i drzwiach. Dzięki temu najważniejsze informacje możesz sprawdzić również w aplikacji. 😊</div></div><div id="announcements"></div></section>
 <section id="menu" class="page"><div class="section-title-row"><h1>🍽️ Jadłospis</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Jadłospis" aria-expanded="false" aria-controls="info-menu">i</button><div id="info-menu" class="section-info-popover" hidden>Tutaj znajdziesz aktualny jadłospis przedszkola. Dotknij zdjęcia jadłospisu, aby je powiększyć.</div></div><div id="menus"></div></section>
-<section id="calendar" class="page"><div class="section-title-row"><h1>📅 Kalendarz</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Kalendarz" aria-expanded="false" aria-controls="info-calendar">i</button><div id="info-calendar" class="section-info-popover" hidden>Tutaj znajdziesz najważniejsze terminy i wydarzenia grupy.<br><br><b>Kolory w kalendarzu:</b><br>🩷 Ogólne　🟢 Urodziny<br>🟡 Święta　⚫ Dyżury</div></div><iframe class="bigframe" src="https://calendar.google.com/calendar/embed?height=600&wkst=2&ctz=Europe%2FWarsaw&showPrint=0&showTz=0&showCalendars=0&title=Przedszkole%20Grupa%20Pani%20Kasi&src=ZWQ2YTg1ZWU2NzEyYWY4ZjQxMGE4MmZlNzA5YzkzNTAxNzYxMTRjZjRmN2NkNjhkYzVkMzM1MzJiYzk2ZWE2ZkBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=NzQ1MDA2NzRhYzYxMDU4OTVlYzg2MGFjNTQ0YWU1MGI5OGIwN2IyY2NmZDY2ODdlYTM0MDczYWQyZTJiMjllMUBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=ODkxNjM4MzAyNTdmNjk2ZTQ0MDE3MmJhMjRmMmYyZGM2MGYzNDEwNmQxNDdjNTEyMWNmMGFlNTA2MmRkMzI0ZkBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=cGwucG9saXNoI2hvbGlkYXlAZ3JvdXAudi5jYWxlbmRhci5nb29nbGUuY29t&color=%23616161&color=%23d81b60&color=%230b8043&color=%23f6bf26"></iframe></section>
+<section id="calendar" class="page sowki-calendar-page">
+  <div class="section-title-row">
+    <h1>📅 Kalendarz Sówki</h1>
+    <button type="button" class="section-info-btn" aria-label="Informacje o dziale Kalendarz" aria-expanded="false" aria-controls="info-calendar">i</button>
+    <div id="info-calendar" class="section-info-popover" hidden>
+      Tutaj znajdziesz najważniejsze terminy grupy zapisane bezpośrednio w aplikacji.<br><br>
+      <b>Kolory w kalendarzu:</b><br>
+      <span class="calendar-legend-dot cat-ogolne"></span> Ogólne　
+      <span class="calendar-legend-dot cat-urodziny"></span> Urodziny<br>
+      <span class="calendar-legend-dot cat-swieta"></span> Święta　
+      <span class="calendar-legend-dot cat-dyzury"></span> Dyżury
+    </div>
+  </div>
+
+  <section class="calendar-shell">
+    <div class="calendar-toolbar">
+      <button id="calendarPrev" type="button" class="calendar-nav-btn" aria-label="Poprzedni miesiąc">‹</button>
+      <div class="calendar-toolbar-center">
+        <h2 id="calendarMonthTitle">Kalendarz</h2>
+        <button id="calendarToday" type="button" class="calendar-today-btn">Dzisiaj</button>
+      </div>
+      <button id="calendarNext" type="button" class="calendar-nav-btn" aria-label="Następny miesiąc">›</button>
+    </div>
+
+    <div class="calendar-weekdays" aria-hidden="true">
+      <span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span>
+    </div>
+
+    <div id="calendarGrid" class="calendar-grid" aria-label="Kalendarz miesiąca">
+      <div class="calendar-loading">Ładowanie kalendarza…</div>
+    </div>
+
+    <div class="calendar-legend" aria-label="Legenda kategorii">
+      <b>Kolory:</b>
+      <span><i class="calendar-legend-dot cat-ogolne"></i> Ogólne</span>
+      <span><i class="calendar-legend-dot cat-urodziny"></i> Urodziny</span>
+      <span><i class="calendar-legend-dot cat-swieta"></i> Święta</span>
+      <span><i class="calendar-legend-dot cat-dyzury"></i> Dyżury</span>
+    </div>
+  </section>
+
+  <section class="calendar-upcoming-section">
+    <div class="calendar-section-head">
+      <h2>Najbliższe terminy</h2>
+      <span id="calendarUpcomingCount" class="calendar-count-pill"></span>
+    </div>
+    <div id="calendarUpcoming" class="calendar-upcoming-list">
+      <div class="calendar-loading">Ładowanie najbliższych terminów…</div>
+    </div>
+  </section>
+
+  <section class="calendar-day-section">
+    <div class="calendar-section-head">
+      <h2>Terminy w wybranym dniu</h2>
+      <span id="calendarSelectedLabel" class="calendar-selected-pill"></span>
+    </div>
+    <div id="calendarSelectedEvents" class="calendar-selected-events"></div>
+  </section>
+</section>
 <section id="surveysPage" class="page"><div class="section-title-row"><h1>📊 Ankiety</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Ankiety" aria-expanded="false" aria-controls="info-surveys">i</button><div id="info-surveys" class="section-info-popover" hidden>Tutaj pojawiają się aktualne ankiety dla rodziców. Po wysłaniu odpowiedzi w formularzu zaznacz w aplikacji, że ankieta została wypełniona.</div></div><div id="surveys"></div><div id="surveyArchive"></div></section>
 <section id="gallery" class="page"><div class="section-title-row"><h1>📸 Galeria zdjęć</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Galeria zdjęć" aria-expanded="false" aria-controls="info-gallery">i</button><div id="info-gallery" class="section-info-popover" hidden>Tutaj znajdziesz albumy ze zdjęciami z wydarzeń naszej grupy oraz linki do pobrania fotografii. Dostęp do galerii jest chroniony hasłem.</div></div>
 <div id="galleryGate" class="card"><p>Galeria jest chroniona hasłem.</p><label>Hasło</label><div class="row"><input id="galleryPass" type="password"><button id="galleryUnlock">Otwórz</button></div><p id="galleryErr" class="err"></p></div>
@@ -164,7 +222,7 @@
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.7.16</span>
+        <span class="admin-app-version">v0.8.0</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -185,6 +243,11 @@
     <button type="button" data-tab="events" role="tab">
       <span class="admin-tab-icon admin-tab-emoji">📰</span>
       <span>Wydarzenia</span>
+    </button>
+
+    <button type="button" data-tab="sowki_calendar" role="tab">
+      <img class="admin-tab-icon" src="icons/nav/calendar.svg" alt="">
+      <span>Kalendarz</span>
     </button>
 
     <button type="button" data-tab="menus" role="tab">
@@ -231,4 +294,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0716"></script><script src="js/app.js?v=0716"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0800"></script><script src="js/app.js?v=0800"></script></body></html>
