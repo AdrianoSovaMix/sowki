@@ -3345,32 +3345,52 @@ function renderSowkiCalendar(){
   renderSowkiCalendarSelectedDay();
 }
 
-function calendarEventCard(row){
-  const cat=calendarCategory(row);
-  const dateObj=calendarParseIso(row.date_from);
-  const day=dateObj?dateObj.getUTCDate():"";
-  const month=dateObj
-    ?new Intl.DateTimeFormat("pl-PL",{month:"short",timeZone:"UTC"}).format(dateObj).replace(".","")
-    :"";
+function calendarCardDateTile(iso,label=""){
+  const d=calendarParseIso(iso);
+  if(!d)return "";
+
+  const day=d.getUTCDate();
+  const month=new Intl.DateTimeFormat("pl-PL",{
+    month:"short",
+    timeZone:"UTC"
+  }).format(d).replace(".","");
 
   return `
-    <button type="button" class="calendar-event-card ${cat.className}" data-calendar-event="${row.id}">
-      <span class="calendar-event-datebox">
-        <strong>${esc(day)}</strong>
-        <small>${esc(month)}</small>
-      </span>
+    <span class="calendar-event-date-tile">
+      ${label?`<small class="calendar-event-date-label">${esc(label)}</small>`:""}
+      <strong>${day}</strong>
+      <small class="calendar-event-date-month">${esc(month)}</small>
+    </span>`;
+}
+
+function calendarEventDateVisual(row){
+  const from=String(row?.date_from||"");
+  const to=String(row?.date_to||from);
+  const isRange=Boolean(from&&to&&to>from);
+
+  if(!isRange){
+    return `<span class="calendar-event-date-visual is-single">${calendarCardDateTile(from)}</span>`;
+  }
+
+  return `
+    <span class="calendar-event-date-visual is-range">
+      ${calendarCardDateTile(from,"OD")}
+      <span class="calendar-event-date-arrow" aria-hidden="true">→</span>
+      ${calendarCardDateTile(to,"DO")}
+    </span>`;
+}
+
+function calendarEventCard(row){
+  const cat=calendarCategory(row);
+  return `
+    <button type="button" class="calendar-event-card ${cat.className}${String(row.date_to||row.date_from)>String(row.date_from||"")?" has-date-range":""}" data-calendar-event="${row.id}">
+      ${calendarEventDateVisual(row)}
       <span class="calendar-event-content">
         <span class="calendar-event-title">${esc(row.title)}</span>
         <span class="calendar-event-meta">
           <i class="calendar-category-emoji">${cat.icon}</i>
           ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}
         </span>
-        ${String(row.date_to||row.date_from)>String(row.date_from||"")?`
-          <span class="calendar-event-range">
-            <span class="calendar-event-range-chip"><small>OD</small><b>${esc(calendarCompactDate(row.date_from))}</b></span>
-            <span class="calendar-event-range-arrow">→</span>
-            <span class="calendar-event-range-chip"><small>DO</small><b>${esc(calendarCompactDate(row.date_to))}</b></span>
-          </span>`:""}
         ${row.description?`<span class="calendar-event-desc">${esc(row.description).replace(/\n/g," ")}</span>`:""}
       </span>
       <span class="calendar-event-arrow">›</span>
