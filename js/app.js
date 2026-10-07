@@ -547,7 +547,7 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.4 — stabilne ładowanie danych + „Daj Sówkę” i anonimowy licznik odczytań.
+// v0.7.5 — automatyczne powiadomienie PUSH po opublikowaniu nowego jadłospisu.
 // Rodzic nadal ma lokalne oznaczenie w localStorage. Dodatkowo aplikacja wysyła do Supabase
 // anonimowe potwierdzenie urządzenia, bez imienia, e-maila, numeru telefonu ani konta rodzica.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
@@ -2536,6 +2536,53 @@ async function uploadAdminImageFile(table,file,setStatus,label="Zdjęcie"){
   return storedValue;
 }
 
+function menuAutomaticNotificationTitle(menuRow){
+  const from=menuRow?.date_from?date(menuRow.date_from):"";
+  const to=menuRow?.date_to?date(menuRow.date_to):"";
+  const range=[from,to].filter(Boolean).join(" – ");
+  return range?`Aktualny jadłospis (${range})`:"Aktualny jadłospis";
+}
+
+async function createAndSendMenuNotification(menuRow,setStatus=()=>{}){
+  setStatus("Tworzę powiadomienie o jadłospisie…");
+
+  const notification={
+    title:menuAutomaticNotificationTitle(menuRow),
+    body:"Pojawił się aktualny jadłospis w przedszkolu na ten tydzień.",
+    target_page:"menu",
+    published:true,
+    scheduled_at:null,
+    push_sent_at:null,
+    sort_order:await nextSortOrder("notifications")
+  };
+
+  const {data,error}=await sb
+    .from("notifications")
+    .insert(notification)
+    .select()
+    .single();
+
+  if(error)throw new Error("Jadłospis zapisano, ale nie udało się utworzyć powiadomienia: "+error.message);
+
+  setStatus("Wysyłam powiadomienie o nowym jadłospisie…");
+
+  const sent=await withTimeout(
+    sb.functions.invoke("send-push",{body:{notification_id:data.id}}),
+    45000,
+    "Jadłospis zapisano, ale wysyłanie automatycznego PUSH trwało zbyt długo."
+  );
+
+  if(sent.error){
+    throw new Error("Jadłospis zapisano, ale automatyczna wysyłka PUSH zgłosiła błąd: "+sent.error.message);
+  }
+
+  return {
+    notification:data,
+    sent:Number(sent.data?.sent||0),
+    failed:Number(sent.data?.failed||0)
+  };
+}
+
 async function save(ev){
   ev.preventDefault();
 
@@ -2792,6 +2839,18 @@ async function save(ev){
         if(!cleanup.ok){
           console.warn("Nie udało się usunąć starego zdjęcia po podmianie:",oldValue,cleanup.error);
         }
+      }
+    }
+
+    if(table==="menus"&&!id&&r.data?.published){
+      try{
+        const automaticPush=await createAndSendMenuNotification(r.data,setStatus);
+        alert(
+          `✅ Jadłospis zapisany i automatyczne powiadomienie zostało wysłane. Urządzenia: ${automaticPush.sent}`
+        );
+      }catch(pushError){
+        console.error("AUTO MENU PUSH ERROR:",pushError);
+        alert(pushError?.message||"Jadłospis zapisano, ale nie udało się wysłać automatycznego powiadomienia.");
       }
     }
 
