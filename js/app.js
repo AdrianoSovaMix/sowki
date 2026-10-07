@@ -3236,6 +3236,8 @@ function renderSowkiCalendar(){
     const inMonth=cellDate.getUTCMonth()===m;
     const events=calendarEventsForDate(iso);
     const categories=[...new Set(events.map(x=>String(x.category||"ogolne")))].slice(0,3);
+    const weekday=cellDate.getUTCDay();
+    const isWeekend=weekday===0||weekday===6;
 
     const multiDayEvents=events
       .filter(row=>String(row.date_to||row.date_from)>String(row.date_from||""))
@@ -3247,18 +3249,25 @@ function renderSowkiCalendar(){
       const nextIso=calendarShiftIso(iso,1);
       const continuesLeft=(i%7!==0)&&calendarEventIncludesDate(row,prevIso);
       const continuesRight=(i%7!==6)&&calendarEventIncludesDate(row,nextIso);
+      const isStart=!continuesLeft;
+      const isEnd=!continuesRight;
 
       return `<span
-        class="calendar-range-bar ${cat.className}${continuesLeft?" continues-left":""}${continuesRight?" continues-right":""}"
+        class="calendar-range-bar calendar-range-pill ${cat.className}${continuesLeft?" continues-left":""}${continuesRight?" continues-right":""}${isStart?" is-start":""}${isEnd?" is-end":""}"
         style="--calendar-range-index:${rangeIndex}"
-        title="${esc(row.title)}"></span>`;
+        title="${esc(row.title)}">
+          ${isStart?`<i class="calendar-range-pill-icon">${cat.icon}</i>`:""}
+        </span>`;
     }).join("");
 
     cells.push(`
       <button type="button"
-        class="calendar-day${inMonth?"":" is-outside"}${iso===today?" is-today":""}${iso===sowkiCalendarSelectedDate?" is-selected":""}${events.length?" has-events":""}"
+        class="calendar-day${inMonth?"":" is-outside"}${isWeekend?" is-weekend":""}${iso===today?" is-today":""}${iso===sowkiCalendarSelectedDate?" is-selected":""}${events.length?" has-events":""}"
         data-calendar-date="${iso}">
-        <span class="calendar-day-number">${cellDate.getUTCDate()}</span>
+        <span class="calendar-day-head">
+          <span class="calendar-day-number">${cellDate.getUTCDate()}</span>
+          ${iso===today?`<span class="calendar-today-mini">dziś</span>`:""}
+        </span>
         <span class="calendar-day-icons">
           ${categories.map(cat=>{
             const meta=SOWKI_CALENDAR_CATEGORIES[cat]||SOWKI_CALENDAR_CATEGORIES.ogolne;

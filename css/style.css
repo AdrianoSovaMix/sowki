@@ -4895,3 +4895,449 @@ nav > .home .nav-new-dot{
 .calendar-range-bar.cat-urodziny{background:#35a96c !important}
 .calendar-range-bar.cat-swieta{background:#d5a91d !important}
 .calendar-range-bar.cat-dyzury{background:#51495b !important}
+
+
+/* =========================================================
+   v0.8.4 — odświeżony wygląd Kalendarza Sówki
+   ========================================================= */
+
+/* Główna karta kalendarza */
+.calendar-shell{
+  padding:16px !important;
+  border:1px solid #ead9e1 !important;
+  border-radius:22px !important;
+  background:
+    linear-gradient(180deg,#fff 0%,#fff 76%,#fff9fb 100%) !important;
+  box-shadow:
+    0 10px 28px rgba(73,34,53,.07),
+    0 1px 0 rgba(255,255,255,.9) inset !important;
+}
+
+/* Nagłówek miesiąca */
+.calendar-toolbar{
+  grid-template-columns:42px 1fr 42px !important;
+  margin-bottom:13px !important;
+}
+
+.calendar-toolbar-center{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+}
+
+.calendar-toolbar-center h2{
+  font-size:22px !important;
+  letter-spacing:-.2px;
+  color:#211b21 !important;
+}
+
+.calendar-nav-btn{
+  width:38px !important;
+  height:38px !important;
+  border:1px solid #f0ccd9 !important;
+  border-radius:13px !important;
+  background:linear-gradient(180deg,#fff,#fff5f8) !important;
+  color:#d81b60 !important;
+  font-size:24px !important;
+  box-shadow:0 3px 8px rgba(89,35,58,.05);
+}
+
+.calendar-nav-btn:hover{
+  background:#fff0f5 !important;
+  border-color:#eaa9c2 !important;
+}
+
+.calendar-today-btn{
+  margin-top:0 !important;
+  padding:4px 10px !important;
+  background:#fff0f5 !important;
+  color:#a91f52 !important;
+  border:1px solid #f4d6e1 !important;
+  font-size:9px !important;
+}
+
+/* Dni tygodnia */
+.calendar-weekdays{
+  gap:4px !important;
+  margin-bottom:7px !important;
+}
+
+.calendar-weekdays span{
+  padding:5px 2px;
+  border-radius:9px;
+  background:#fbf8f9;
+  color:#5a5159 !important;
+  font-size:10.5px !important;
+  letter-spacing:.15px;
+}
+
+.calendar-weekdays span:nth-child(6),
+.calendar-weekdays span:nth-child(7){
+  background:#fff4f7;
+  color:#a84b6d !important;
+}
+
+/* Siatka */
+.calendar-grid{
+  gap:4px !important;
+  min-height:400px !important;
+}
+
+/* Komórka dnia */
+.calendar-day{
+  position:relative;
+  min-height:64px !important;
+  padding:7px 6px 20px !important;
+  overflow:visible !important;
+  border:1px solid #efe5e9 !important;
+  border-radius:13px !important;
+  background:#fff !important;
+  color:#241f24 !important;
+  box-shadow:0 1px 2px rgba(55,30,42,.025);
+  transition:
+    background .14s ease,
+    border-color .14s ease,
+    box-shadow .14s ease,
+    transform .14s ease;
+}
+
+.calendar-day:hover{
+  background:#fffafb !important;
+  border-color:#e9b7ca !important;
+  box-shadow:0 4px 10px rgba(74,31,51,.06);
+}
+
+.calendar-day.is-weekend:not(.is-selected){
+  background:#fffbfc !important;
+}
+
+.calendar-day.is-outside{
+  background:#faf8f9 !important;
+  opacity:.48 !important;
+  box-shadow:none !important;
+}
+
+.calendar-day.is-outside .calendar-day-icons,
+.calendar-day.is-outside .calendar-range-bar{
+  opacity:.55;
+}
+
+/* Górna część komórki */
+.calendar-day-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:3px;
+  min-height:18px;
+}
+
+.calendar-day-number{
+  display:grid !important;
+  place-items:center;
+  width:24px;
+  height:24px;
+  border-radius:8px;
+  font-size:12px !important;
+  font-weight:950 !important;
+  line-height:1 !important;
+  color:inherit;
+}
+
+.calendar-today-mini{
+  padding:2px 5px;
+  border-radius:999px;
+  background:#fce3ed;
+  color:#ad1d52;
+  font-size:7px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.25px;
+}
+
+/* Dziś: lekki różowy akcent zamiast ciężkiego wypełnienia */
+.calendar-day.is-today{
+  border-color:#ec4d88 !important;
+  box-shadow:
+    inset 0 0 0 1px #ec4d88,
+    0 3px 8px rgba(236,77,136,.08) !important;
+}
+
+.calendar-day.is-today .calendar-day-number{
+  background:#ec4d88;
+  color:#fff;
+}
+
+/* Wybrany dzień: jasna karta, nie ciemny różowy blok */
+.calendar-day.is-selected{
+  background:#fff0f6 !important;
+  border-color:#d81b60 !important;
+  color:#3a2030 !important;
+  box-shadow:
+    inset 0 0 0 1px #d81b60,
+    0 5px 12px rgba(216,27,96,.10) !important;
+  transform:translateY(-1px);
+}
+
+.calendar-day.is-selected .calendar-day-number{
+  background:#d81b60;
+  color:#fff;
+}
+
+.calendar-day.is-selected .calendar-today-mini{
+  background:#fff;
+  color:#a7194c;
+}
+
+/* Większe, czyste ikony kategorii */
+.calendar-day-icons{
+  display:flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:3px !important;
+  min-height:23px !important;
+  margin-top:4px !important;
+}
+
+.calendar-day-icon{
+  display:grid !important;
+  place-items:center;
+  width:22px !important;
+  height:22px !important;
+  border:1px solid rgba(70,40,53,.06);
+  border-radius:9px !important;
+  font-size:14px !important;
+  box-shadow:
+    0 2px 4px rgba(47,26,36,.06),
+    inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+.calendar-day-icon.cat-ogolne{
+  background:#ffe8f0 !important;
+}
+.calendar-day-icon.cat-urodziny{
+  background:#e6f7ed !important;
+}
+.calendar-day-icon.cat-swieta{
+  background:#fff3c3 !important;
+}
+.calendar-day-icon.cat-dyzury{
+  background:#ece9ef !important;
+}
+
+.calendar-day.is-selected .calendar-day-icon{
+  background:#fff !important;
+}
+
+/* ---------------------------------------------------------
+   Zakresy wielodniowe jako pastelowe "kapsułki / przyciski"
+   --------------------------------------------------------- */
+.calendar-range-bar.calendar-range-pill{
+  position:absolute;
+  z-index:4;
+  left:5px;
+  right:5px;
+  bottom:calc(4px + (var(--calendar-range-index,0) * 10px));
+  height:8px;
+  border:1px solid transparent;
+  border-radius:999px;
+  pointer-events:none;
+  opacity:1;
+  box-shadow:
+    0 1px 3px rgba(48,25,36,.10),
+    inset 0 1px 0 rgba(255,255,255,.65);
+}
+
+.calendar-range-pill.cat-ogolne{
+  background:#ffdce9 !important;
+  border-color:#ec4d88 !important;
+}
+.calendar-range-pill.cat-urodziny{
+  background:#dcf4e7 !important;
+  border-color:#35a96c !important;
+}
+.calendar-range-pill.cat-swieta{
+  background:#ffedaa !important;
+  border-color:#d5a91d !important;
+}
+.calendar-range-pill.cat-dyzury{
+  background:#e6e1ea !important;
+  border-color:#51495b !important;
+}
+
+/* Fragment środkowy dochodzi do krawędzi, aby kapsułka wyglądała jak jeden element. */
+.calendar-range-pill.continues-left{
+  left:-5px !important;
+  border-left-width:0 !important;
+  border-top-left-radius:0 !important;
+  border-bottom-left-radius:0 !important;
+}
+
+.calendar-range-pill.continues-right{
+  right:-5px !important;
+  border-right-width:0 !important;
+  border-top-right-radius:0 !important;
+  border-bottom-right-radius:0 !important;
+}
+
+/* Początek/koniec zakresu są mocno zaokrąglone jak przycisk. */
+.calendar-range-pill.is-start{
+  border-top-left-radius:999px !important;
+  border-bottom-left-radius:999px !important;
+}
+
+.calendar-range-pill.is-end{
+  border-top-right-radius:999px !important;
+  border-bottom-right-radius:999px !important;
+}
+
+.calendar-range-pill-icon{
+  position:absolute;
+  left:2px;
+  top:50%;
+  transform:translateY(-50%);
+  display:grid;
+  place-items:center;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#fff;
+  font-style:normal;
+  font-size:7px;
+  line-height:1;
+  box-shadow:0 1px 2px rgba(40,20,30,.12);
+}
+
+/* W zaznaczonym dniu zakres nadal pozostaje czytelny. */
+.calendar-day.is-selected .calendar-range-pill{
+  outline:none !important;
+}
+
+/* Legenda jako czytelne kapsułki */
+.calendar-legend{
+  gap:7px !important;
+  margin-top:13px !important;
+  padding-top:12px !important;
+}
+
+.calendar-legend>b{
+  margin-right:2px;
+  color:#4f464d;
+}
+
+.calendar-legend span{
+  padding:5px 8px;
+  border:1px solid #eee3e8;
+  border-radius:999px;
+  background:#fff;
+  color:#574f56;
+  font-weight:750;
+}
+
+.calendar-legend span:nth-of-type(1){background:#fff3f7}
+.calendar-legend span:nth-of-type(2){background:#eff9f3}
+.calendar-legend span:nth-of-type(3){background:#fff9e1}
+.calendar-legend span:nth-of-type(4){background:#f3f0f4}
+
+/* Sekcje nad/pod kalendarzem troszkę spokojniejsze */
+.calendar-upcoming-section,
+.calendar-day-section{
+  border-radius:20px !important;
+  box-shadow:0 7px 20px rgba(73,34,53,.055) !important;
+}
+
+/* Responsive */
+@media(max-width:600px){
+  .calendar-shell{
+    padding:11px !important;
+    border-radius:18px !important;
+  }
+
+  .calendar-grid{
+    gap:3px !important;
+    min-height:350px !important;
+  }
+
+  .calendar-day{
+    min-height:56px !important;
+    padding:5px 4px 18px !important;
+    border-radius:10px !important;
+  }
+
+  .calendar-day-number{
+    width:21px;
+    height:21px;
+    border-radius:7px;
+    font-size:11px !important;
+  }
+
+  .calendar-today-mini{
+    padding:1px 3px;
+    font-size:6px;
+  }
+
+  .calendar-day-icons{
+    gap:1px !important;
+    min-height:18px !important;
+    margin-top:3px !important;
+  }
+
+  .calendar-day-icon{
+    width:18px !important;
+    height:18px !important;
+    border-radius:7px !important;
+    font-size:12px !important;
+  }
+
+  .calendar-range-bar.calendar-range-pill{
+    left:4px;
+    right:4px;
+    bottom:calc(3px + (var(--calendar-range-index,0) * 8px));
+    height:7px;
+  }
+
+  .calendar-range-pill.continues-left{left:-4px !important}
+  .calendar-range-pill.continues-right{right:-4px !important}
+
+  .calendar-range-pill-icon{
+    width:9px;
+    height:9px;
+    font-size:6px;
+  }
+
+  .calendar-legend{
+    gap:5px !important;
+    font-size:9.5px !important;
+  }
+
+  .calendar-legend span{
+    padding:4px 6px;
+  }
+}
+
+@media(max-width:390px){
+  .calendar-shell{
+    padding:8px !important;
+  }
+
+  .calendar-weekdays,
+  .calendar-grid{
+    gap:2px !important;
+  }
+
+  .calendar-day{
+    min-height:53px !important;
+    padding-left:3px !important;
+    padding-right:3px !important;
+  }
+
+  .calendar-day-icon{
+    width:16px !important;
+    height:16px !important;
+    font-size:11px !important;
+  }
+
+  .calendar-today-mini{
+    display:none;
+  }
+}
