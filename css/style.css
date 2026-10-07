@@ -5997,3 +5997,158 @@ nav > .home .nav-new-dot{
   color:#5c565b !important;
   border:1px solid #cbc8cc;
 }
+
+
+/* =========================================================
+   v0.8.14 — ikona + tytuł wydarzenia w komórce kalendarza
+   ========================================================= */
+
+.calendar-day{
+  min-height:88px !important;
+  padding-bottom:34px !important;
+}
+
+/* Zastępuje poprzedni rząd samych ikon. */
+.calendar-day-events{
+  display:grid;
+  gap:3px;
+  min-width:0;
+  margin-top:4px;
+}
+
+.calendar-day-event-chip{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+  height:20px;
+  padding:2px 5px;
+  border:1px solid transparent;
+  border-radius:7px;
+  font-size:8px;
+  font-weight:850;
+  line-height:1;
+  text-align:left;
+  box-shadow:0 1px 2px rgba(55,28,41,.05);
+}
+
+.calendar-day-event-icon{
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  width:13px;
+  height:13px;
+  font-style:normal;
+  font-size:10px;
+  line-height:1;
+}
+
+.calendar-day-event-title{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* Pastelowe kolory zgodne z kategorią. */
+.calendar-day-event-chip.cat-ogolne{
+  background:#ffeaf2 !important;
+  color:#8f1744 !important;
+  border-color:#f3cfdd;
+}
+.calendar-day-event-chip.cat-urodziny{
+  background:#e9f8ef !important;
+  color:#176f42 !important;
+  border-color:#d0e9db;
+}
+.calendar-day-event-chip.cat-swieta{
+  background:#fff5cc !important;
+  color:#715400 !important;
+  border-color:#eadc99;
+}
+.calendar-day-event-chip.cat-dyzury{
+  background:#eeebf1 !important;
+  color:#352f3b !important;
+  border-color:#ddd6e1;
+}
+
+/* Jeśli danego dnia jest więcej niż 2 wydarzenia. */
+.calendar-day-more{
+  justify-self:end;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:20px;
+  height:16px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#f3edf0;
+  color:#70636a;
+  font-size:7.5px;
+  font-weight:950;
+}
+
+/* Wybrany dzień zachowuje jasne, czytelne mini-kafelki. */
+.calendar-day.is-selected .calendar-day-event-chip{
+  box-shadow:0 1px 3px rgba(65,26,45,.08);
+}
+
+/* Stare samodzielne ikony nie są już używane w komórkach. */
+.calendar-day-icons{
+  display:none !important;
+}
+
+@media(max-width:600px){
+  .calendar-day{
+    min-height:80px !important;
+    padding-left:4px !important;
+    padding-right:4px !important;
+  }
+
+  .calendar-day-events{
+    gap:2px;
+    margin-top:3px;
+  }
+
+  .calendar-day-event-chip{
+    height:18px;
+    padding:1px 4px;
+    gap:3px;
+    border-radius:6px;
+    font-size:7px;
+  }
+
+  .calendar-day-event-icon{
+    width:11px;
+    height:11px;
+    font-size:9px;
+  }
+
+  .calendar-day-more{
+    height:14px;
+    min-width:18px;
+    font-size:7px;
+  }
+}
+
+@media(max-width:430px){
+  .calendar-day{
+    min-height:76px !important;
+    padding-left:3px !important;
+    padding-right:3px !important;
+  }
+
+  /* Na bardzo wąskim ekranie nadal pokazujemy tytuł,
+     ale jeden wiersz jest ekstremalnie kompaktowy. */
+  .calendar-day-event-chip{
+    height:17px;
+    padding:1px 3px;
+    font-size:6.5px;
+  }
+
+  .calendar-day-event-icon{
+    width:10px;
+    height:10px;
+    font-size:8px;
+  }
+}

@@ -3378,7 +3378,8 @@ function renderSowkiCalendar(){
     const iso=calendarIsoFromDateUTC(cellDate);
     const inMonth=cellDate.getUTCMonth()===m;
     const events=calendarEventsForDate(iso);
-    const categories=[...new Set(events.map(x=>String(x.category||"ogolne")))].slice(0,3);
+    const dayEventPreview=events.slice(0,2);
+    const dayEventOverflow=Math.max(0,events.length-dayEventPreview.length);
     const weekday=cellDate.getUTCDay();
     const isWeekend=weekday===0||weekday===6;
 
@@ -3413,11 +3414,16 @@ function renderSowkiCalendar(){
           <span class="calendar-day-number">${cellDate.getUTCDate()}</span>
           ${iso===today?`<span class="calendar-today-mini">dziś</span>`:""}
         </span>
-        <span class="calendar-day-icons">
-          ${categories.map(cat=>{
-            const meta=SOWKI_CALENDAR_CATEGORIES[cat]||SOWKI_CALENDAR_CATEGORIES.ogolne;
-            return `<i class="calendar-day-icon ${meta.className}" title="${esc(meta.label)}">${meta.icon}</i>`;
+        <span class="calendar-day-events">
+          ${dayEventPreview.map(row=>{
+            const meta=calendarCategory(row);
+            return `
+              <span class="calendar-day-event-chip ${meta.className}" title="${esc(row.title)}">
+                <i class="calendar-day-event-icon">${meta.icon}</i>
+                <span class="calendar-day-event-title">${esc(row.title)}</span>
+              </span>`;
           }).join("")}
+          ${dayEventOverflow?`<span class="calendar-day-more">+${dayEventOverflow}</span>`:""}
         </span>
         ${rangeBars}
       </button>`);
