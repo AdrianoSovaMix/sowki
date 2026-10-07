@@ -6169,3 +6169,41 @@ nav > .home .nav-new-dot{
   min-height:18px;
   margin-top:7px;
 }
+
+
+/* =========================================================
+   v0.8.18 — informacja o bezpiecznym dostępie
+   ========================================================= */
+
+.secure-access-note{
+  margin-top:12px;
+  padding:10px 12px;
+  border:1px solid #e5dce1;
+  border-radius:10px;
+  background:#faf7f8;
+  color:#5f565b;
+  font-size:12px;
+  line-height:1.45;
+}
+
+.secure-access-note-title{
+  margin-bottom:4px;
+  color:#40383c;
+  font-size:12px;
+  font-weight:900;
+}
+
+.secure-access-note-text{
+  color:#6b6267;
+}
+
+@media(max-width:600px){
+  .secure-access-note{
+    padding:9px 10px;
+    font-size:11px;
+  }
+
+  .secure-access-note-title{
+    font-size:11.5px;
+  }
+}

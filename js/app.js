@@ -4707,7 +4707,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.17 — hasła bezpiecznie w Supabase, arkusz Rozliczeń działa jak wcześniej
+// v0.8.18 — informacja o 12-godzinnej sesji i blokadzie po błędnych hasłach
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================

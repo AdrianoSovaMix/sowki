@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0817"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0818"></head><body>
 <header class="app-header">
 <div class="header-left-actions">
   <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
@@ -86,9 +86,15 @@
 </section>
 <section id="surveysPage" class="page"><div class="section-title-row"><h1>📊 Ankiety</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Ankiety" aria-expanded="false" aria-controls="info-surveys">i</button><div id="info-surveys" class="section-info-popover" hidden>Tutaj pojawiają się aktualne ankiety dla rodziców. Po wysłaniu odpowiedzi w formularzu zaznacz w aplikacji, że ankieta została wypełniona.</div></div><div id="surveys"></div><div id="surveyArchive"></div></section>
 <section id="gallery" class="page"><div class="section-title-row"><h1>📸 Galeria zdjęć</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Galeria zdjęć" aria-expanded="false" aria-controls="info-gallery">i</button><div id="info-gallery" class="section-info-popover" hidden>Tutaj znajdziesz albumy ze zdjęciami z wydarzeń naszej grupy oraz linki do pobrania fotografii. Dostęp do galerii jest chroniony hasłem.</div></div>
-<div id="galleryGate" class="card"><p>Galeria jest chroniona hasłem.</p><label>Hasło</label><div class="row"><input id="galleryPass" type="password"><button id="galleryUnlock">Otwórz</button></div><p id="galleryErr" class="err"></p></div>
+<div id="galleryGate" class="card"><p>Galeria jest chroniona hasłem.</p><label>Hasło</label><div class="row"><input id="galleryPass" type="password"><button id="galleryUnlock">Otwórz</button></div><p id="galleryErr" class="err"></p><div class="secure-access-note" role="note">
+  <div class="secure-access-note-title">🔐 Bezpieczny dostęp</div>
+  <div class="secure-access-note-text">Po poprawnym wpisaniu hasła aplikacja zapamięta dostęp na tym urządzeniu przez 12 godzin. W tym czasie nie musisz wpisywać hasła ponownie. Po 5 nieudanych próbach nastąpi 15-minutowa blokada bezpieczeństwa.</div>
+</div></div>
 <div id="galleryAlbums" hidden></div></section>
-<section id="payments" class="page"><div class="section-title-row"><h1>💰 Rozliczenia grupy „Sówki”</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Rozliczenia" aria-expanded="false" aria-controls="info-payments">i</button><div id="info-payments" class="section-info-popover" hidden>Tutaj możesz sprawdzić bieżące rozliczenia grupy, wpłaty i wydatki. Arkusz jest aktualizowany na bieżąco i chroniony hasłem.</div></div><p class="ok">● Arkusz aktualizowany na bieżąco</p><div id="gate" class="card"><label>Hasło</label><div class="row"><input id="pass" type="password"><button id="openPay">Otwórz</button></div><p id="payErr" class="err"></p></div><div id="pay" hidden>
+<section id="payments" class="page"><div class="section-title-row"><h1>💰 Rozliczenia grupy „Sówki”</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Rozliczenia" aria-expanded="false" aria-controls="info-payments">i</button><div id="info-payments" class="section-info-popover" hidden>Tutaj możesz sprawdzić bieżące rozliczenia grupy, wpłaty i wydatki. Arkusz jest aktualizowany na bieżąco i chroniony hasłem.</div></div><p class="ok">● Arkusz aktualizowany na bieżąco</p><div id="gate" class="card"><label>Hasło</label><div class="row"><input id="pass" type="password"><button id="openPay">Otwórz</button></div><p id="payErr" class="err"></p><div class="secure-access-note" role="note">
+  <div class="secure-access-note-title">🔐 Bezpieczny dostęp</div>
+  <div class="secure-access-note-text">Po poprawnym wpisaniu hasła aplikacja zapamięta dostęp na tym urządzeniu przez 12 godzin. W tym czasie nie musisz wpisywać hasła ponownie. Po 5 nieudanych próbach nastąpi 15-minutowa blokada bezpieczeństwa.</div>
+</div></div><div id="pay" hidden>
   <iframe class="bigframe desktop" src="https://1drv.ms/x/c/33eff04408f33c11/IQRrDW0alyzxQJSy91EQBK8ZAU4lngG0Fi1laO_zujcVTvY"></iframe>
   <div class="card mobile">
     <h3>Arkusz Excel</h3>
@@ -228,7 +234,7 @@
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.8.17</span>
+        <span class="admin-app-version">v0.8.18</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -300,4 +306,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0817"></script><script src="js/app.js?v=0817"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0818"></script><script src="js/app.js?v=0818"></script></body></html>
