@@ -5341,3 +5341,111 @@ nav > .home .nav-new-dot{
     display:none;
   }
 }
+
+
+/* =========================================================
+   v0.8.5 — ciągłość zakresów + OD/DO
+   ========================================================= */
+
+/*
+  Każde wydarzenie wielodniowe dostaje jeden stały poziom
+  na cały swój zakres. Gdy zakresy nachodzą na siebie,
+  zajmują osobne poziomy, ale żaden z nich nie "przeskakuje"
+  po zakończeniu drugiego wydarzenia.
+*/
+.calendar-day{
+  min-height:72px !important;
+  padding-bottom:34px !important;
+}
+
+.calendar-range-bar.calendar-range-pill{
+  bottom:calc(4px + (var(--calendar-range-index,0) * 10px)) !important;
+}
+
+/* 3 możliwe stałe poziomy mieszczą się w komórce bez nachodzenia na ikony. */
+.calendar-range-bar[style*="--calendar-range-index:0"]{z-index:6}
+.calendar-range-bar[style*="--calendar-range-index:1"]{z-index:7}
+.calendar-range-bar[style*="--calendar-range-index:2"]{z-index:8}
+
+/* OD / DO na kartach najbliższych terminów i wybranego dnia */
+.calendar-event-range{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-top:2px;
+}
+
+.calendar-event-range-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  min-height:20px;
+  padding:2px 7px;
+  border:1px solid #eadde3;
+  border-radius:999px;
+  background:#faf7f9;
+  color:#4d454c;
+  font-variant-numeric:tabular-nums;
+}
+
+.calendar-event-range-chip small{
+  color:#a32959;
+  font-size:7px;
+  font-weight:950;
+  letter-spacing:.25px;
+}
+
+.calendar-event-range-chip b{
+  font-size:9px;
+  font-weight:900;
+}
+
+.calendar-event-range-arrow{
+  color:#9a8b93;
+  font-size:10px;
+  font-weight:900;
+}
+
+.calendar-event-card.cat-ogolne .calendar-event-range-chip{
+  background:#fff4f7;
+  border-color:#f2d9e3;
+}
+.calendar-event-card.cat-urodziny .calendar-event-range-chip{
+  background:#f1faf5;
+  border-color:#d6ecdf;
+}
+.calendar-event-card.cat-swieta .calendar-event-range-chip{
+  background:#fff9e4;
+  border-color:#efe4b9;
+}
+.calendar-event-card.cat-dyzury .calendar-event-range-chip{
+  background:#f4f1f5;
+  border-color:#e0dbe3;
+}
+
+@media(max-width:600px){
+  .calendar-day{
+    min-height:66px !important;
+    padding-bottom:31px !important;
+  }
+
+  .calendar-range-bar.calendar-range-pill{
+    bottom:calc(3px + (var(--calendar-range-index,0) * 9px)) !important;
+  }
+
+  .calendar-event-range-chip{
+    padding:2px 6px;
+  }
+
+  .calendar-event-range-chip b{
+    font-size:8.5px;
+  }
+}
+
+@media(max-width:390px){
+  .calendar-day{
+    min-height:63px !important;
+    padding-bottom:30px !important;
+  }
+}

@@ -3121,6 +3121,48 @@ function calendarPolishDate(iso,withWeekday=false){
   }).format(d);
 }
 
+function calendarCompactDate(iso){
+  const d=calendarParseIso(iso);
+  if(!d)return "";
+  return new Intl.DateTimeFormat("pl-PL",{
+    day:"2-digit",
+    month:"2-digit",
+    timeZone:"UTC"
+  }).format(d);
+}
+
+function calendarRangeLaneMap(rows){
+  const multi=(rows||[])
+    .filter(row=>String(row?.date_to||row?.date_from)>String(row?.date_from||""))
+    .slice()
+    .sort((a,b)=>{
+      const byStart=String(a.date_from||"").localeCompare(String(b.date_from||""));
+      if(byStart!==0)return byStart;
+
+      // Przy tym samym starcie dłuższy zakres dostaje poziom jako pierwszy.
+      const byEnd=String(b.date_to||b.date_from||"").localeCompare(String(a.date_to||a.date_from||""));
+      if(byEnd!==0)return byEnd;
+
+      return Number(a.id||0)-Number(b.id||0);
+    });
+
+  const laneEnds=[];
+  const map=new Map();
+
+  for(const row of multi){
+    const start=String(row.date_from||"");
+    const end=String(row.date_to||row.date_from||"");
+
+    let lane=laneEnds.findIndex(lastEnd=>String(lastEnd)<start);
+    if(lane<0)lane=laneEnds.length;
+
+    laneEnds[lane]=end;
+    map.set(String(row.id),lane);
+  }
+
+  return map;
+}
+
 function calendarRangeLabel(row){
   const a=String(row?.date_from||"");
   const b=String(row?.date_to||a);
@@ -3228,6 +3270,7 @@ function renderSowkiCalendar(){
   if(monthTitle)monthTitle.textContent=calendarMonthName(d);
 
   const cells=[];
+  const rangeLaneMap=calendarRangeLaneMap(sowkiCalendarMonthRows);
 
   for(let i=0;i<42;i++){
     const relativeDay=i-mondayIndex+1;
@@ -3241,9 +3284,11 @@ function renderSowkiCalendar(){
 
     const multiDayEvents=events
       .filter(row=>String(row.date_to||row.date_from)>String(row.date_from||""))
-      .slice(0,2);
+      .map(row=>({row,lane:rangeLaneMap.get(String(row.id))??0}))
+      .filter(item=>item.lane<3)
+      .sort((a,b)=>a.lane-b.lane);
 
-    const rangeBars=multiDayEvents.map((row,rangeIndex)=>{
+    const rangeBars=multiDayEvents.map(({row,lane})=>{
       const cat=calendarCategory(row);
       const prevIso=calendarShiftIso(iso,-1);
       const nextIso=calendarShiftIso(iso,1);
@@ -3254,7 +3299,7 @@ function renderSowkiCalendar(){
 
       return `<span
         class="calendar-range-bar calendar-range-pill ${cat.className}${continuesLeft?" continues-left":""}${continuesRight?" continues-right":""}${isStart?" is-start":""}${isEnd?" is-end":""}"
-        style="--calendar-range-index:${rangeIndex}"
+        style="--calendar-range-index:${lane}"
         title="${esc(row.title)}">
           ${isStart?`<i class="calendar-range-pill-icon">${cat.icon}</i>`:""}
         </span>`;
@@ -3320,6 +3365,12 @@ function calendarEventCard(row){
           <i class="calendar-category-emoji">${cat.icon}</i>
           ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}
         </span>
+        ${String(row.date_to||row.date_from)>String(row.date_from||"")?`
+          <span class="calendar-event-range">
+            <span class="calendar-event-range-chip"><small>OD</small><b>${esc(calendarCompactDate(row.date_from))}</b></span>
+            <span class="calendar-event-range-arrow">→</span>
+            <span class="calendar-event-range-chip"><small>DO</small><b>${esc(calendarCompactDate(row.date_to))}</b></span>
+          </span>`:""}
         ${row.description?`<span class="calendar-event-desc">${esc(row.description).replace(/\n/g," ")}</span>`:""}
       </span>
       <span class="calendar-event-arrow">›</span>
