@@ -3355,9 +3355,39 @@ async function renderOwlTripsAdmin(editId=null){
 
   const rows=data||[];
   const edit=editId?rows.find(x=>String(x.id)===String(editId)):null;
+  const today=owlTripsWarsawToday();
 
-  q("#editor").innerHTML=`
-    <div class="form owl-trips-admin-form">
+  // Celowo wybieramy NAJBLIŻSZY PRZYSZŁY termin, a nie weekend,
+  // który aktualnie trwa. Administrator od razu widzi "co będzie dalej".
+  const nextWeekend=rows
+    .filter(x=>x.published!==false && String(x.date_from||"")>today)
+    .sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)))[0]||null;
+
+  const nextWeekendSummary=nextWeekend?`
+    <div class="owl-trips-next-admin-card">
+      <div class="owl-trips-next-admin-kicker">⭐ NAJBLIŻSZY NADCHODZĄCY WEEKEND</div>
+      <div class="owl-trips-next-admin-main">
+        <div>
+          <b>📅 ${esc(owlTripsAdminDateRange(nextWeekend))}</b>
+          <small>To ten termin będzie następny po aktualnej dacie.</small>
+        </div>
+        <div class="owl-trips-admin-mini-members owl-trips-next-admin-members">
+          ${OWL_TRIP_MEMBERS.map(member=>`
+            <span class="tone-${member.tone}">
+              ${owlTripAvatar(member.tone,"small")}
+              <small>${esc(member.short)}</small>
+              <b>${Number(nextWeekend[member.key]||0)}</b>
+            </span>`).join("")}
+        </div>
+      </div>
+    </div>`:`
+    <div class="owl-trips-next-admin-card is-empty">
+      <div class="owl-trips-next-admin-kicker">⭐ NAJBLIŻSZY NADCHODZĄCY WEEKEND</div>
+      <div class="owl-trips-next-admin-empty">Brak kolejnych opublikowanych terminów w harmonogramie.</div>
+    </div>`;
+
+  const formHtml=`
+    <div class="form owl-trips-admin-form" id="owlTripsAdminFormPanel">
       <div class="owl-trips-admin-title">
         <div>
           <h3>${edit?"Edytuj weekend":"Dodaj weekend"}: Sowie podróże</h3>
@@ -3385,26 +3415,34 @@ async function renderOwlTripsAdmin(editId=null){
         <button class="primary admin-save-btn" type="submit">${edit?"Zapisz zmiany":"Dodaj termin"}</button>
         <div class="admin-save-status" aria-live="polite"></div>
       </form>
-    </div>
+    </div>`;
 
-    <section class="admin-content-manager">
+  q("#editor").innerHTML=`
+    <section class="admin-content-manager owl-trips-admin-schedule-first">
       <div class="admin-content-head">
         <div>
           <h3>Harmonogram całoroczny</h3>
-          <p>Terminy są automatycznie wyświetlane rodzicom według aktualnej daty.</p>
+          <p>Najpierw widzisz harmonogram i najbliższy przyszły weekend. Formularz dodawania jest pod listą.</p>
         </div>
-        <span class="admin-count">${rows.length} ${rows.length===1?"termin":"terminów"}</span>
+        <div class="owl-trips-admin-head-actions">
+          <span class="admin-count">${rows.length} ${rows.length===1?"termin":"terminów"}</span>
+          <button type="button" class="secondary owl-trips-jump-add" id="owlTripsJumpAdd">＋ Dodaj termin</button>
+        </div>
       </div>
+
+      ${nextWeekendSummary}
 
       <div class="owl-trips-admin-list">
         ${rows.length?rows.map(row=>{
           const termStatus=owlTripsAdminTermStatus(row);
           const pushStatus=owlTripsAdminPushStatus(row);
+          const isNext=Boolean(nextWeekend && String(row.id)===String(nextWeekend.id));
           return `
-          <article class="owl-trips-admin-row ${termStatus.rowClass}">
+          <article class="owl-trips-admin-row ${termStatus.rowClass} ${isNext?"is-next-weekend":""}">
             <div class="owl-trips-admin-row-main">
               <div class="owl-trips-admin-row-head">
                 <b>📅 ${esc(owlTripsAdminDateRange(row))}</b>
+                ${isNext?`<span class="admin-status is-next-weekend-badge">⭐ NAJBLIŻSZY WEEKEND</span>`:""}
                 <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
                 <span class="admin-status ${termStatus.className}">${termStatus.label}</span>
                 <span class="admin-status ${pushStatus.className}">${esc(pushStatus.label)}</span>
@@ -3426,12 +3464,24 @@ async function renderOwlTripsAdmin(editId=null){
           </article>`;
         }).join(""):`<div class="admin-empty">Nie ma jeszcze wpisów w harmonogramie.</div>`}
       </div>
-    </section>`;
+    </section>
+
+    ${formHtml}`;
 
   q("#owlTripsAdminForm").onsubmit=saveOwlTripsAdmin;
-  q("#owlTripsAdminCancel")?.addEventListener("click",()=>renderOwlTripsAdmin());
+  q("#owlTripsAdminCancel")?.addEventListener("click",async()=>{
+    await renderOwlTripsAdmin();
+    q("#owlTripsAdminFormPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
 
-  qa("[data-owl-trip-edit]").forEach(b=>b.onclick=()=>renderOwlTripsAdmin(b.dataset.owlTripEdit));
+  q("#owlTripsJumpAdd")?.addEventListener("click",()=>{
+    q("#owlTripsAdminFormPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+
+  qa("[data-owl-trip-edit]").forEach(b=>b.onclick=async()=>{
+    await renderOwlTripsAdmin(b.dataset.owlTripEdit);
+    q("#owlTripsAdminFormPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
 
   qa("[data-owl-trip-visibility]").forEach(b=>b.onclick=async()=>{
     const next=b.dataset.published!=="1";

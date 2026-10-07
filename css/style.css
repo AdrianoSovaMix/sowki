@@ -3748,3 +3748,111 @@ nav > .home .nav-new-dot{
   color:#766d76;
   border-color:#e3dde3;
 }
+
+
+/* =========================================================
+   v0.7.11 — Sowie podróże: najbliższy weekend + formularz pod harmonogramem
+   ========================================================= */
+
+.owl-trips-admin-schedule-first{
+  margin-bottom:14px;
+}
+
+.owl-trips-admin-head-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.owl-trips-jump-add{
+  white-space:nowrap;
+  padding:7px 10px !important;
+  font-size:11px !important;
+}
+
+.owl-trips-next-admin-card{
+  margin:10px 8px 8px;
+  padding:12px 13px;
+  border:2px solid #f0b0c9;
+  border-radius:15px;
+  background:linear-gradient(135deg,#fff8fb,#fff0f6);
+  box-shadow:0 5px 15px rgba(216,27,96,.08);
+}
+
+.owl-trips-next-admin-card.is-empty{
+  border-style:dashed;
+  background:#faf8f9;
+  color:#716871;
+}
+
+.owl-trips-next-admin-kicker{
+  margin-bottom:7px;
+  color:#d81b60;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.45px;
+}
+
+.owl-trips-next-admin-main{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.owl-trips-next-admin-main>div:first-child{
+  min-width:150px;
+}
+
+.owl-trips-next-admin-main>div:first-child>b{
+  display:block;
+  font-size:16px;
+}
+
+.owl-trips-next-admin-main>div:first-child>small{
+  display:block;
+  margin-top:3px;
+  color:#746b73;
+  line-height:1.3;
+}
+
+.owl-trips-next-admin-members{
+  justify-content:flex-end;
+  margin-top:0 !important;
+}
+
+.owl-trips-next-admin-empty{
+  font-size:12px;
+}
+
+.owl-trips-admin-row.is-next-weekend{
+  border:2px solid #ec7fab !important;
+  background:linear-gradient(90deg,#fff7fb,#ffffff) !important;
+  box-shadow:0 4px 14px rgba(216,27,96,.10);
+}
+
+.admin-status.is-next-weekend-badge{
+  background:#ffe3ef;
+  color:#b61551;
+  border:1px solid #f4b2cc;
+  font-weight:950;
+}
+
+#owlTripsAdminFormPanel{
+  scroll-margin-top:18px;
+}
+
+@media(max-width:700px){
+  .owl-trips-next-admin-main{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .owl-trips-next-admin-members{
+    justify-content:flex-start;
+  }
+  .owl-trips-admin-head-actions{
+    justify-content:flex-start;
+  }
+}
