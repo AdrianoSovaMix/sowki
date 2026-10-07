@@ -1374,8 +1374,7 @@ async function renderParentMessages(){
   const {data,error}=await sb
     .from("parent_messages")
     .select("*")
-    .order("created_at",{ascending:false})
-    .limit(200);
+    .order("created_at",{ascending:false});
 
   if(error){
     q("#editor").innerHTML=`
@@ -5002,8 +5001,7 @@ async function loadNotifications(){
     .eq("published",true)
     .or(`scheduled_at.is.null,scheduled_at.lte.${nowISO}`)
     .order("sort_order",{ascending:true})
-    .order("id",{ascending:false})
-    .limit(30);
+    .order("id",{ascending:false});
 
   if(error){
     q("#notificationsList").innerHTML=empty("Nie udało się pobrać powiadomień.");
