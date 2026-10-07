@@ -6152,3 +6152,20 @@ nav > .home .nav-new-dot{
     font-size:8px;
   }
 }
+
+
+/* =========================================================
+   v0.8.16 — bezpieczny dostęp Galeria / Rozliczenia
+   ========================================================= */
+
+#galleryUnlock:disabled,
+#openPay:disabled{
+  opacity:.68;
+  cursor:wait;
+}
+
+#galleryGate .err,
+#gate .err{
+  min-height:18px;
+  margin-top:7px;
+}

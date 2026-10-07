@@ -892,7 +892,7 @@ async function load(){
    publicQueryWithRetry("ogłoszeń",()=>sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
    publicQueryWithRetry("jadłospisu",()=>sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false})),
    publicQueryWithRetry("ankiet",()=>sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("galerii",()=>sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}))
+   publicQueryWithRetry("galerii",()=>sb.rpc("get_gallery_public_tokens"))
  ]);
 
  // Jeżeli w międzyczasie uruchomiono nowsze load(), starsza odpowiedź nie może nadpisać ekranu.
@@ -1057,7 +1057,6 @@ async function load(){
  bindPublicRetryButtons();
  hydratePageImages(q(".page.active")?.id||"home");
 }
-q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
 q("#admin").onclick=async()=>{await auth();q("#dlg").showModal()};q(".x").onclick=()=>q("#dlg").close();q("#loginBtn").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:q("#email").value,password:q("#pwd").value});q("#loginErr").textContent=error?.message||"";if(!error)auth()};q("#logout").onclick=async()=>{await sb.auth.signOut();auth()};
 async function auth(){const {data:{user}}=await sb.auth.getUser();q("#login").hidden=!!user;q("#panel").hidden=!user;if(user){refreshAdminMessagesBadge();render("monthly_notices")}}
 function setActiveAdminTab(table){
@@ -4695,22 +4694,233 @@ function showPage(id){
    loadSowkiCalendarMonth();
  }
 
+ if(id==="gallery" && q("#galleryAlbums")?.hidden){
+   restorePrivateResource("gallery");
+ }
+
+ if(id==="payments" && q("#pay")?.hidden){
+   restorePrivateResource("payments");
+ }
+
  scrollTo(0,0);
 }
 setActiveNav(q(".page.active")?.id||"home");
-q("#galleryUnlock").onclick=()=>{if(q("#galleryPass").value==="SowkiGrupa3"){q("#galleryGate").hidden=true;q("#galleryAlbums").hidden=false;q("#galleryErr").textContent="";loadGallery()}else q("#galleryErr").textContent="Nieprawidłowe hasło"};
-q("#galleryPass").onkeydown=e=>{if(e.key==="Enter")q("#galleryUnlock").click()};
-async function loadGallery(){
- const {data,error}=await sb.from("gallery_albums").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
- if(error){q("#galleryAlbums").innerHTML=`<div class="item err">${esc(error.message)}</div>`;return}
- setNewContentTokens("gallery",(data||[]).map(x=>`gallery:${x.id}`));
- let out=[];
- for(const x of data||[]){
-   out.push(`<article class="item">${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć"})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.description||"")}</p>${x.download_url?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`:""}</article>`);
- }
- q("#galleryAlbums").innerHTML=out.join("")||empty("Nie ma jeszcze albumów.");
- hydratePageImages("gallery");
+
+// =========================================================
+// v0.8.16 — bezpieczny dostęp do Galerii i Rozliczeń
+// Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
+// Weryfikacja odbywa się przez Edge Function private-access.
+// =========================================================
+
+const PRIVATE_ACCESS_TTL_MS=12*60*60*1000;
+
+function privateAccessDeviceId(){
+  const key="sowki_private_access_device_v1";
+  let value=localStorage.getItem(key);
+
+  if(!value){
+    value=crypto.randomUUID?.()||(
+      Date.now().toString(36)+"-"+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)
+    );
+    localStorage.setItem(key,value);
+  }
+
+  return value;
 }
+
+function privateAccessStorageKey(resource){
+  return `sowki_private_access_${resource}_v1`;
+}
+
+function readPrivateAccessSession(resource){
+  try{
+    const raw=localStorage.getItem(privateAccessStorageKey(resource));
+    if(!raw)return null;
+
+    const session=JSON.parse(raw);
+    if(!session?.token||!session?.expires_at){
+      localStorage.removeItem(privateAccessStorageKey(resource));
+      return null;
+    }
+
+    if(Date.now()>=Number(session.expires_at)){
+      localStorage.removeItem(privateAccessStorageKey(resource));
+      return null;
+    }
+
+    return session;
+  }catch{
+    localStorage.removeItem(privateAccessStorageKey(resource));
+    return null;
+  }
+}
+
+function savePrivateAccessSession(resource,data){
+  if(!data?.token||!data?.expires_at)return;
+
+  localStorage.setItem(
+    privateAccessStorageKey(resource),
+    JSON.stringify({
+      token:data.token,
+      expires_at:Number(data.expires_at)
+    })
+  );
+}
+
+function clearPrivateAccessSession(resource){
+  localStorage.removeItem(privateAccessStorageKey(resource));
+}
+
+async function privateAccessRequest(resource,{password="",token=""}={}){
+  const body={
+    resource,
+    device_id:privateAccessDeviceId()
+  };
+
+  if(password)body.password=password;
+  if(token)body.token=token;
+
+  try{
+    const {data,error}=await sb.functions.invoke("private-access",{body});
+
+    if(error){
+      console.warn("PRIVATE ACCESS FUNCTION ERROR",error);
+      return {ok:false,code:"connection_error",message:"Nie udało się połączyć z zabezpieczonym dostępem."};
+    }
+
+    return data||{ok:false,code:"empty_response",message:"Brak odpowiedzi serwera."};
+  }catch(error){
+    console.warn("PRIVATE ACCESS ERROR",error);
+    return {ok:false,code:"connection_error",message:"Nie udało się połączyć z zabezpieczonym dostępem."};
+  }
+}
+
+function privateAccessErrorText(result){
+  if(result?.code==="invalid_password")return "Nieprawidłowe hasło.";
+  if(result?.code==="blocked"){
+    const minutes=Math.max(1,Math.ceil(Number(result.retry_after_seconds||60)/60));
+    return `Za dużo błędnych prób. Spróbuj ponownie za około ${minutes} min.`;
+  }
+  if(result?.code==="missing_configuration")return "Dostęp nie został jeszcze skonfigurowany przez administratora.";
+  if(result?.code==="expired_token")return "Sesja wygasła. Wpisz hasło ponownie.";
+  return result?.message||"Nie udało się odblokować dostępu.";
+}
+
+function renderProtectedGallery(rows){
+  const albums=q("#galleryAlbums");
+  if(!albums)return;
+
+  setNewContentTokens("gallery",(rows||[]).map(x=>`gallery:${x.id}`));
+
+  albums.innerHTML=(rows||[]).map(x=>`
+    <article class="item">
+      ${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć"})}
+      <div class="date">${date(x.event_date)}</div>
+      <h3>${esc(x.title)}</h3>
+      <p>${richDisplay(x.description||"")}</p>
+      ${x.download_url
+        ?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`
+        :""}
+    </article>
+  `).join("")||empty("Nie ma jeszcze albumów.");
+
+  hydratePageImages("gallery");
+}
+
+function unlockGalleryView(data){
+  q("#galleryGate").hidden=true;
+  q("#galleryAlbums").hidden=false;
+  q("#galleryErr").textContent="";
+  renderProtectedGallery(data?.payload?.albums||[]);
+}
+
+function renderProtectedPayments(data){
+  const pay=q("#pay");
+  const embedUrl=String(data?.payload?.embed_url||"");
+  const openUrl=String(data?.payload?.open_url||"");
+
+  if(!pay)return;
+
+  pay.innerHTML=`
+    ${embedUrl?`<iframe class="bigframe desktop" src="${esc(embedUrl)}"></iframe>`:""}
+    <div class="card mobile">
+      <h3>Arkusz Excel</h3>
+      ${openUrl
+        ?`<a class="primary" target="_blank" rel="noopener" href="${esc(openUrl)}">Otwórz arkusz</a>`
+        :`<p class="err">Brak skonfigurowanego linku do arkusza.</p>`}
+    </div>`;
+
+  q("#gate").hidden=true;
+  pay.hidden=false;
+  q("#payErr").textContent="";
+}
+
+async function unlockPrivateResource(resource,password){
+  const button=resource==="gallery"?q("#galleryUnlock"):q("#openPay");
+  const errorBox=resource==="gallery"?q("#galleryErr"):q("#payErr");
+  const oldText=button?.textContent||"Otwórz";
+
+  if(button){
+    button.disabled=true;
+    button.textContent="Sprawdzam…";
+  }
+  if(errorBox)errorBox.textContent="";
+
+  const result=await privateAccessRequest(resource,{password});
+
+  if(button){
+    button.disabled=false;
+    button.textContent=oldText;
+  }
+
+  if(!result?.ok){
+    if(errorBox)errorBox.textContent=privateAccessErrorText(result);
+    return false;
+  }
+
+  savePrivateAccessSession(resource,result);
+
+  if(resource==="gallery")unlockGalleryView(result);
+  else renderProtectedPayments(result);
+
+  return true;
+}
+
+async function restorePrivateResource(resource){
+  const session=readPrivateAccessSession(resource);
+  if(!session)return false;
+
+  const result=await privateAccessRequest(resource,{token:session.token});
+
+  if(!result?.ok){
+    clearPrivateAccessSession(resource);
+    return false;
+  }
+
+  savePrivateAccessSession(resource,result);
+
+  if(resource==="gallery")unlockGalleryView(result);
+  else renderProtectedPayments(result);
+
+  return true;
+}
+
+q("#galleryUnlock").onclick=async()=>{
+  await unlockPrivateResource("gallery",q("#galleryPass").value);
+};
+
+q("#galleryPass").onkeydown=e=>{
+  if(e.key==="Enter")q("#galleryUnlock").click();
+};
+
+q("#openPay").onclick=async()=>{
+  await unlockPrivateResource("payments",q("#pass").value);
+};
+
+q("#pass").onkeydown=e=>{
+  if(e.key==="Enter")q("#openPay").click();
+};
+
 
 // PWA installation helper
 let deferredInstallPrompt=null;
