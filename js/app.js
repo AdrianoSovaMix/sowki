@@ -179,7 +179,7 @@ document.addEventListener("keydown",e=>{
 });
 
 // =========================================================
-// v0.7.13 — kontakt z Panią Kasią: stały prefiks +48 i automatyczny format 000-000-000
+// v0.7.14 — spójna Sówka: grafika z ikony aplikacji zamiast systemowego emoji
 // =========================================================
 const parentMessageDlg=q("#parentMessageDlg");
 const parentMessageForm=q("#parentMessageForm");
@@ -1526,6 +1526,10 @@ function statsRangeDates(){
   return {from:statsShiftIsoDate(today,-6),to:today,label:"Ostatnie 7 dni"};
 }
 
+function sowkiAppOwlIcon(className="sowki-app-owl-inline"){
+  return `<img src="icon-192.png" alt="" aria-hidden="true" class="sowki-app-owl-img ${className}">`;
+}
+
 function statsKpi(icon,label,value,sub=""){
   return `<div class="stats-kpi-v2"><span class="stats-kpi-icon">${icon}</span><div><small>${esc(label)}</small><b>${esc(value)}</b>${sub?`<em>${esc(sub)}</em>`:""}</div></div>`;
 }
@@ -1545,13 +1549,13 @@ function statsCompactBars(rows,key,maxValue){
 }
 
 function statsSowkaRow(x,knownDevices){
-  const kind=STATS_CONTENT_KIND[String(x.content_kind)]||{label:String(x.content_kind||""),icon:"🦉"};
+  const kind=STATS_CONTENT_KIND[String(x.content_kind)]||{label:String(x.content_kind||""),icon:sowkiAppOwlIcon("sowki-app-owl-stat-mini")};
   const count=Number(x.sowka_count)||0;
   const known=Number(x.known_devices)||Number(knownDevices)||0;
   const pct=known?Math.min(100,Math.round((count/known)*100)):0;
   return `<article class="stats-sowka-card" data-stats-sowka-kind="${esc(x.content_kind)}">
     <div class="stats-sowka-main">
-      <span class="stats-sowka-owl">${sowkiOwlSvg(true)}</span>
+      <span class="stats-sowka-owl">${sowkiAppOwlIcon("sowki-app-owl-stat-card")}</span>
       <div class="stats-sowka-copy">
         <div class="stats-sowka-meta"><span>${kind.icon} ${esc(kind.label)}</span>${x.item_date?`<time>${esc(statsDateLabel(x.item_date))}</time>`:""}</div>
         <b>${esc(x.title||`Wpis #${x.item_id}`)}</b>
@@ -1609,7 +1613,7 @@ async function renderStats(options={}){
       <div class="stats-subtabs" role="tablist" aria-label="Rodzaj statystyk">
         <button type="button" data-stats-tab="summary" ${statsDashboardState.tab==="summary"?'class="active"':""}>📊 Podsumowanie</button>
         <button type="button" data-stats-tab="traffic" ${statsDashboardState.tab==="traffic"?'class="active"':""}>👁️ Oglądalność</button>
-        <button type="button" data-stats-tab="sowki" ${statsDashboardState.tab==="sowki"?'class="active"':""}>🦉 Sówki</button>
+        <button type="button" data-stats-tab="sowki" ${statsDashboardState.tab==="sowki"?'class="active"':""}>${sowkiAppOwlIcon("sowki-app-owl-stat-tab")} Sówki</button>
       </div>
 
       <div id="statsContent"><div class="stats-loading">Ładowanie statystyk…</div></div>
@@ -1664,7 +1668,7 @@ async function renderStats(options={}){
     ${statsKpi("📱","Aktywne urządzenia",activeDevices.toLocaleString("pl-PL"),"unikalne w wybranym okresie")}
     ${statsKpi("📲","Znane urządzenia",knownDevices.toLocaleString("pl-PL"),"od uruchomienia identyfikacji")}
     ${statsKpi("👁️","Wejścia do działów",pageViews.toLocaleString("pl-PL"),"maks. 1× / dział / 24 h / urządzenie")}
-    ${statsKpi("🦉","Sówki w okresie",sowkaActions.toLocaleString("pl-PL"),"oznaczenia „Przeczytane”")}
+    ${statsKpi(sowkiAppOwlIcon("sowki-app-owl-kpi"),"Sówki w okresie",sowkaActions.toLocaleString("pl-PL"),"oznaczenia „Przeczytane”")}
   </div>`;
 
   if(statsDashboardState.tab==="summary"){
@@ -1701,7 +1705,7 @@ async function renderStats(options={}){
     q("#statsContent").innerHTML=`
       ${kpis}
       <section class="stats-section">
-        <div class="stats-section-title"><h4>🦉 Przeczytane informacje</h4><span>${sowki.length} wpisów</span></div>
+        <div class="stats-section-title"><h4>${sowkiAppOwlIcon("sowki-app-owl-stat-heading")} Przeczytane informacje</h4><span>${sowki.length} wpisów</span></div>
         <div class="stats-sowka-filters">
           <button type="button" data-sowka-filter="all">Wszystkie</button>
           <button type="button" data-sowka-filter="notice">📌 Ważne</button>
@@ -3192,7 +3196,7 @@ function renderOwlTripsFullPage(){
   // aktualny + najbliższy weekend.
   const selected=owlTripsSelection(owlTripsScheduleCache);
   if(selected.row){
-    const label=selected.mode==="current"?"🦉 Ten weekend":"🗓️ Najbliższy weekend";
+    const label=selected.mode==="current"?`${sowkiAppOwlIcon("sowki-app-owl-current")} Ten weekend`:"🗓️ Najbliższy weekend";
     current.innerHTML=`
       <section class="owl-trips-current-card">
         <div class="owl-trips-current-head">

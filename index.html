@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0713"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0714"></head><body>
 <header class="app-header">
 <div class="header-left-actions">
   <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
@@ -9,14 +9,7 @@
   <div class="owl-trip-header-wrap">
     <button id="owlTripsBtn" class="owl-trip-header-btn" type="button" aria-label="Bajkowe podróże sowiej rodziny" aria-expanded="false" aria-controls="owlTripsPopover">
       <span class="owl-trip-mini-owl" aria-hidden="true">
-        <svg viewBox="0 0 48 48" role="img">
-          <path d="M10 16 6 8l10 5M38 16l4-8-10 5" fill="#8b4d2e"/>
-          <ellipse cx="24" cy="27" rx="15" ry="16" fill="#a7653c"/>
-          <circle cx="18" cy="23" r="7" fill="#fff4dc"/><circle cx="30" cy="23" r="7" fill="#fff4dc"/>
-          <circle cx="18" cy="23" r="3.2" fill="#17324d"/><circle cx="30" cy="23" r="3.2" fill="#17324d"/>
-          <path d="M21 29h6l-3 4z" fill="#f59d29"/>
-          <ellipse cx="24" cy="36" rx="7" ry="5" fill="#f4d3a2"/>
-        </svg>
+        <img src="icon-192.png" alt="" class="sowki-app-owl-img sowki-app-owl-header">
       </span>
       <span class="owl-trip-calendar-badge" aria-hidden="true">▦</span>
     </button>
@@ -28,7 +21,7 @@
 </div>
 </header>
 <main>
-<section id="home" class="page active"><div class="hero"><span>🦉</span><div><h1>Witajcie w Sówkach!</h1><p>Najważniejsze informacje naszej grupy w jednym miejscu.</p></div></div><h2>📌 Najważniejsze na ten miesiąc</h2><div id="notices"></div><h2>📰 Wydarzenia przedszkolaków</h2><div id="events"></div></section>
+<section id="home" class="page active"><div class="hero"><span class="hero-owl-icon" aria-hidden="true"><img src="icon-192.png" alt="" class="sowki-app-owl-img sowki-app-owl-welcome"></span><div><h1>Witajcie w Sówkach!</h1><p>Najważniejsze informacje naszej grupy w jednym miejscu.</p></div></div><h2>📌 Najważniejsze na ten miesiąc</h2><div id="notices"></div><h2>📰 Wydarzenia przedszkolaków</h2><div id="events"></div></section>
 <section id="notificationsPage" class="page"><div class="notification-head"><div class="section-title-row"><h1>🔔 Powiadomienia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Powiadomienia" aria-expanded="false" aria-controls="info-notifications">i</button><div id="info-notifications" class="section-info-popover" hidden>Tutaj znajdziesz ostatnie wiadomości wysłane do rodziców Grupy 3 „Sówki”. Kliknij wybrane powiadomienie, aby oznaczyć je jako odczytane lub przejść do wskazanej sekcji.</div></div><button id="enablePush" class="primary">🔔 Włącz powiadomienia</button></div><div id="notificationsList"></div></section>
 <section id="announcementsPage" class="page"><div class="section-title-row"><h1>📢 Ogłoszenia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Ogłoszenia" aria-expanded="false" aria-controls="info-announcements">i</button><div id="info-announcements" class="section-info-popover" hidden>Tutaj znajdziesz zdjęcia aktualnych ogłoszeń pojawiających się w przedszkolu na tablicach informacyjnych i drzwiach. Dzięki temu najważniejsze informacje możesz sprawdzić również w aplikacji. 😊</div></div><div id="announcements"></div></section>
 <section id="menu" class="page"><div class="section-title-row"><h1>🍽️ Jadłospis</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Jadłospis" aria-expanded="false" aria-controls="info-menu">i</button><div id="info-menu" class="section-info-popover" hidden>Tutaj znajdziesz aktualny jadłospis przedszkola. Dotknij zdjęcia jadłospisu, aby je powiększyć.</div></div><div id="menus"></div></section>
@@ -43,7 +36,7 @@
   <button type="button" class="backbtn owl-trips-back" data-go="home">← Wróć do START</button>
 
   <div class="owl-trips-page-hero">
-    <div class="owl-trips-page-hero-icon" aria-hidden="true">🦉📚</div>
+    <div class="owl-trips-page-hero-icon" aria-hidden="true"><img src="icon-192.png" alt="" class="sowki-app-owl-img sowki-app-owl-page"></div>
     <div>
       <h1>Bajkowe podróże sowiej rodziny</h1>
       <p>Całoroczna akcja czytelnicza naszej grupy.</p>
@@ -136,7 +129,7 @@
 <dialog id="installDlg" class="install-dialog">
   <div class="install-card">
     <img src="icon-192.png" alt="Sówki" class="install-icon">
-    <h2>Zainstaluj aplikację Sówki 🦉</h2>
+    <h2 class="install-title-with-owl">Zainstaluj aplikację Sówki <img src="icon-192.png" alt="" class="sowki-app-owl-img sowki-app-owl-inline" aria-hidden="true"></h2>
     <p class="install-lead">Dodaj Sówki do ekranu głównego telefonu, aby otwierać aplikację jednym kliknięciem.</p>
 
     <div id="installAndroid">
@@ -171,7 +164,7 @@
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.7.13</span>
+        <span class="admin-app-version">v0.7.14</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -226,7 +219,7 @@
     </button>
 
     <button type="button" data-tab="owl_trips" role="tab">
-      <span class="admin-tab-icon admin-tab-emoji">🦉</span>
+      <img src="icon-192.png" alt="" class="admin-tab-icon sowki-app-owl-tab" aria-hidden="true">
       <span>Sowie podróże</span>
     </button>
 
@@ -238,4 +231,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0713"></script><script src="js/app.js?v=0713"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0714"></script><script src="js/app.js?v=0714"></script></body></html>
