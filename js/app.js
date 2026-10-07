@@ -179,7 +179,7 @@ document.addEventListener("keydown",e=>{
 });
 
 // =========================================================
-// v0.7.14 — spójna Sówka: grafika z ikony aplikacji zamiast systemowego emoji
+// v0.7.15 — neutralna Sówka SVG w interfejsie; logo aplikacji pozostaje tylko logo aplikacji
 // =========================================================
 const parentMessageDlg=q("#parentMessageDlg");
 const parentMessageForm=q("#parentMessageForm");
@@ -1527,7 +1527,7 @@ function statsRangeDates(){
 }
 
 function sowkiAppOwlIcon(className="sowki-app-owl-inline"){
-  return `<img src="icon-192.png" alt="" aria-hidden="true" class="sowki-app-owl-img ${className}">`;
+  return `<img src="owl-ui.svg" alt="" aria-hidden="true" class="sowki-app-owl-img ${className}">`;
 }
 
 function statsKpi(icon,label,value,sub=""){
