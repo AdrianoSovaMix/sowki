@@ -2989,12 +2989,14 @@ async function save(ev){
 }
 
 // =========================================================
-// v0.7.7 — Bajkowe podróże sowiej rodziny
+// v0.7.9 — Bajkowe podróże sowiej rodziny + oszczędne pobieranie harmonogramu
 // Harmonogram jest publiczny, anonimowy i edytowalny przez administratora.
 // Rodzice nie są identyfikowani i nie przypisujemy urządzeń do numerów dzieci.
 // =========================================================
 
 let owlTripsScheduleCache=[];
+let owlTripsFullScheduleCache=null;
+let owlTripsFullSchedulePromise=null;
 let owlTripsHoverTimer=null;
 
 const OWL_TRIP_MEMBERS=[
@@ -3119,7 +3121,6 @@ function renderOwlTripsHeader(error=null){
   const more=q("#owlTripsMoreBtn");
   if(more)more.onclick=()=>{
     closeOwlTripsPopover();
-    renderOwlTripsFullPage();
     showPage("owlTripsPage");
   };
 }
@@ -3129,6 +3130,8 @@ function renderOwlTripsFullPage(){
   const full=q("#owlTripsScheduleFull");
   if(!current||!full)return;
 
+  // Górna karta używa wyłącznie lekkiego cache:
+  // aktualny + najbliższy weekend.
   const selected=owlTripsSelection(owlTripsScheduleCache);
   if(selected.row){
     const label=selected.mode==="current"?"🦉 Ten weekend":"🗓️ Najbliższy weekend";
@@ -3144,7 +3147,16 @@ function renderOwlTripsFullPage(){
     current.innerHTML=`<div class="item muted">Harmonogram wizyt Sówek został zakończony.</div>`;
   }
 
-  const rows=(owlTripsScheduleCache||[]).slice().sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)));
+  // Pełny harmonogram nie jest pobierany przy starcie aplikacji.
+  if(owlTripsFullScheduleCache===null){
+    full.innerHTML=`<div class="item muted">⏳ Ładowanie pełnego harmonogramu…</div>`;
+    return;
+  }
+
+  const rows=(owlTripsFullScheduleCache||[])
+    .slice()
+    .sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)));
+
   full.innerHTML=rows.length?rows.map(row=>`
     <article class="owl-trips-schedule-row">
       <time>${esc(owlTripRangeLabel(row.date_from,row.date_to))}</time>
@@ -3160,24 +3172,85 @@ function renderOwlTripsFullPage(){
 }
 
 async function loadOwlTripsSchedule(){
+  const today=owlTripsWarsawToday();
+
   const result=await publicQueryWithRetry(
-    "harmonogramu Sówek",
+    "najbliższego harmonogramu Sówek",
     ()=>sb.from("owl_trips_schedule")
-      .select("*")
+      .select("id,date_from,date_to,uszatka_no,puchacz_no,nocek_no,huhu_no,published")
       .eq("published",true)
+      .gte("date_to",today)
       .order("date_from",{ascending:true})
       .order("id",{ascending:true})
+      .limit(2)
   );
 
   if(result.error){
-    console.debug("OWL TRIPS LOAD ERROR:",result.error);
+    console.debug("OWL TRIPS PREVIEW LOAD ERROR:",result.error);
     renderOwlTripsHeader(result.error);
     return;
   }
 
   owlTripsScheduleCache=result.data||[];
   renderOwlTripsHeader();
-  renderOwlTripsFullPage();
+
+  // Jeśli rodzic jest już na stronie akcji, odświeżamy tylko kartę bieżącego weekendu.
+  if(q("#owlTripsPage")?.classList.contains("active")){
+    renderOwlTripsFullPage();
+  }
+}
+
+async function loadOwlTripsFullSchedule(force=false){
+  if(!force && owlTripsFullScheduleCache!==null){
+    renderOwlTripsFullPage();
+    return owlTripsFullScheduleCache;
+  }
+
+  if(!force && owlTripsFullSchedulePromise){
+    return owlTripsFullSchedulePromise;
+  }
+
+  const full=q("#owlTripsScheduleFull");
+  if(full)full.innerHTML=`<div class="item muted">⏳ Ładowanie pełnego harmonogramu…</div>`;
+
+  owlTripsFullSchedulePromise=(async()=>{
+    const result=await publicQueryWithRetry(
+      "pełnego harmonogramu Sówek",
+      ()=>sb.from("owl_trips_schedule")
+        .select("id,date_from,date_to,uszatka_no,puchacz_no,nocek_no,huhu_no,published")
+        .eq("published",true)
+        .order("date_from",{ascending:true})
+        .order("id",{ascending:true})
+    );
+
+    if(result.error){
+      console.debug("OWL TRIPS FULL LOAD ERROR:",result.error);
+      if(full){
+        full.innerHTML=`
+          <div class="item err">
+            ⚠️ Nie udało się pobrać pełnego harmonogramu.
+            <button type="button" class="secondary" id="owlTripsRetryFull">Spróbuj ponownie</button>
+          </div>`;
+        q("#owlTripsRetryFull")?.addEventListener("click",()=>loadOwlTripsFullSchedule(true));
+      }
+      return null;
+    }
+
+    owlTripsFullScheduleCache=result.data||[];
+    renderOwlTripsFullPage();
+    return owlTripsFullScheduleCache;
+  })();
+
+  try{
+    return await owlTripsFullSchedulePromise;
+  }finally{
+    owlTripsFullSchedulePromise=null;
+  }
+}
+
+function invalidateOwlTripsFullSchedule(){
+  owlTripsFullScheduleCache=null;
+  owlTripsFullSchedulePromise=null;
 }
 
 function openOwlTripsPopover(){
@@ -3327,6 +3400,7 @@ async function renderOwlTripsAdmin(editId=null){
     const next=b.dataset.published!=="1";
     const {error}=await sb.from("owl_trips_schedule").update({published:next}).eq("id",b.dataset.owlTripVisibility);
     if(error){alert(error.message);return}
+    invalidateOwlTripsFullSchedule();
     await renderOwlTripsAdmin();
     await loadOwlTripsSchedule();
   });
@@ -3335,6 +3409,7 @@ async function renderOwlTripsAdmin(editId=null){
     if(!confirm("Usunąć ten termin z harmonogramu?"))return;
     const {error}=await sb.from("owl_trips_schedule").delete().eq("id",b.dataset.owlTripDelete);
     if(error){alert(error.message);return}
+    invalidateOwlTripsFullSchedule();
     await renderOwlTripsAdmin();
     await loadOwlTripsSchedule();
   });
@@ -3376,6 +3451,7 @@ async function saveOwlTripsAdmin(ev){
     if(result.error)throw result.error;
 
     if(status)status.textContent="✅ Zapisano";
+    invalidateOwlTripsFullSchedule();
     await renderOwlTripsAdmin();
     await loadOwlTripsSchedule();
   }catch(e){
@@ -3505,6 +3581,12 @@ function showPage(id){
  if(page && previous!==id)trackPageView(id);
 
  hydratePageImages(id);
+
+ if(id==="owlTripsPage"){
+   renderOwlTripsFullPage();
+   loadOwlTripsFullSchedule();
+ }
+
  scrollTo(0,0);
 }
 setActiveNav(q(".page.active")?.id||"home");
