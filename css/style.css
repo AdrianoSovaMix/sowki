@@ -5799,3 +5799,156 @@ nav > .home .nav-new-dot{
     font-size:7.5px;
   }
 }
+
+
+/* =========================================================
+   v0.8.10 — Panel Administratora / Kalendarz na smartfonie
+   ========================================================= */
+
+/*
+  Lista Kalendarza nie ma już własnego scrolla.
+  Przewijany jest wyłącznie główny Panel Administratora (dialog),
+  więc na telefonie nie ma "scrolla w scrollu".
+*/
+.calendar-admin-list{
+  max-height:none !important;
+  overflow:visible !important;
+}
+
+/* Wpisy kalendarza trochę ciaśniejsze i czytelniejsze. */
+.calendar-admin-row{
+  min-width:0;
+}
+
+.calendar-admin-main{
+  width:100%;
+}
+
+.calendar-admin-title-line{
+  min-width:0;
+}
+
+.calendar-admin-title-line>b{
+  overflow-wrap:anywhere;
+}
+
+.calendar-admin-desc{
+  white-space:normal !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+  line-height:1.35;
+}
+
+/* Na smartfonie cały panel wykorzystuje prawie cały ekran. */
+@media(max-width:600px){
+  dialog#dlg{
+    width:calc(100% - 10px) !important;
+    max-width:none !important;
+    max-height:calc(100dvh - 10px) !important;
+    margin:5px auto !important;
+    padding:12px !important;
+    border-radius:16px !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+  }
+
+  #panel{
+    min-width:0;
+  }
+
+  /* Lista kalendarza rozwija się w dół razem z panelem. */
+  .calendar-admin-manager{
+    overflow:visible !important;
+  }
+
+  .calendar-admin-list{
+    display:grid;
+    gap:7px;
+    padding:6px 0 0 !important;
+  }
+
+  .calendar-admin-row{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start !important;
+    gap:8px !important;
+    padding:9px !important;
+  }
+
+  .calendar-admin-main{
+    min-width:0;
+    grid-column:1/2;
+  }
+
+  .calendar-admin-row .adminitem-actions{
+    grid-column:2/3;
+    grid-row:1;
+    align-self:start !important;
+    display:flex;
+    gap:4px;
+  }
+
+  .calendar-admin-row .adminitem-actions button{
+    width:34px;
+    height:34px;
+    min-width:34px;
+    padding:0;
+    border-radius:10px;
+  }
+
+  .calendar-admin-title-line{
+    gap:4px 5px;
+  }
+
+  .calendar-admin-title-line>b{
+    flex-basis:calc(100% - 28px);
+    font-size:12px;
+    line-height:1.3;
+  }
+
+  .calendar-admin-meta{
+    margin-top:4px !important;
+    font-size:9.5px !important;
+    line-height:1.35;
+  }
+
+  .calendar-admin-desc{
+    margin-top:4px !important;
+    font-size:9.5px !important;
+  }
+
+  .calendar-admin-title-line .admin-status{
+    font-size:8px;
+    padding:3px 6px;
+  }
+
+  /* Formularz również bez poziomego ścisku. */
+  .calendar-admin-form{
+    padding:11px !important;
+  }
+
+  .calendar-admin-date-grid{
+    grid-template-columns:1fr !important;
+  }
+
+  .calendar-category-picker{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+/* Bardzo wąskie telefony */
+@media(max-width:390px){
+  .calendar-admin-row{
+    grid-template-columns:1fr !important;
+  }
+
+  .calendar-admin-row .adminitem-actions{
+    grid-column:1;
+    grid-row:auto;
+    justify-self:end;
+  }
+
+  .calendar-admin-title-line>b{
+    flex-basis:100%;
+  }
+}
