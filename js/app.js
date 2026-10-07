@@ -547,7 +547,7 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.5 — automatyczne powiadomienie PUSH po opublikowaniu nowego jadłospisu.
+// v0.7.6 — dashboard statystyk + anonimowa identyfikacja urządzeń; automatyczny PUSH jadłospisu pozostaje aktywny.
 // Rodzic nadal ma lokalne oznaczenie w localStorage. Dodatkowo aplikacja wysyła do Supabase
 // anonimowe potwierdzenie urządzenia, bez imienia, e-maila, numeru telefonu ani konta rodzica.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
@@ -1419,149 +1419,241 @@ const STATS_PAGES=[
   ["payments","Rozliczenia","💰"]
 ];
 
+const STATS_CONTENT_KIND={
+  notice:{label:"Ważne",icon:"📌"},
+  event:{label:"Wydarzenia",icon:"📰"},
+  announcement:{label:"Ogłoszenia",icon:"📢"}
+};
+
+let statsDashboardState={
+  range:"7",
+  tab:"summary",
+  customFrom:"",
+  customTo:"",
+  sowkaKind:"all"
+};
+
 function statsTodayWarsaw(){
   const p=warsawParts(new Date());
   return p?`${p.year}-${p.month}-${p.day}`:"";
 }
 
-function statsDateLabel(day){
+function statsDateLabel(day,short=false){
   if(!day)return "";
   const m=String(day).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m?`${m[3]}.${m[2]}.${m[1]}`:String(day);
+  if(!m)return String(day);
+  return short?`${m[3]}.${m[2]}`:`${m[3]}.${m[2]}.${m[1]}`;
 }
 
-async function renderStats(days=30){
+function statsShiftIsoDate(iso,days){
+  const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return iso;
+  const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3])+Number(days||0),12));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+}
+
+function statsRangeDates(){
+  const today=statsTodayWarsaw();
+  const range=statsDashboardState.range;
+  if(range==="today")return {from:today,to:today,label:"Dzisiaj"};
+  if(range==="30")return {from:statsShiftIsoDate(today,-29),to:today,label:"Ostatnie 30 dni"};
+  if(range==="month")return {from:`${today.slice(0,8)}01`,to:today,label:"Ten miesiąc"};
+  if(range==="custom"){
+    const from=statsDashboardState.customFrom||today;
+    const to=statsDashboardState.customTo||today;
+    return {from:from<=to?from:to,to:from<=to?to:from,label:`${statsDateLabel(from<=to?from:to)} – ${statsDateLabel(from<=to?to:from)}`};
+  }
+  return {from:statsShiftIsoDate(today,-6),to:today,label:"Ostatnie 7 dni"};
+}
+
+function statsKpi(icon,label,value,sub=""){
+  return `<div class="stats-kpi-v2"><span class="stats-kpi-icon">${icon}</span><div><small>${esc(label)}</small><b>${esc(value)}</b>${sub?`<em>${esc(sub)}</em>`:""}</div></div>`;
+}
+
+function statsPageMeta(page){
+  return STATS_PAGES.find(x=>x[0]===page)||[page,page,"•"];
+}
+
+function statsCompactBars(rows,key,maxValue){
+  if(!rows.length)return `<div class="admin-empty">Brak danych w tym okresie.</div>`;
+  const max=Math.max(1,Number(maxValue)||Math.max(...rows.map(x=>Number(x[key])||0),1));
+  return `<div class="stats-spark-bars">${rows.map(x=>{
+    const n=Number(x[key])||0;
+    const pct=Math.max(n?6:0,Math.round(n/max*100));
+    return `<div class="stats-spark-col" title="${esc(statsDateLabel(x.day))}: ${n}"><span style="height:${pct}%"></span><small>${esc(statsDateLabel(x.day,true))}</small></div>`;
+  }).join("")}</div>`;
+}
+
+function statsSowkaRow(x,knownDevices){
+  const kind=STATS_CONTENT_KIND[String(x.content_kind)]||{label:String(x.content_kind||""),icon:"🦉"};
+  const count=Number(x.sowka_count)||0;
+  const known=Number(x.known_devices)||Number(knownDevices)||0;
+  const pct=known?Math.min(100,Math.round((count/known)*100)):0;
+  return `<article class="stats-sowka-card" data-stats-sowka-kind="${esc(x.content_kind)}">
+    <div class="stats-sowka-main">
+      <span class="stats-sowka-owl">${sowkiOwlSvg(true)}</span>
+      <div class="stats-sowka-copy">
+        <div class="stats-sowka-meta"><span>${kind.icon} ${esc(kind.label)}</span>${x.item_date?`<time>${esc(statsDateLabel(x.item_date))}</time>`:""}</div>
+        <b>${esc(x.title||`Wpis #${x.item_id}`)}</b>
+        <div class="stats-sowka-progress"><span style="width:${pct}%"></span></div>
+        <small>${count.toLocaleString("pl-PL")} / ${known.toLocaleString("pl-PL")} znanych urządzeń</small>
+      </div>
+      <strong class="stats-sowka-percent">${pct}%</strong>
+    </div>
+  </article>`;
+}
+
+function statsApplySowkaFilter(){
+  const filter=statsDashboardState.sowkaKind||"all";
+  qa("[data-stats-sowka-kind]").forEach(el=>{
+    el.hidden=filter!=="all"&&el.dataset.statsSowkaKind!==filter;
+  });
+  qa("[data-sowka-filter]").forEach(b=>b.classList.toggle("active",b.dataset.sowkaFilter===filter));
+}
+
+async function renderStats(options={}){
+  if(typeof options==="number"){
+    statsDashboardState.range=String(options===30?30:options===7?7:30);
+  }else if(options&&typeof options==="object"){
+    Object.assign(statsDashboardState,options);
+  }
+
   setActiveAdminTab("stats");
   q("#editor").dataset.table="stats";
+  const range=statsRangeDates();
+
   q("#editor").innerHTML=`
-    <section class="stats-panel">
-      <div class="stats-head">
+    <section class="stats-panel stats-dashboard-v2">
+      <div class="stats-head stats-head-v2">
         <div>
-          <h3>📊 Statystyki aplikacji</h3>
-          <p>Anonimowe statystyki wejść do poszczególnych działów. Nie zapisujemy danych rodziców ani informacji, kto odwiedził dany dział.</p>
+          <h3>📊 Dashboard statystyk</h3>
+          <p>Anonimowe statystyki aplikacji. Urządzenie otrzymuje losowy identyfikator zapisany tylko lokalnie; w bazie przechowujemy wyłącznie jego anonimowy skrót.</p>
         </div>
+        <span class="stats-range-label">${esc(range.label)}</span>
       </div>
 
-      <div class="stats-range" role="group" aria-label="Zakres statystyk">
-        <button type="button" data-stats-days="7" ${days===7?'class="active"':""}>7 dni</button>
-        <button type="button" data-stats-days="30" ${days===30?'class="active"':""}>30 dni</button>
-        <button type="button" data-stats-days="90" ${days===90?'class="active"':""}>90 dni</button>
-        <button type="button" data-stats-days="0" ${days===0?'class="active"':""}>Wszystko</button>
+      <div class="stats-range stats-range-v2" role="group" aria-label="Zakres statystyk">
+        <button type="button" data-stats-range="today" ${statsDashboardState.range==="today"?'class="active"':""}>Dzisiaj</button>
+        <button type="button" data-stats-range="7" ${statsDashboardState.range==="7"?'class="active"':""}>7 dni</button>
+        <button type="button" data-stats-range="30" ${statsDashboardState.range==="30"?'class="active"':""}>30 dni</button>
+        <button type="button" data-stats-range="month" ${statsDashboardState.range==="month"?'class="active"':""}>Ten miesiąc</button>
+        <button type="button" data-stats-range="custom" ${statsDashboardState.range==="custom"?'class="active"':""}>📅 Zakres</button>
       </div>
 
-      <div id="statsContent">
-        <div class="stats-loading">Ładowanie statystyk…</div>
+      <div class="stats-custom-range" ${statsDashboardState.range==="custom"?"":"hidden"}>
+        <label>Od<input type="date" id="statsFrom" value="${esc(range.from)}"></label>
+        <label>Do<input type="date" id="statsTo" value="${esc(range.to)}"></label>
+        <button type="button" class="primary" id="statsApplyDates">Pokaż</button>
       </div>
-    </section>
-  `;
 
-  qa("[data-stats-days]").forEach(b=>b.onclick=()=>renderStats(Number(b.dataset.statsDays)));
+      <div class="stats-subtabs" role="tablist" aria-label="Rodzaj statystyk">
+        <button type="button" data-stats-tab="summary" ${statsDashboardState.tab==="summary"?'class="active"':""}>📊 Podsumowanie</button>
+        <button type="button" data-stats-tab="traffic" ${statsDashboardState.tab==="traffic"?'class="active"':""}>👁️ Oglądalność</button>
+        <button type="button" data-stats-tab="sowki" ${statsDashboardState.tab==="sowki"?'class="active"':""}>🦉 Sówki</button>
+      </div>
 
-  const [summaryRes,dailyRes]=await Promise.all([
-    sb.rpc("get_page_view_stats",{p_days:days}),
-    sb.rpc("get_page_view_daily",{p_days:days})
+      <div id="statsContent"><div class="stats-loading">Ładowanie statystyk…</div></div>
+    </section>`;
+
+  qa("[data-stats-range]").forEach(b=>b.onclick=()=>{
+    statsDashboardState.range=b.dataset.statsRange;
+    renderStats();
+  });
+  qa("[data-stats-tab]").forEach(b=>b.onclick=()=>{
+    statsDashboardState.tab=b.dataset.statsTab;
+    renderStats();
+  });
+  const apply=q("#statsApplyDates");
+  if(apply)apply.onclick=()=>{
+    statsDashboardState.customFrom=q("#statsFrom")?.value||range.from;
+    statsDashboardState.customTo=q("#statsTo")?.value||range.to;
+    statsDashboardState.range="custom";
+    renderStats();
+  };
+
+  const args={p_from:range.from,p_to:range.to};
+  const [kpiRes,pageRes,dailyRes,sowkaRes]=await Promise.all([
+    sb.rpc("get_stats_kpis_v2",args),
+    sb.rpc("get_page_view_stats_v2",args),
+    sb.rpc("get_device_activity_daily_v2",args),
+    sb.rpc("get_sowka_dashboard_v2",args)
   ]);
 
-  if(summaryRes.error||dailyRes.error){
-    const msg=summaryRes.error?.message||dailyRes.error?.message||"Nie udało się pobrać statystyk.";
-    q("#statsContent").innerHTML=`
-      <div class="admin-order-warning">
-        <b>⚠️ Statystyki nie są jeszcze gotowe.</b><br>
-        ${esc(msg)}<br><br>
-        Jeśli dopiero dodajesz tę funkcję, uruchom plik SQL dołączony do wersji v0.5.5.2.
-      </div>`;
+  const errors=[kpiRes,pageRes,dailyRes,sowkaRes].map(x=>x.error).filter(Boolean);
+  if(errors.length){
+    q("#statsContent").innerHTML=`<div class="admin-order-warning"><b>⚠️ Dashboard wymaga aktualizacji bazy v0.7.6.</b><br>${esc(errors[0].message||"Nie udało się pobrać statystyk.")}</div>`;
     return;
   }
 
-  const summaryMap=new Map((summaryRes.data||[]).map(x=>[String(x.page),Number(x.views)||0]));
-  const daily=dailyRes.data||[];
+  const kpi=(kpiRes.data||[])[0]||{};
+  const pageRows=pageRes.data||[];
+  const daily=(dailyRes.data||[]).slice().sort((a,b)=>String(a.day).localeCompare(String(b.day)));
+  const sowki=sowkaRes.data||[];
+  const pageViews=Number(kpi.page_views)||0;
+  const activeDevices=Number(kpi.active_devices)||0;
+  const knownDevices=Number(kpi.known_devices)||0;
+  const sowkaActions=Number(kpi.sowka_actions)||0;
 
-  const total=STATS_PAGES.reduce((sum,[page])=>sum+(summaryMap.get(page)||0),0);
-  const todayKey=statsTodayWarsaw();
-  const today=daily
-    .filter(x=>String(x.day)===todayKey)
-    .reduce((sum,x)=>sum+(Number(x.views)||0),0);
+  const pageMap=new Map(pageRows.map(x=>[String(x.page),x]));
+  const orderedPages=STATS_PAGES.map(([page,label,icon])=>({page,label,icon,...(pageMap.get(page)||{views:0,unique_devices:0})}));
+  const topPage=orderedPages.slice().sort((a,b)=>(Number(b.views)||0)-(Number(a.views)||0))[0];
+  const maxPageViews=Math.max(1,...orderedPages.map(x=>Number(x.views)||0));
+  const maxDailyDevices=Math.max(1,...daily.map(x=>Number(x.active_devices)||0));
 
-  let topPage=null,topViews=-1;
-  STATS_PAGES.forEach(([page,label,icon])=>{
-    const n=summaryMap.get(page)||0;
-    if(n>topViews){topViews=n;topPage={page,label,icon,n}}
-  });
+  const kpis=`<div class="stats-kpis-v2">
+    ${statsKpi("📱","Aktywne urządzenia",activeDevices.toLocaleString("pl-PL"),"unikalne w wybranym okresie")}
+    ${statsKpi("📲","Znane urządzenia",knownDevices.toLocaleString("pl-PL"),"od uruchomienia identyfikacji")}
+    ${statsKpi("👁️","Wejścia do działów",pageViews.toLocaleString("pl-PL"),"maks. 1× / dział / 24 h / urządzenie")}
+    ${statsKpi("🦉","Sówki w okresie",sowkaActions.toLocaleString("pl-PL"),"oznaczenia „Przeczytane”")}
+  </div>`;
 
-  const maxViews=Math.max(1,...STATS_PAGES.map(([page])=>summaryMap.get(page)||0));
-
-  // Dzienny podział
-  const byDay=new Map();
-  daily.forEach(x=>{
-    const day=String(x.day);
-    if(!byDay.has(day))byDay.set(day,new Map());
-    byDay.get(day).set(String(x.page),Number(x.views)||0);
-  });
-
-  const daysSorted=[...byDay.keys()].sort((a,b)=>b.localeCompare(a));
-
-  q("#statsContent").innerHTML=`
-    <div class="stats-overview">
-      <div class="stats-kpi">
-        <span>Łącznie wejść</span>
-        <b>${total.toLocaleString("pl-PL")}</b>
-      </div>
-      <div class="stats-kpi">
-        <span>Dzisiaj</span>
-        <b>${today.toLocaleString("pl-PL")}</b>
-      </div>
-      <div class="stats-kpi stats-kpi-wide">
-        <span>Najczęściej odwiedzany dział</span>
-        <b>${topViews>0?`${topPage.icon} ${esc(topPage.label)} — ${topViews.toLocaleString("pl-PL")}`:"Brak danych"}</b>
-      </div>
-    </div>
-
-    <section class="stats-section">
-      <h4>Wejścia według działów</h4>
-      <div class="stats-page-list">
-        ${STATS_PAGES.map(([page,label,icon])=>{
-          const n=summaryMap.get(page)||0;
-          const pct=Math.round((n/maxViews)*100);
-          return `<div class="stats-page-row">
-            <div class="stats-page-label"><span>${icon}</span><b>${esc(label)}</b></div>
-            <div class="stats-bar"><span style="width:${pct}%"></span></div>
-            <strong>${n.toLocaleString("pl-PL")}</strong>
-          </div>`;
-        }).join("")}
-      </div>
-    </section>
-
-    <section class="stats-section">
-      <div class="stats-section-title">
-        <h4>Podział na poszczególne dni</h4>
-        <span>${daysSorted.length} ${daysSorted.length===1?"dzień":"dni"}</span>
-      </div>
-
-      <div class="stats-days">
-        ${daysSorted.length?daysSorted.map(day=>{
-          const map=byDay.get(day);
-          const dayTotal=[...map.values()].reduce((a,b)=>a+b,0);
-          return `<article class="stats-day-card">
-            <div class="stats-day-head">
-              <b>${statsDateLabel(day)}</b>
-              <strong>${dayTotal.toLocaleString("pl-PL")} ${dayTotal===1?"wejście":"wejść"}</strong>
-            </div>
-            <div class="stats-day-grid">
-              ${STATS_PAGES.map(([page,label,icon])=>{
-                const n=map.get(page)||0;
-                return `<div class="stats-day-item ${n?"has-views":""}">
-                  <span>${icon} ${esc(label)}</span>
-                  <b>${n.toLocaleString("pl-PL")}</b>
-                </div>`;
-              }).join("")}
-            </div>
-          </article>`;
-        }).join(""):`<div class="admin-empty">Nie ma jeszcze danych w wybranym zakresie.</div>`}
-      </div>
-    </section>
-
-    <p class="stats-note">ℹ️ Statystyki zaczynają być zbierane dopiero od momentu uruchomienia tej funkcji. Z jednego urządzenia ponowne wejście do tego samego działu w ciągu 10 minut nie jest liczone ponownie. Nadal są to anonimowe wejścia do działów, a nie identyfikacja konkretnych rodziców.</p>
-  `;
+  if(statsDashboardState.tab==="summary"){
+    q("#statsContent").innerHTML=`
+      ${kpis}
+      <section class="stats-section">
+        <div class="stats-section-title"><h4>Aktywne urządzenia dzień po dniu</h4><span>${daily.length} dni</span></div>
+        ${statsCompactBars(daily,"active_devices",maxDailyDevices)}
+      </section>
+      <section class="stats-section">
+        <div class="stats-section-title"><h4>Najpopularniejsze działy</h4><span>${topPage&&Number(topPage.views)>0?`${topPage.icon} ${esc(topPage.label)}`:"brak danych"}</span></div>
+        <div class="stats-page-list">${orderedPages.map(x=>{
+          const n=Number(x.views)||0;
+          const pct=Math.round(n/maxPageViews*100);
+          return `<div class="stats-page-row stats-page-row-v2"><div class="stats-page-label"><span>${x.icon}</span><b>${esc(x.label)}</b></div><div class="stats-bar"><span style="width:${pct}%"></span></div><strong>${n.toLocaleString("pl-PL")}</strong></div>`;
+        }).join("")}</div>
+      </section>
+      <p class="stats-note">ℹ️ Od v0.7.6 urządzenie jest rozpoznawane anonimowo przez losowy identyfikator. Jedno urządzenie może zostać policzone jako wejście do tego samego działu maksymalnie raz w ciągu kolejnych 24 godzin. Statystyki urządzeń sprzed v0.7.6 nie mogą zostać odtworzone wstecz.</p>`;
+  }else if(statsDashboardState.tab==="traffic"){
+    q("#statsContent").innerHTML=`
+      ${kpis}
+      <section class="stats-section">
+        <h4>Oglądalność działów</h4>
+        <div class="stats-traffic-table">
+          ${orderedPages.map(x=>`<div class="stats-traffic-row"><span>${x.icon} <b>${esc(x.label)}</b></span><span><strong>${Number(x.unique_devices||0).toLocaleString("pl-PL")}</strong><small> urządzeń</small></span><span><strong>${Number(x.views||0).toLocaleString("pl-PL")}</strong><small> wejść</small></span></div>`).join("")}
+        </div>
+      </section>
+      <section class="stats-section">
+        <div class="stats-section-title"><h4>Dzienna aktywność</h4><span>przewijana lista</span></div>
+        <div class="stats-daily-scroll">${daily.slice().reverse().map(x=>`<div class="stats-daily-row"><time>${esc(statsDateLabel(x.day))}</time><span>📱 <b>${Number(x.active_devices||0).toLocaleString("pl-PL")}</b> urządzeń</span><span>👁️ <b>${Number(x.views||0).toLocaleString("pl-PL")}</b> wejść</span></div>`).join("")||`<div class="admin-empty">Brak danych.</div>`}</div>
+      </section>
+      <p class="stats-note">ℹ️ „Urządzenia” oznaczają anonimowe instalacje/przeglądarki. Ten sam rodzic używający telefonu i komputera będzie widoczny jako dwa urządzenia. Wyczyszczenie danych przeglądarki może utworzyć nowy anonimowy identyfikator.</p>`;
+  }else{
+    q("#statsContent").innerHTML=`
+      ${kpis}
+      <section class="stats-section">
+        <div class="stats-section-title"><h4>🦉 Przeczytane informacje</h4><span>${sowki.length} wpisów</span></div>
+        <div class="stats-sowka-filters">
+          <button type="button" data-sowka-filter="all">Wszystkie</button>
+          <button type="button" data-sowka-filter="notice">📌 Ważne</button>
+          <button type="button" data-sowka-filter="event">📰 Wydarzenia</button>
+          <button type="button" data-sowka-filter="announcement">📢 Ogłoszenia</button>
+        </div>
+        <div class="stats-sowka-list">${sowki.map(x=>statsSowkaRow(x,knownDevices)).join("")||`<div class="admin-empty">Brak wpisów w wybranym zakresie.</div>`}</div>
+      </section>
+      <p class="stats-note">ℹ️ Procent pokazuje, jaki udział wszystkich znanych anonimowych urządzeń dał Sówkę przy konkretnym wpisie. Nie zapisujemy imion rodziców ani dzieci. Liczba znanych urządzeń będzie dokładniejsza po tym, jak rodzice otworzą aplikację w wersji v0.7.6.</p>`;
+    qa("[data-sowka-filter]").forEach(b=>b.onclick=()=>{statsDashboardState.sowkaKind=b.dataset.sowkaFilter;statsApplySowkaFilter()});
+    statsApplySowkaFilter();
+  }
 }
 
 function usesPublicMediaBucket(table){
@@ -2937,11 +3029,11 @@ const TRACKED_PAGES=new Set([
   "payments"
 ]);
 
-const STATS_DEDUPE_MS=10*60*1000;
+const STATS_DEDUPE_MS=24*60*60*1000;
 let lastTrackedPage=null;
 
 function statsLastCountedKey(page){
-  return `sowki_stats_last_counted_${page}_v1`;
+  return `sowki_stats_last_counted_${page}_v2`;
 }
 
 function canCountPageView(page){
@@ -2956,21 +3048,26 @@ function rememberCountedPageView(page){
 async function trackPageView(page){
   if(!TRACKED_PAGES.has(page))return;
   if(lastTrackedPage===page)return;
-
   lastTrackedPage=page;
 
-  // Z jednego urządzenia nie liczymy ponownie tego samego działu
-  // częściej niż raz na 10 minut.
+  // v0.7.6: jedno urządzenie może nabić wejście do tego samego działu
+  // maksymalnie raz w ciągu kolejnych 24 godzin. Supabase sprawdza to ponownie
+  // po stronie serwera, więc wyczyszczenie samego znacznika czasu nie nabija statystyk.
   if(!canCountPageView(page))return;
+  const deviceToken=sowkiDeviceToken();
+  if(!deviceToken)return;
 
   try{
-    const {error}=await sb.rpc("track_page_view",{p_page:page});
+    const {data,error}=await sb.rpc("track_page_view_device",{
+      p_page:page,
+      p_device_token:deviceToken
+    });
     if(error)throw error;
-
-    // Dopiero po poprawnym zapisie do Supabase uruchamiamy 10-minutową blokadę.
+    // Niezależnie od tego, czy serwer dodał nowy rekord czy wykrył już wpis z 24 h,
+    // ustawiamy lokalną blokadę, żeby nie wykonywać zbędnych zapytań.
     rememberCountedPageView(page);
+    return data===true;
   }catch(e){
-    // Statystyki są dodatkiem — błąd nie może wpływać na działanie aplikacji.
     console.debug("Page view tracking unavailable:",e);
   }
 }

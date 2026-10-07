@@ -3193,3 +3193,40 @@ nav > .home .nav-new-dot{
 @media (prefers-reduced-motion:reduce){
   .public-loading-dot{animation:none}
 }
+
+
+/* =========================================================
+   v0.7.6 — kompaktowy dashboard statystyk + urządzenia/Sówki
+   ========================================================= */
+.stats-dashboard-v2{gap:13px}
+.stats-head-v2{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.stats-range-label{flex:0 0 auto;padding:6px 9px;border-radius:999px;background:#f6edf1;color:#6c5660;font-size:11px;font-weight:900}
+.stats-range-v2{gap:6px}
+.stats-range-v2 button{min-height:36px;padding:7px 11px;font-size:11.5px}
+.stats-custom-range{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:11px;border:1px solid #eadde3;border-radius:14px;background:#fff}
+.stats-custom-range[hidden]{display:none!important}
+.stats-custom-range label{display:grid;gap:4px;color:#75656d;font-size:10px;font-weight:900}
+.stats-custom-range input{min-height:36px;padding:7px 9px;border:1px solid #dfd1d8;border-radius:10px;background:#fff}
+.stats-custom-range button{min-height:36px}
+.stats-subtabs{display:flex;gap:7px;overflow:auto;padding:2px 0 4px;scrollbar-width:thin}
+.stats-subtabs button{flex:0 0 auto;min-height:38px;padding:8px 12px;border:1px solid #e6d9df;border-radius:12px;background:#fff;color:#62535a;font-weight:850}
+.stats-subtabs button.active{border-color:#d81b60;background:#fff0f5;color:#c71555}
+.stats-kpis-v2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.stats-kpi-v2{display:flex;align-items:center;gap:9px;min-width:0;padding:12px;border:1px solid #eadde3;border-radius:16px;background:#fff}
+.stats-kpi-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:#fff0f5;font-size:18px}
+.stats-kpi-v2 div{min-width:0}.stats-kpi-v2 small,.stats-kpi-v2 em{display:block;color:#81737a;font-size:10px;font-style:normal;line-height:1.25}.stats-kpi-v2 b{display:block;margin:2px 0;font-size:20px;line-height:1.1;overflow-wrap:anywhere}
+.stats-page-row-v2{grid-template-columns:minmax(110px,1fr) minmax(80px,2.4fr) 46px}
+.stats-spark-bars{height:155px;display:flex;align-items:end;gap:4px;overflow-x:auto;padding:10px 3px 0;border-bottom:1px solid #eadde3}
+.stats-spark-col{height:100%;min-width:18px;flex:1 0 18px;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px}
+.stats-spark-col span{display:block;width:70%;max-width:22px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#ff7ba8,#d81b60);min-height:2px}
+.stats-spark-col small{font-size:8.5px;color:#887980;writing-mode:vertical-rl;transform:rotate(180deg);max-height:34px;overflow:hidden}
+.stats-traffic-table{display:grid;gap:1px;border:1px solid #eee3e8;border-radius:14px;overflow:hidden;background:#eee3e8}
+.stats-traffic-row{display:grid;grid-template-columns:minmax(135px,1.5fr) minmax(90px,.7fr) minmax(80px,.65fr);align-items:center;gap:9px;padding:10px 11px;background:#fff}
+.stats-traffic-row>span:nth-child(n+2){text-align:right}.stats-traffic-row small{color:#887980;font-size:10px}.stats-traffic-row strong{font-size:13px}
+.stats-daily-scroll{max-height:330px;overflow:auto;border:1px solid #eee3e8;border-radius:14px;background:#fff}
+.stats-daily-row{display:grid;grid-template-columns:90px 1fr 1fr;gap:8px;align-items:center;padding:9px 11px;border-bottom:1px solid #f0e7eb;font-size:11.5px}.stats-daily-row:last-child{border-bottom:0}.stats-daily-row time{font-weight:900}.stats-daily-row span{text-align:right;color:#65565d}
+.stats-sowka-filters{display:flex;gap:6px;overflow:auto;margin-bottom:10px;padding-bottom:3px}.stats-sowka-filters button{flex:0 0 auto;min-height:32px;padding:6px 9px;border:1px solid #e5d8de;border-radius:999px;background:#fff;color:#65545d;font-size:10.5px;font-weight:850}.stats-sowka-filters button.active{border-color:#d81b60;background:#fff0f5;color:#c71555}
+.stats-sowka-list{display:grid;gap:7px;max-height:520px;overflow:auto;padding-right:2px}.stats-sowka-card{padding:10px;border:1px solid #eee2e7;border-radius:14px;background:#fffafd}.stats-sowka-card[hidden]{display:none!important}
+.stats-sowka-main{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;gap:9px;align-items:center}.stats-sowka-owl{width:38px;height:38px;display:grid;place-items:center}.stats-sowka-owl .sowki-read-owl-svg{width:38px;height:38px}.stats-sowka-copy{min-width:0}.stats-sowka-meta{display:flex;justify-content:space-between;gap:8px;color:#8b7a82;font-size:9.5px}.stats-sowka-copy>b{display:block;margin:2px 0 5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stats-sowka-progress{height:6px;border-radius:999px;background:#eee7ea;overflow:hidden}.stats-sowka-progress span{display:block;height:100%;border-radius:999px;background:#25a65a}.stats-sowka-copy small{display:block;margin-top:4px;color:#82747b;font-size:9.5px}.stats-sowka-percent{text-align:right;color:#178243;font-size:15px}
+@media(max-width:760px){.stats-kpis-v2{grid-template-columns:repeat(2,minmax(0,1fr))}.stats-head-v2{display:grid}.stats-range-label{justify-self:start}.stats-traffic-row{grid-template-columns:minmax(115px,1.2fr) 74px 68px}.stats-traffic-row small{display:none}}
+@media(max-width:480px){.stats-kpi-v2{padding:9px}.stats-kpi-icon{width:29px;height:29px;flex-basis:29px;font-size:15px}.stats-kpi-v2 b{font-size:17px}.stats-kpi-v2 em{display:none}.stats-daily-row{grid-template-columns:78px 1fr 1fr;font-size:10.5px}.stats-sowka-main{grid-template-columns:34px minmax(0,1fr) 40px}.stats-sowka-owl,.stats-sowka-owl .sowki-read-owl-svg{width:34px;height:34px}}
