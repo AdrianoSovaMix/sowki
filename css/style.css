@@ -4233,10 +4233,15 @@ nav > .home .nav-new-dot{
 
 .calendar-day.is-selected .calendar-dot{outline:1px solid rgba(255,255,255,.8)}
 
-.cat-ogolne{background:#ec4d88 !important}
-.cat-urodziny{background:#4bb87b !important}
-.cat-swieta{background:#e3b936 !important}
-.cat-dyzury{background:#51495b !important}
+/* Kolor kategorii nakładamy tylko na znaczniki/paski, nie na całe karty. */
+.calendar-dot.cat-ogolne,
+.calendar-range-bar.cat-ogolne{background:#ec4d88 !important}
+.calendar-dot.cat-urodziny,
+.calendar-range-bar.cat-urodziny{background:#4bb87b !important}
+.calendar-dot.cat-swieta,
+.calendar-range-bar.cat-swieta{background:#e3b936 !important}
+.calendar-dot.cat-dyzury,
+.calendar-range-bar.cat-dyzury{background:#51495b !important}
 
 .calendar-legend{
   display:flex;
@@ -4739,3 +4744,154 @@ nav > .home .nav-new-dot{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+
+
+/* =========================================================
+   v0.8.2 — czytelność Kalendarza Sówki
+   ========================================================= */
+
+/* Karty publiczne zawsze mają jasne tło i czytelny tekst.
+   Kategoria jest oznaczana paskiem, ikoną oraz datą — nie kolorem całej karty. */
+.calendar-event-card,
+.calendar-event-card.cat-ogolne,
+.calendar-event-card.cat-urodziny,
+.calendar-event-card.cat-swieta,
+.calendar-event-card.cat-dyzury{
+  background:#ffffff !important;
+  color:#211d22 !important;
+}
+
+.calendar-event-card.cat-ogolne{border-left-color:#ec4d88 !important}
+.calendar-event-card.cat-urodziny{border-left-color:#35a96c !important}
+.calendar-event-card.cat-swieta{border-left-color:#d5a91d !important}
+.calendar-event-card.cat-dyzury{border-left-color:#51495b !important}
+
+.calendar-event-card:hover{
+  background:#fffafb !important;
+  border-color:#e7d6de;
+  box-shadow:0 3px 10px rgba(64,28,46,.07);
+}
+
+.calendar-event-title{
+  color:#1f1a20 !important;
+  font-weight:950;
+}
+
+.calendar-event-meta{
+  color:#59515a !important;
+  font-weight:700;
+}
+
+.calendar-event-desc{
+  color:#625a62 !important;
+}
+
+.calendar-event-arrow{
+  color:#b91d56 !important;
+}
+
+/* Wyraźniejsze pudełka dat — nadal jasne, ale z mocnym kontrastem. */
+.calendar-event-card.cat-ogolne .calendar-event-datebox{
+  background:#ffeaf2 !important;
+  color:#a8174d !important;
+}
+.calendar-event-card.cat-urodziny .calendar-event-datebox{
+  background:#e9f8ef !important;
+  color:#176f42 !important;
+}
+.calendar-event-card.cat-swieta .calendar-event-datebox{
+  background:#fff5cc !important;
+  color:#775800 !important;
+}
+.calendar-event-card.cat-dyzury .calendar-event-datebox{
+  background:#eeebf1 !important;
+  color:#352f3b !important;
+}
+
+.calendar-event-datebox strong,
+.calendar-event-datebox small{
+  color:inherit !important;
+}
+
+/* Ikony kategorii dostają subtelne, jasne tła. */
+.calendar-event-card .calendar-category-emoji{
+  width:19px;
+  height:19px;
+  border-radius:7px;
+  background:#f6f2f4;
+}
+
+/* Szczegóły wpisu — jasne etykiety z dobrym kontrastem. */
+.calendar-detail-category{
+  background:#ffeaf2 !important;
+  color:#9f194b !important;
+}
+.calendar-detail-category.cat-urodziny{
+  background:#e9f8ef !important;
+  color:#176f42 !important;
+}
+.calendar-detail-category.cat-swieta{
+  background:#fff5cc !important;
+  color:#775800 !important;
+}
+.calendar-detail-category.cat-dyzury{
+  background:#eeebf1 !important;
+  color:#352f3b !important;
+}
+
+/* Admin: formularz jest teraz pierwszy, więc dokładamy wyraźniejszy odstęp. */
+.calendar-admin-form{
+  margin-bottom:14px;
+}
+
+.calendar-admin-manager{
+  margin-top:0;
+}
+
+/* Lista admina: utrzymujemy jasne tło niezależnie od kategorii. */
+.calendar-admin-row{
+  background:#fff !important;
+  color:#211d22 !important;
+}
+
+.calendar-admin-row.is-past{
+  background:#f9f7f8 !important;
+  opacity:.78;
+}
+
+.calendar-admin-title-line>b{
+  color:#1f1a20;
+}
+
+.calendar-admin-meta{
+  color:#514951 !important;
+  font-weight:750;
+}
+
+.calendar-admin-desc{
+  color:#625a62 !important;
+}
+
+/* Sam wybór kategorii zostaje kolorowy, ale tekst ma mocny kontrast. */
+.calendar-category-option.cat-ogolne>span{
+  background:#ffeaf2 !important;
+  color:#9f194b !important;
+}
+.calendar-category-option.cat-urodziny>span{
+  background:#e9f8ef !important;
+  color:#176f42 !important;
+}
+.calendar-category-option.cat-swieta>span{
+  background:#fff5cc !important;
+  color:#775800 !important;
+}
+.calendar-category-option.cat-dyzury>span{
+  background:#eeebf1 !important;
+  color:#352f3b !important;
+}
+
+/* Kropki/paski pozostają nasycone, aby zakresy wielodniowe były czytelne. */
+.calendar-range-bar.cat-ogolne{background:#ec4d88 !important}
+.calendar-range-bar.cat-urodziny{background:#35a96c !important}
+.calendar-range-bar.cat-swieta{background:#d5a91d !important}
+.calendar-range-bar.cat-dyzury{background:#51495b !important}

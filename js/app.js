@@ -3488,48 +3488,11 @@ async function renderSowkiCalendarAdmin(editId=null){
   const today=calendarLocalToday();
 
   q("#editor").innerHTML=`
-    <section class="calendar-admin-manager">
-      <div class="admin-content-head">
-        <div>
-          <h3>📅 Kalendarz Sówki</h3>
-          <p>Ten kalendarz jest niezależny od „Wydarzeń przedszkolaków”.</p>
-        </div>
-        <span class="admin-count">${rows.length} ${rows.length===1?"wpis":"wpisów"}</span>
-      </div>
-
-      <div class="calendar-admin-list">
-        ${rows.length?rows.map(row=>{
-          const cat=calendarCategory(row);
-          const isPast=String(row.date_to||row.date_from)<today;
-          return `
-            <article class="calendar-admin-row ${isPast?"is-past":""}">
-              <div class="calendar-admin-main">
-                <div class="calendar-admin-title-line">
-                  <i class="calendar-category-emoji calendar-admin-category-emoji">${cat.icon}</i>
-                  <b>${esc(row.title)}</b>
-                  <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
-                  ${calendarAdminReminderLabel(row)}
-                </div>
-                <div class="calendar-admin-meta">
-                  ${esc(calendarAdminDateText(row))} • ${esc(cat.label)}
-                </div>
-                ${row.description?`<div class="calendar-admin-desc">${esc(row.description).replace(/\n/g," ")}</div>`:""}
-              </div>
-              <div class="actions adminitem-actions">
-                <button type="button" data-calendar-admin-edit="${row.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
-                <button type="button" data-calendar-admin-visibility="${row.id}" data-published="${row.published?"1":"0"}" title="${row.published?"Ukryj":"Pokaż"}" aria-label="${row.published?"Ukryj":"Pokaż"}">${row.published?"👁️":"🙈"}</button>
-                <button type="button" data-calendar-admin-delete="${row.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
-              </div>
-            </article>`;
-        }).join(""):`<div class="admin-empty">Nie ma jeszcze żadnych wpisów w kalendarzu.</div>`}
-      </div>
-    </section>
-
     <div class="form calendar-admin-form" id="calendarAdminFormPanel">
       <div class="calendar-admin-form-head">
         <div>
           <h3>${edit?"Edytuj wpis":"Dodaj wpis do kalendarza"}</h3>
-          <p>Przypomnienie PUSH może zostać wysłane dzień wcześniej o 18:00.</p>
+          
         </div>
         ${edit?`<button type="button" class="secondary" id="calendarAdminCancel">Anuluj edycję</button>`:""}
       </div>
@@ -3592,6 +3555,44 @@ async function renderSowkiCalendarAdmin(editId=null){
         <div class="admin-save-status" aria-live="polite"></div>
       </form>
     </div>
+
+    <section class="calendar-admin-manager">
+      <div class="admin-content-head">
+        <div>
+          <h3>📅 Kalendarz Sówki</h3>
+          
+        </div>
+        <span class="admin-count">${rows.length} ${rows.length===1?"wpis":"wpisów"}</span>
+      </div>
+
+      <div class="calendar-admin-list">
+        ${rows.length?rows.map(row=>{
+          const cat=calendarCategory(row);
+          const isPast=String(row.date_to||row.date_from)<today;
+          return `
+            <article class="calendar-admin-row ${isPast?"is-past":""}">
+              <div class="calendar-admin-main">
+                <div class="calendar-admin-title-line">
+                  <i class="calendar-category-emoji calendar-admin-category-emoji">${cat.icon}</i>
+                  <b>${esc(row.title)}</b>
+                  <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
+                  ${calendarAdminReminderLabel(row)}
+                </div>
+                <div class="calendar-admin-meta">
+                  ${esc(calendarAdminDateText(row))} • ${esc(cat.label)}
+                </div>
+                ${row.description?`<div class="calendar-admin-desc">${esc(row.description).replace(/\n/g," ")}</div>`:""}
+              </div>
+              <div class="actions adminitem-actions">
+                <button type="button" data-calendar-admin-edit="${row.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+                <button type="button" data-calendar-admin-visibility="${row.id}" data-published="${row.published?"1":"0"}" title="${row.published?"Ukryj":"Pokaż"}" aria-label="${row.published?"Ukryj":"Pokaż"}">${row.published?"👁️":"🙈"}</button>
+                <button type="button" data-calendar-admin-delete="${row.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
+              </div>
+            </article>`;
+        }).join(""):`<div class="admin-empty">Nie ma jeszcze żadnych wpisów w kalendarzu.</div>`}
+      </div>
+    </section>
+
   `;
 
   const form=q("#calendarAdminForm");
