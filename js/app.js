@@ -547,7 +547,7 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.6 — dashboard statystyk + anonimowa identyfikacja urządzeń; automatyczny PUSH jadłospisu pozostaje aktywny.
+// v0.7.7 — dashboard statystyk + anonimowa identyfikacja urządzeń; dodano „Bajkowe podróże sowiej rodziny”.
 // Rodzic nadal ma lokalne oznaczenie w localStorage. Dodatkowo aplikacja wysyła do Supabase
 // anonimowe potwierdzenie urządzenia, bez imienia, e-maila, numeru telefonu ani konta rodzica.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
@@ -1025,6 +1025,7 @@ qa("[data-tab]").forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==="stats")renderStats();
   else if(b.dataset.tab==="parent_messages")renderParentMessages();
   else if(b.dataset.tab==="message_recipients")renderMessageRecipients();
+  else if(b.dataset.tab==="owl_trips")renderOwlTripsAdmin();
   else render(b.dataset.tab);
 });
 
@@ -2985,6 +2986,409 @@ async function save(ev){
     if(document.body.contains(form))setBusy(false);
   }
 }
+
+// =========================================================
+// v0.7.7 — Bajkowe podróże sowiej rodziny
+// Harmonogram jest publiczny, anonimowy i edytowalny przez administratora.
+// Rodzice nie są identyfikowani i nie przypisujemy urządzeń do numerów dzieci.
+// =========================================================
+
+let owlTripsScheduleCache=[];
+let owlTripsHoverTimer=null;
+
+const OWL_TRIP_MEMBERS=[
+  {key:"uszatka_no",name:"Mama Uszatka",short:"Uszatka",tone:"uszatka"},
+  {key:"puchacz_no",name:"Tata Puchacz",short:"Puchacz",tone:"puchacz"},
+  {key:"nocek_no",name:"Synek Nocek",short:"Nocek",tone:"nocek"},
+  {key:"huhu_no",name:"Córka Huhu",short:"Huhu",tone:"huhu"}
+];
+
+function owlTripAvatar(tone,size="normal"){
+  const palettes={
+    uszatka:{body:"#9a5735",wing:"#6f3d2a",belly:"#f3d7a6",accent:"#6fb36a"},
+    puchacz:{body:"#246aa3",wing:"#164a79",belly:"#dbeeff",accent:"#45a7e8"},
+    nocek:{body:"#173e63",wing:"#102b49",belly:"#d8eadf",accent:"#26ad77"},
+    huhu:{body:"#e27428",wing:"#a94b1b",belly:"#ffe0af",accent:"#ff9d21"}
+  };
+  const p=palettes[tone]||palettes.uszatka;
+  return `<svg class="owl-trip-avatar-svg ${size==="small"?"is-small":""}" viewBox="0 0 64 64" aria-hidden="true">
+    <path d="M16 20 10 8l15 9M48 20 54 8l-15 9" fill="${p.wing}"/>
+    <ellipse cx="32" cy="36" rx="20" ry="21" fill="${p.body}"/>
+    <path d="M14 34c-5 2-7 8-4 12 2 3 6 3 10 1M50 34c5 2 7 8 4 12-2 3-6 3-10 1" fill="${p.wing}"/>
+    <circle cx="24" cy="31" r="9" fill="#fff8e8"/>
+    <circle cx="40" cy="31" r="9" fill="#fff8e8"/>
+    <circle cx="24" cy="31" r="4" fill="#17324d"/>
+    <circle cx="40" cy="31" r="4" fill="#17324d"/>
+    <circle cx="25.4" cy="29.6" r="1.2" fill="#fff"/>
+    <circle cx="41.4" cy="29.6" r="1.2" fill="#fff"/>
+    <path d="M28 38h8l-4 5z" fill="${p.accent}"/>
+    <ellipse cx="32" cy="48" rx="9" ry="7" fill="${p.belly}"/>
+  </svg>`;
+}
+
+function owlTripsWarsawToday(){
+  const parts=new Intl.DateTimeFormat("en-CA",{
+    timeZone:"Europe/Warsaw",
+    year:"numeric",
+    month:"2-digit",
+    day:"2-digit"
+  }).formatToParts(new Date());
+  const m=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  return `${m.year}-${m.month}-${m.day}`;
+}
+
+function owlTripDateParts(iso){
+  const [y,m,d]=String(iso||"").slice(0,10).split("-").map(Number);
+  return {y,m,d};
+}
+
+function owlTripRangeLabel(from,to){
+  if(!from||!to)return "";
+  const a=owlTripDateParts(from),b=owlTripDateParts(to);
+  if(a.y===b.y&&a.m===b.m)return `${a.d}–${b.d}.${String(a.m).padStart(2,"0")}.${a.y}`;
+  if(a.y===b.y)return `${a.d}.${String(a.m).padStart(2,"0")}–${b.d}.${String(b.m).padStart(2,"0")}.${a.y}`;
+  return `${a.d}.${String(a.m).padStart(2,"0")}.${a.y}–${b.d}.${String(b.m).padStart(2,"0")}.${b.y}`;
+}
+
+function owlTripsSelection(rows){
+  const today=owlTripsWarsawToday();
+  const list=(rows||[])
+    .filter(x=>x?.published!==false&&x?.date_from&&x?.date_to)
+    .slice()
+    .sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)));
+
+  const current=list.find(x=>String(x.date_from)<=today&&today<=String(x.date_to));
+  if(current)return {row:current,mode:"current"};
+
+  const next=list.find(x=>String(x.date_from)>today);
+  if(next)return {row:next,mode:"next"};
+
+  return {row:null,mode:"ended"};
+}
+
+function owlTripsAssignmentCards(row,compact=false){
+  if(!row)return "";
+  return `<div class="${compact?"owl-trips-pop-grid":"owl-trips-assignment-grid"}">
+    ${OWL_TRIP_MEMBERS.map(member=>`
+      <div class="${compact?"owl-trips-pop-member":"owl-trips-assignment-card"} tone-${member.tone}">
+        <div class="${compact?"owl-trips-pop-avatar":"owl-trips-assignment-avatar"}">${owlTripAvatar(member.tone,compact?"small":"normal")}</div>
+        <div class="${compact?"owl-trips-pop-name":"owl-trips-assignment-name"}">${esc(compact?member.name:member.name)}</div>
+        <strong class="${compact?"owl-trips-pop-number":"owl-trips-assignment-number"}">${Number(row[member.key]||0)}</strong>
+      </div>`).join("")}
+  </div>`;
+}
+
+function renderOwlTripsHeader(error=null){
+  const pop=q("#owlTripsPopover");
+  const btn=q("#owlTripsBtn");
+  if(!pop||!btn)return;
+
+  if(error){
+    pop.innerHTML=`
+      <div class="owl-trips-pop-head">
+        <b>Sowie podróże</b>
+        <small>Harmonogram chwilowo niedostępny</small>
+      </div>
+      <div class="owl-trips-pop-error">⚠️ Nie udało się pobrać harmonogramu. Spróbuj ponownie za chwilę.</div>`;
+    btn.classList.remove("has-trip");
+    return;
+  }
+
+  const selected=owlTripsSelection(owlTripsScheduleCache);
+  if(!selected.row){
+    pop.innerHTML=`
+      <div class="owl-trips-pop-head">
+        <b>Sowie podróże</b>
+        <small>Harmonogram zakończony</small>
+      </div>
+      <button type="button" class="owl-trips-more-btn" id="owlTripsMoreBtn">📚 Zasady i pełny harmonogram</button>`;
+    btn.classList.remove("has-trip");
+  }else{
+    const label=selected.mode==="current"?"Ten weekend":"Najbliższy weekend";
+    pop.innerHTML=`
+      <div class="owl-trips-pop-head">
+        <b>Sowie podróże</b>
+        <small>${label}: ${esc(owlTripRangeLabel(selected.row.date_from,selected.row.date_to))}</small>
+      </div>
+      ${owlTripsAssignmentCards(selected.row,true)}
+      <button type="button" class="owl-trips-more-btn" id="owlTripsMoreBtn">📚 Zasady i pełny harmonogram</button>`;
+    btn.classList.add("has-trip");
+  }
+
+  const more=q("#owlTripsMoreBtn");
+  if(more)more.onclick=()=>{
+    closeOwlTripsPopover();
+    renderOwlTripsFullPage();
+    showPage("owlTripsPage");
+  };
+}
+
+function renderOwlTripsFullPage(){
+  const current=q("#owlTripsCurrentPage");
+  const full=q("#owlTripsScheduleFull");
+  if(!current||!full)return;
+
+  const selected=owlTripsSelection(owlTripsScheduleCache);
+  if(selected.row){
+    const label=selected.mode==="current"?"🦉 Ten weekend":"🗓️ Najbliższy weekend";
+    current.innerHTML=`
+      <section class="owl-trips-current-card">
+        <div class="owl-trips-current-head">
+          <div><span>${label}</span><strong>${esc(owlTripRangeLabel(selected.row.date_from,selected.row.date_to))}</strong></div>
+          <small>Piątek → poniedziałek</small>
+        </div>
+        ${owlTripsAssignmentCards(selected.row,false)}
+      </section>`;
+  }else{
+    current.innerHTML=`<div class="item muted">Harmonogram wizyt Sówek został zakończony.</div>`;
+  }
+
+  const rows=(owlTripsScheduleCache||[]).slice().sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)));
+  full.innerHTML=rows.length?rows.map(row=>`
+    <article class="owl-trips-schedule-row">
+      <time>${esc(owlTripRangeLabel(row.date_from,row.date_to))}</time>
+      <div class="owl-trips-schedule-members">
+        ${OWL_TRIP_MEMBERS.map(member=>`
+          <span class="tone-${member.tone}">
+            ${owlTripAvatar(member.tone,"small")}
+            <b>${esc(member.short)}</b>
+            <strong>${Number(row[member.key]||0)}</strong>
+          </span>`).join("")}
+      </div>
+    </article>`).join(""):`<div class="item muted">Brak wpisów w harmonogramie.</div>`;
+}
+
+async function loadOwlTripsSchedule(){
+  const result=await publicQueryWithRetry(
+    "harmonogramu Sówek",
+    ()=>sb.from("owl_trips_schedule")
+      .select("*")
+      .eq("published",true)
+      .order("date_from",{ascending:true})
+      .order("id",{ascending:true})
+  );
+
+  if(result.error){
+    console.debug("OWL TRIPS LOAD ERROR:",result.error);
+    renderOwlTripsHeader(result.error);
+    return;
+  }
+
+  owlTripsScheduleCache=result.data||[];
+  renderOwlTripsHeader();
+  renderOwlTripsFullPage();
+}
+
+function openOwlTripsPopover(){
+  const pop=q("#owlTripsPopover"),btn=q("#owlTripsBtn");
+  if(!pop||!btn)return;
+  clearTimeout(owlTripsHoverTimer);
+  pop.hidden=false;
+  btn.setAttribute("aria-expanded","true");
+}
+
+function closeOwlTripsPopover(delay=0){
+  clearTimeout(owlTripsHoverTimer);
+  owlTripsHoverTimer=setTimeout(()=>{
+    const pop=q("#owlTripsPopover"),btn=q("#owlTripsBtn");
+    if(pop)pop.hidden=true;
+    if(btn)btn.setAttribute("aria-expanded","false");
+  },delay);
+}
+
+function initOwlTripsUi(){
+  const wrap=q(".owl-trip-header-wrap");
+  const btn=q("#owlTripsBtn");
+  const pop=q("#owlTripsPopover");
+  if(!wrap||!btn||!pop)return;
+
+  btn.onclick=e=>{
+    e.stopPropagation();
+    if(pop.hidden)openOwlTripsPopover();
+    else closeOwlTripsPopover();
+  };
+
+  wrap.addEventListener("mouseenter",()=>openOwlTripsPopover());
+  wrap.addEventListener("mouseleave",()=>closeOwlTripsPopover(180));
+  pop.onclick=e=>e.stopPropagation();
+
+  document.addEventListener("click",e=>{
+    if(!wrap.contains(e.target))closeOwlTripsPopover();
+  });
+
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape")closeOwlTripsPopover();
+  });
+}
+
+function owlTripsAdminDateRange(row){
+  return owlTripRangeLabel(row.date_from,row.date_to);
+}
+
+async function renderOwlTripsAdmin(editId=null){
+  setActiveAdminTab("owl_trips");
+  q("#editor").dataset.table="owl_trips";
+  q("#editor").innerHTML=`<div class="admin-messages-loading">Ładowanie harmonogramu…</div>`;
+
+  const {data,error}=await sb
+    .from("owl_trips_schedule")
+    .select("*")
+    .order("date_from",{ascending:true})
+    .order("id",{ascending:true});
+
+  if(error){
+    q("#editor").innerHTML=`
+      <div class="admin-order-warning">
+        <b>⚠️ Nie udało się pobrać harmonogramu.</b><br>
+        ${esc(error.message)}
+      </div>`;
+    return;
+  }
+
+  const rows=data||[];
+  const edit=editId?rows.find(x=>String(x.id)===String(editId)):null;
+
+  q("#editor").innerHTML=`
+    <div class="form owl-trips-admin-form">
+      <div class="owl-trips-admin-title">
+        <div>
+          <h3>${edit?"Edytuj weekend":"Dodaj weekend"}: Sowie podróże</h3>
+          <p>Numery są anonimowe — wpisujesz wyłącznie numer dziecka przypisany do danej Sówki.</p>
+        </div>
+        ${edit?`<button type="button" class="secondary" id="owlTripsAdminCancel">Anuluj edycję</button>`:""}
+      </div>
+
+      <form id="owlTripsAdminForm">
+        <input type="hidden" name="id" value="${edit?.id||""}">
+        <div class="owl-trips-admin-date-grid">
+          <label>Od (piątek)<input type="date" name="date_from" value="${esc(edit?.date_from||"")}" required></label>
+          <label>Do (poniedziałek)<input type="date" name="date_to" value="${esc(edit?.date_to||"")}" required></label>
+        </div>
+
+        <div class="owl-trips-admin-number-grid">
+          ${OWL_TRIP_MEMBERS.map(member=>`
+            <label class="owl-trips-admin-number tone-${member.tone}">
+              <span>${owlTripAvatar(member.tone,"small")} ${esc(member.name)}</span>
+              <input type="number" name="${member.key}" min="1" max="99" step="1" value="${esc(edit?.[member.key]??"")}" required>
+            </label>`).join("")}
+        </div>
+
+        <label class="check"><input type="checkbox" name="published" ${edit?(edit.published?"checked":""):"checked"}>Widoczny dla rodziców</label>
+        <button class="primary admin-save-btn" type="submit">${edit?"Zapisz zmiany":"Dodaj termin"}</button>
+        <div class="admin-save-status" aria-live="polite"></div>
+      </form>
+    </div>
+
+    <section class="admin-content-manager">
+      <div class="admin-content-head">
+        <div>
+          <h3>Harmonogram całoroczny</h3>
+          <p>Terminy są automatycznie wyświetlane rodzicom według aktualnej daty.</p>
+        </div>
+        <span class="admin-count">${rows.length} ${rows.length===1?"termin":"terminów"}</span>
+      </div>
+
+      <div class="owl-trips-admin-list">
+        ${rows.length?rows.map(row=>`
+          <article class="owl-trips-admin-row">
+            <div class="owl-trips-admin-row-main">
+              <div class="owl-trips-admin-row-head">
+                <b>📅 ${esc(owlTripsAdminDateRange(row))}</b>
+                <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
+              </div>
+              <div class="owl-trips-admin-mini-members">
+                ${OWL_TRIP_MEMBERS.map(member=>`
+                  <span class="tone-${member.tone}">
+                    ${owlTripAvatar(member.tone,"small")}
+                    <small>${esc(member.short)}</small>
+                    <b>${Number(row[member.key]||0)}</b>
+                  </span>`).join("")}
+              </div>
+            </div>
+            <div class="actions adminitem-actions">
+              <button type="button" data-owl-trip-edit="${row.id}" title="Edytuj" aria-label="Edytuj">✏️</button>
+              <button type="button" data-owl-trip-visibility="${row.id}" data-published="${row.published?"1":"0"}" title="${row.published?"Ukryj":"Pokaż"}" aria-label="${row.published?"Ukryj":"Pokaż"}">${row.published?"👁️":"🙈"}</button>
+              <button type="button" data-owl-trip-delete="${row.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
+            </div>
+          </article>`).join(""):`<div class="admin-empty">Nie ma jeszcze wpisów w harmonogramie.</div>`}
+      </div>
+    </section>`;
+
+  q("#owlTripsAdminForm").onsubmit=saveOwlTripsAdmin;
+  q("#owlTripsAdminCancel")?.addEventListener("click",()=>renderOwlTripsAdmin());
+
+  qa("[data-owl-trip-edit]").forEach(b=>b.onclick=()=>renderOwlTripsAdmin(b.dataset.owlTripEdit));
+
+  qa("[data-owl-trip-visibility]").forEach(b=>b.onclick=async()=>{
+    const next=b.dataset.published!=="1";
+    const {error}=await sb.from("owl_trips_schedule").update({published:next}).eq("id",b.dataset.owlTripVisibility);
+    if(error){alert(error.message);return}
+    await renderOwlTripsAdmin();
+    await loadOwlTripsSchedule();
+  });
+
+  qa("[data-owl-trip-delete]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Usunąć ten termin z harmonogramu?"))return;
+    const {error}=await sb.from("owl_trips_schedule").delete().eq("id",b.dataset.owlTripDelete);
+    if(error){alert(error.message);return}
+    await renderOwlTripsAdmin();
+    await loadOwlTripsSchedule();
+  });
+}
+
+async function saveOwlTripsAdmin(ev){
+  ev.preventDefault();
+  const form=ev.target;
+  const fd=new FormData(form);
+  const id=String(fd.get("id")||"");
+  const btn=form.querySelector(".admin-save-btn");
+  const status=form.querySelector(".admin-save-status");
+
+  const payload={
+    date_from:String(fd.get("date_from")||""),
+    date_to:String(fd.get("date_to")||""),
+    uszatka_no:Number(fd.get("uszatka_no")),
+    puchacz_no:Number(fd.get("puchacz_no")),
+    nocek_no:Number(fd.get("nocek_no")),
+    huhu_no:Number(fd.get("huhu_no")),
+    published:fd.get("published")==="on"
+  };
+
+  if(!payload.date_from||!payload.date_to) return alert("Uzupełnij daty weekendu.");
+  if(payload.date_to<payload.date_from) return alert("Data końcowa nie może być wcześniejsza od początkowej.");
+  if([payload.uszatka_no,payload.puchacz_no,payload.nocek_no,payload.huhu_no].some(n=>!Number.isInteger(n)||n<1||n>99)){
+    return alert("Numery dzieci muszą być liczbami od 1 do 99.");
+  }
+
+  btn.disabled=true;
+  btn.textContent="Zapisywanie…";
+  if(status)status.textContent="Zapisuję harmonogram…";
+
+  try{
+    const result=id
+      ? await sb.from("owl_trips_schedule").update(payload).eq("id",id)
+      : await sb.from("owl_trips_schedule").insert(payload);
+
+    if(result.error)throw result.error;
+
+    if(status)status.textContent="✅ Zapisano";
+    await renderOwlTripsAdmin();
+    await loadOwlTripsSchedule();
+  }catch(e){
+    console.error("OWL TRIPS ADMIN SAVE:",e);
+    if(status)status.textContent="❌ Nie udało się zapisać.";
+    alert(e?.message||"Nie udało się zapisać terminu.");
+  }finally{
+    if(document.body.contains(btn)){
+      btn.disabled=false;
+      btn.textContent=id?"Zapisz zmiany":"Dodaj termin";
+    }
+  }
+}
+
+initOwlTripsUi();
+loadOwlTripsSchedule();
+
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 function openMenuPreview(url){
   let d=q("#menuPreview");

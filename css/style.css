@@ -3230,3 +3230,475 @@ nav > .home .nav-new-dot{
 .stats-sowka-main{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;gap:9px;align-items:center}.stats-sowka-owl{width:38px;height:38px;display:grid;place-items:center}.stats-sowka-owl .sowki-read-owl-svg{width:38px;height:38px}.stats-sowka-copy{min-width:0}.stats-sowka-meta{display:flex;justify-content:space-between;gap:8px;color:#8b7a82;font-size:9.5px}.stats-sowka-copy>b{display:block;margin:2px 0 5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stats-sowka-progress{height:6px;border-radius:999px;background:#eee7ea;overflow:hidden}.stats-sowka-progress span{display:block;height:100%;border-radius:999px;background:#25a65a}.stats-sowka-copy small{display:block;margin-top:4px;color:#82747b;font-size:9.5px}.stats-sowka-percent{text-align:right;color:#178243;font-size:15px}
 @media(max-width:760px){.stats-kpis-v2{grid-template-columns:repeat(2,minmax(0,1fr))}.stats-head-v2{display:grid}.stats-range-label{justify-self:start}.stats-traffic-row{grid-template-columns:minmax(115px,1.2fr) 74px 68px}.stats-traffic-row small{display:none}}
 @media(max-width:480px){.stats-kpi-v2{padding:9px}.stats-kpi-icon{width:29px;height:29px;flex-basis:29px;font-size:15px}.stats-kpi-v2 b{font-size:17px}.stats-kpi-v2 em{display:none}.stats-daily-row{grid-template-columns:78px 1fr 1fr;font-size:10.5px}.stats-sowka-main{grid-template-columns:34px minmax(0,1fr) 40px}.stats-sowka-owl,.stats-sowka-owl .sowki-read-owl-svg{width:34px;height:34px}}
+
+
+/* =========================================================
+   v0.7.7 — Bajkowe podróże sowiej rodziny
+   ========================================================= */
+
+.header-right-actions{
+  position:absolute;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+
+.app-header #admin{
+  position:static !important;
+  right:auto !important;
+  top:auto !important;
+  transform:none !important;
+  flex:0 0 auto;
+}
+
+.owl-trip-header-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+
+.owl-trip-header-btn{
+  position:relative;
+  width:42px;
+  height:42px;
+  padding:0 !important;
+  border:1px solid #efdbe4 !important;
+  border-radius:50% !important;
+  background:linear-gradient(145deg,#fff,#fff0f6) !important;
+  box-shadow:0 3px 10px rgba(70,25,45,.09);
+  overflow:visible;
+  cursor:pointer;
+}
+
+.owl-trip-header-btn.has-trip::after{
+  content:"";
+  position:absolute;
+  right:1px;
+  top:1px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#ef2c75;
+  border:2px solid #fff;
+}
+
+.owl-trip-mini-owl{
+  display:block;
+  width:30px;
+  height:30px;
+  margin:5px auto 0;
+}
+.owl-trip-mini-owl svg{display:block;width:100%;height:100%}
+
+.owl-trip-calendar-badge{
+  position:absolute;
+  right:-3px;
+  bottom:-2px;
+  width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  border-radius:7px;
+  background:#ef2c75;
+  color:#fff;
+  border:2px solid #fff;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+  box-shadow:0 2px 5px rgba(216,27,96,.25);
+}
+
+.owl-trips-popover{
+  position:absolute;
+  z-index:40;
+  top:calc(100% + 10px);
+  right:0;
+  width:min(420px,calc(100vw - 18px));
+  padding:14px;
+  border:1px solid #efd6e1;
+  border-radius:18px;
+  background:linear-gradient(155deg,#fff,#fff4f8);
+  box-shadow:0 18px 45px rgba(65,20,40,.24);
+  color:#29252a;
+}
+
+.owl-trips-popover::before{
+  content:"";
+  position:absolute;
+  top:-7px;
+  right:15px;
+  width:13px;
+  height:13px;
+  transform:rotate(45deg);
+  background:#fff7fa;
+  border-left:1px solid #efd6e1;
+  border-top:1px solid #efd6e1;
+}
+
+.owl-trips-pop-head{
+  text-align:center;
+  margin-bottom:10px;
+}
+.owl-trips-pop-head b{
+  display:block;
+  color:#d81b60;
+  font-size:16px;
+}
+.owl-trips-pop-head small{
+  display:block;
+  margin-top:3px;
+  color:#4c4650;
+  font-weight:700;
+}
+
+.owl-trips-pop-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.owl-trips-pop-member{
+  min-width:0;
+  padding:8px 4px 7px;
+  border-radius:13px;
+  text-align:center;
+  border:1px solid #eee3e8;
+  background:#fff;
+}
+.owl-trips-pop-member.tone-uszatka{background:#fff3f7}
+.owl-trips-pop-member.tone-puchacz{background:#eef7ff}
+.owl-trips-pop-member.tone-nocek{background:#eefaf4}
+.owl-trips-pop-member.tone-huhu{background:#fff8ea}
+
+.owl-trips-pop-avatar{
+  width:37px;
+  height:37px;
+  margin:0 auto 4px;
+}
+.owl-trips-pop-name{
+  min-height:28px;
+  font-size:10px;
+  line-height:1.15;
+  font-weight:800;
+}
+.owl-trips-pop-number{
+  display:grid;
+  place-items:center;
+  width:27px;
+  height:27px;
+  margin:5px auto 0;
+  border-radius:50%;
+  color:#fff;
+  font-size:15px;
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.09);
+}
+.tone-uszatka .owl-trips-pop-number,.tone-uszatka .owl-trips-assignment-number{background:#ec2e75}
+.tone-puchacz .owl-trips-pop-number,.tone-puchacz .owl-trips-assignment-number{background:#2798e2}
+.tone-nocek .owl-trips-pop-number,.tone-nocek .owl-trips-assignment-number{background:#20aa70}
+.tone-huhu .owl-trips-pop-number,.tone-huhu .owl-trips-assignment-number{background:#f39a16}
+
+.owl-trips-more-btn{
+  width:100%;
+  margin-top:10px;
+  padding:9px 10px;
+  border:0;
+  border-radius:11px;
+  background:#fff;
+  color:#d81b60;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:inset 0 0 0 1px #efd6e1;
+}
+.owl-trips-pop-error{
+  padding:10px;
+  border-radius:11px;
+  background:#fff7df;
+  color:#6b5618;
+  font-size:12px;
+  line-height:1.4;
+}
+.owl-trips-popover-loading{
+  padding:12px;
+  text-align:center;
+  color:var(--muted);
+}
+
+.owl-trip-avatar-svg{
+  display:block;
+  width:100%;
+  height:100%;
+}
+.owl-trip-avatar-svg.is-small{width:32px;height:32px}
+
+.owl-trips-page{
+  max-width:850px;
+  margin:0 auto;
+}
+.owl-trips-back{margin-bottom:7px}
+.owl-trips-page-hero{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:16px;
+  border:1px solid #efd8e3;
+  border-radius:20px;
+  background:linear-gradient(135deg,#fff,#ffeaf2);
+  box-shadow:0 6px 18px rgba(90,25,55,.08);
+}
+.owl-trips-page-hero-icon{font-size:42px}
+.owl-trips-page-hero h1{margin:0;font-size:23px;color:#7a1743}
+.owl-trips-page-hero p{margin:4px 0 0;color:var(--muted)}
+
+.owl-trips-current-card{
+  margin:14px 0;
+  padding:14px;
+  border:1px solid #eadde3;
+  border-radius:19px;
+  background:#fff;
+  box-shadow:0 5px 18px rgba(80,20,45,.07);
+}
+.owl-trips-current-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+.owl-trips-current-head span{
+  display:block;
+  color:#d81b60;
+  font-size:12px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.3px;
+}
+.owl-trips-current-head strong{display:block;margin-top:2px;font-size:18px}
+.owl-trips-current-head small{color:var(--muted)}
+
+.owl-trips-assignment-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+}
+.owl-trips-assignment-card{
+  padding:11px 7px;
+  border-radius:15px;
+  text-align:center;
+  border:1px solid #eee3e8;
+}
+.owl-trips-assignment-card.tone-uszatka{background:#fff3f7}
+.owl-trips-assignment-card.tone-puchacz{background:#eef7ff}
+.owl-trips-assignment-card.tone-nocek{background:#eefaf4}
+.owl-trips-assignment-card.tone-huhu{background:#fff8ea}
+.owl-trips-assignment-avatar{width:54px;height:54px;margin:auto}
+.owl-trips-assignment-name{font-size:12px;font-weight:800;line-height:1.2;min-height:29px}
+.owl-trips-assignment-number{
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  margin:6px auto 0;
+  border-radius:50%;
+  color:#fff;
+  font-size:18px;
+}
+
+.owl-trips-info-card,
+.owl-trips-goals{
+  margin:12px 0;
+  padding:15px;
+  border:1px solid #eadde3;
+  border-radius:17px;
+  background:#fff;
+}
+.owl-trips-info-card h2,.owl-trips-info-card h3,.owl-trips-goals h2{margin:0 0 7px}
+.owl-trips-info-card p{margin:0;color:#5f5961;line-height:1.55}
+.owl-trips-info-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.owl-trips-info-grid .owl-trips-info-card{margin:0}
+.owl-trips-warning{background:#fff8df;border-color:#efd28b}
+.owl-trips-goal-list{
+  display:grid;
+  gap:7px;
+  color:#4f4951;
+}
+.owl-trips-goal-list span{
+  padding:8px 10px;
+  border-radius:11px;
+  background:#fff8fb;
+}
+
+.owl-trips-full-schedule{
+  margin-top:14px;
+  border:1px solid #eadde3;
+  border-radius:17px;
+  background:#fff;
+  overflow:hidden;
+}
+.owl-trips-full-schedule>summary{
+  cursor:pointer;
+  padding:14px 15px;
+  font-weight:900;
+  color:#7a1743;
+  background:#fff7fa;
+}
+.owl-trips-schedule-list{padding:7px 12px 12px}
+.owl-trips-schedule-row{
+  display:grid;
+  grid-template-columns:145px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:9px 0;
+  border-bottom:1px solid #f0e5ea;
+}
+.owl-trips-schedule-row:last-child{border-bottom:0}
+.owl-trips-schedule-row time{font-size:12px;font-weight:800;color:#5d555f}
+.owl-trips-schedule-members{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:5px;
+}
+.owl-trips-schedule-members>span{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+  padding:5px;
+  border-radius:10px;
+}
+.owl-trips-schedule-members>span.tone-uszatka{background:#fff3f7}
+.owl-trips-schedule-members>span.tone-puchacz{background:#eef7ff}
+.owl-trips-schedule-members>span.tone-nocek{background:#eefaf4}
+.owl-trips-schedule-members>span.tone-huhu{background:#fff8ea}
+.owl-trips-schedule-members svg{width:25px;height:25px;flex:0 0 25px}
+.owl-trips-schedule-members b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:10px;
+}
+.owl-trips-schedule-members strong{
+  margin-left:auto;
+  font-size:12px;
+}
+.owl-trips-footnote{
+  margin:13px 0;
+  text-align:center;
+  color:#675f68;
+  font-size:12px;
+  line-height:1.5;
+}
+
+/* Admin — Sowie podróże */
+.owl-trips-admin-title{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+}
+.owl-trips-admin-title h3{margin:0}
+.owl-trips-admin-title p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.owl-trips-admin-date-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+.owl-trips-admin-number-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-top:7px;
+}
+.owl-trips-admin-number{
+  margin:0;
+  padding:9px;
+  border:1px solid #eadde3;
+  border-radius:13px;
+  background:#fff;
+}
+.owl-trips-admin-number>span{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  min-height:34px;
+  font-size:11px;
+  line-height:1.15;
+}
+.owl-trips-admin-number input{margin-top:5px;text-align:center;font-weight:900}
+.owl-trips-admin-number.tone-uszatka{background:#fff7fa}
+.owl-trips-admin-number.tone-puchacz{background:#f3f9ff}
+.owl-trips-admin-number.tone-nocek{background:#f1fbf6}
+.owl-trips-admin-number.tone-huhu{background:#fffaf0}
+.owl-trips-admin-list{display:grid;gap:7px;padding:8px}
+.owl-trips-admin-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  justify-content:space-between;
+  padding:10px;
+  border:1px solid #eee3e8;
+  border-radius:13px;
+  background:#fff;
+}
+.owl-trips-admin-row-main{min-width:0;flex:1}
+.owl-trips-admin-row-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.owl-trips-admin-mini-members{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:7px;
+}
+.owl-trips-admin-mini-members>span{
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:4px 7px 4px 4px;
+  border-radius:10px;
+  font-size:10px;
+}
+.owl-trips-admin-mini-members>span.tone-uszatka{background:#fff3f7}
+.owl-trips-admin-mini-members>span.tone-puchacz{background:#eef7ff}
+.owl-trips-admin-mini-members>span.tone-nocek{background:#eefaf4}
+.owl-trips-admin-mini-members>span.tone-huhu{background:#fff8ea}
+.owl-trips-admin-mini-members svg{width:25px;height:25px}
+.owl-trips-admin-mini-members b{font-size:12px}
+
+@media(max-width:520px){
+  .header-right-actions{right:6px;gap:2px}
+  .owl-trip-header-btn,
+  .app-header #admin{
+    width:36px !important;
+    height:36px !important;
+  }
+  .owl-trip-mini-owl{width:26px;height:26px;margin-top:4px}
+  .owl-trip-calendar-badge{width:16px;height:16px;font-size:9px}
+  .owl-trips-popover{
+    position:fixed;
+    top:64px;
+    right:7px;
+    width:min(340px,calc(100vw - 14px));
+  }
+  .owl-trips-popover::before{right:48px}
+  .owl-trips-pop-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .owl-trips-pop-member{padding-left:2px;padding-right:2px}
+  .owl-trips-pop-name{font-size:9px}
+  .owl-trips-assignment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .owl-trips-info-grid{grid-template-columns:1fr}
+  .owl-trips-current-head{align-items:flex-start;flex-direction:column}
+  .owl-trips-schedule-row{grid-template-columns:1fr}
+  .owl-trips-schedule-members{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .owl-trips-admin-date-grid{grid-template-columns:1fr}
+  .owl-trips-admin-number-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .owl-trips-admin-row{align-items:flex-start;flex-direction:column}
+  .owl-trips-admin-row .adminitem-actions{align-self:flex-end}
+}
+
+@media(max-width:390px){
+  .owl-trips-popover{top:60px}
+  .owl-trips-pop-name{font-size:8.5px}
+}

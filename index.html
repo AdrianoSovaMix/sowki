@@ -1,5 +1,32 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0706"></head><body>
-<header class="app-header"><div class="header-left-actions"><button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button><button id="parentMessageBtn" class="message-btn" aria-label="Napisz wiadomość do wychowawczyni">✉️</button></div><div class="header-brand"><span class="brand-leaves left">🍃</span><span class="brand-heart">♥</span><img src="icon-192.png" alt="Sówki"><div><b>Sówki</b><small>Grupa Pani Kasi</small></div><span class="brand-heart">♥</span><span class="brand-leaves right">🍃</span></div><button id="admin" aria-label="Panel administratora">🔐</button></header>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0707"></head><body>
+<header class="app-header">
+<div class="header-left-actions">
+  <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
+  <button id="parentMessageBtn" class="message-btn" aria-label="Napisz wiadomość do wychowawczyni">✉️</button>
+</div>
+<div class="header-brand"><span class="brand-leaves left">🍃</span><span class="brand-heart">♥</span><img src="icon-192.png" alt="Sówki"><div><b>Sówki</b><small>Grupa Pani Kasi</small></div><span class="brand-heart">♥</span><span class="brand-leaves right">🍃</span></div>
+<div class="header-right-actions">
+  <div class="owl-trip-header-wrap">
+    <button id="owlTripsBtn" class="owl-trip-header-btn" type="button" aria-label="Bajkowe podróże sowiej rodziny" aria-expanded="false" aria-controls="owlTripsPopover">
+      <span class="owl-trip-mini-owl" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <path d="M10 16 6 8l10 5M38 16l4-8-10 5" fill="#8b4d2e"/>
+          <ellipse cx="24" cy="27" rx="15" ry="16" fill="#a7653c"/>
+          <circle cx="18" cy="23" r="7" fill="#fff4dc"/><circle cx="30" cy="23" r="7" fill="#fff4dc"/>
+          <circle cx="18" cy="23" r="3.2" fill="#17324d"/><circle cx="30" cy="23" r="3.2" fill="#17324d"/>
+          <path d="M21 29h6l-3 4z" fill="#f59d29"/>
+          <ellipse cx="24" cy="36" rx="7" ry="5" fill="#f4d3a2"/>
+        </svg>
+      </span>
+      <span class="owl-trip-calendar-badge" aria-hidden="true">▦</span>
+    </button>
+    <div id="owlTripsPopover" class="owl-trips-popover" role="dialog" aria-label="Sowie podróże" hidden>
+      <div class="owl-trips-popover-loading">Ładowanie harmonogramu…</div>
+    </div>
+  </div>
+  <button id="admin" aria-label="Panel administratora">🔐</button>
+</div>
+</header>
 <main>
 <section id="home" class="page active"><div class="hero"><span>🦉</span><div><h1>Witajcie w Sówkach!</h1><p>Najważniejsze informacje naszej grupy w jednym miejscu.</p></div></div><h2>📌 Najważniejsze na ten miesiąc</h2><div id="notices"></div><h2>📰 Wydarzenia przedszkolaków</h2><div id="events"></div></section>
 <section id="notificationsPage" class="page"><div class="notification-head"><div class="section-title-row"><h1>🔔 Powiadomienia</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Powiadomienia" aria-expanded="false" aria-controls="info-notifications">i</button><div id="info-notifications" class="section-info-popover" hidden>Tutaj znajdziesz ostatnie wiadomości wysłane do rodziców Grupy 3 „Sówki”. Kliknij wybrane powiadomienie, aby oznaczyć je jako odczytane lub przejść do wskazanej sekcji.</div></div><button id="enablePush" class="primary">🔔 Włącz powiadomienia</button></div><div id="notificationsList"></div></section>
@@ -11,6 +38,63 @@
 <div id="galleryGate" class="card"><p>Galeria jest chroniona hasłem.</p><label>Hasło</label><div class="row"><input id="galleryPass" type="password"><button id="galleryUnlock">Otwórz</button></div><p id="galleryErr" class="err"></p></div>
 <div id="galleryAlbums" hidden></div></section>
 <section id="payments" class="page"><div class="section-title-row"><h1>💰 Rozliczenia grupy „Sówki”</h1><button type="button" class="section-info-btn" aria-label="Informacje o dziale Rozliczenia" aria-expanded="false" aria-controls="info-payments">i</button><div id="info-payments" class="section-info-popover" hidden>Tutaj możesz sprawdzić bieżące rozliczenia grupy, wpłaty i wydatki. Arkusz jest aktualizowany na bieżąco i chroniony hasłem.</div></div><p class="ok">● Arkusz aktualizowany na bieżąco</p><div id="gate" class="card"><label>Hasło</label><div class="row"><input id="pass" type="password"><button id="openPay">Otwórz</button></div><p id="payErr" class="err"></p></div><div id="pay" hidden><iframe class="bigframe desktop" src="https://1drv.ms/x/c/33eff04408f33c11/IQRrDW0alyzxQJSy91EQBK8ZAU4lngG0Fi1laO_zujcVTvY"></iframe><div class="card mobile"><h3>Arkusz Excel</h3><a class="primary" target="_blank" href="https://1drv.ms/x/c/33eff04408f33c11/IQBrDW0alyzxQJSy91EQBK8ZAeTfh0EdNF_VFVPGFR4kI6c?e=UYKfOV">Otwórz arkusz</a></div></div></section>
+
+<section id="owlTripsPage" class="page owl-trips-page">
+  <button type="button" class="backbtn owl-trips-back" data-go="home">← Wróć do START</button>
+
+  <div class="owl-trips-page-hero">
+    <div class="owl-trips-page-hero-icon" aria-hidden="true">🦉📚</div>
+    <div>
+      <h1>Bajkowe podróże sowiej rodziny</h1>
+      <p>Całoroczna akcja czytelnicza naszej grupy.</p>
+    </div>
+  </div>
+
+  <div id="owlTripsCurrentPage"></div>
+
+  <section class="owl-trips-info-card">
+    <h2>🏠 Jak wygląda akcja?</h2>
+    <p>W wyznaczony weekend dziecko zabiera jedną z Sówek oraz „Dziennik podróży” do domu. Sówka może uczestniczyć w codziennym życiu rodziny, wspólnych zabawach, spacerach, wycieczkach i oczywiście w czytaniu książek.</p>
+  </section>
+
+  <section class="owl-trips-info-grid">
+    <article class="owl-trips-info-card">
+      <h3>📖 Wspólne czytanie</h3>
+      <p>Rodzice wraz z dzieckiem organizują wspólne czytanie wybranej książki.</p>
+    </article>
+    <article class="owl-trips-info-card">
+      <h3>📔 Dziennik podróży</h3>
+      <p>Można wpisać datę, tytuł książki, autora i osoby uczestniczące we wspólnym czytaniu. Wpis można dowolnie ozdobić i dołączyć pamiątkę lub zdjęcie.</p>
+    </article>
+    <article class="owl-trips-info-card">
+      <h3>🗣️ Powrót do przedszkola</h3>
+      <p>Po weekendzie dziecko może opowiedzieć grupie, jak Sówka spędziła czas w jego domu, a nauczycielka zaprezentuje wpis z dziennika.</p>
+    </article>
+    <article class="owl-trips-info-card owl-trips-warning">
+      <h3>⚠️ Dbamy o Sówkę</h3>
+      <p>Podczas pobytu w domu wspólnie dbamy o maskotkę. Ze względów bezpieczeństwa Sówka nie powinna znajdować się z dzieckiem w łóżku podczas snu.</p>
+    </article>
+  </section>
+
+  <section class="owl-trips-goals">
+    <h2>🎯 Po co podróżują Sówki?</h2>
+    <div class="owl-trips-goal-list">
+      <span>📚 rozwijanie zainteresowania książkami i wyobraźni</span>
+      <span>💬 wzbogacanie słownictwa i ćwiczenie koncentracji</span>
+      <span>❤️ wspólne spędzanie czasu dzieci i rodziców</span>
+      <span>🌱 zachęcanie do regularnego czytania</span>
+      <span>🤲 nauka dbania o książki i wspólne przedszkolne maskotki</span>
+    </div>
+  </section>
+
+  <details class="owl-trips-full-schedule">
+    <summary>📅 Pokaż pełny harmonogram wizyt Sówek</summary>
+    <div id="owlTripsScheduleFull" class="owl-trips-schedule-list"></div>
+  </details>
+
+  <p class="owl-trips-footnote">Dziecko zabiera Sówkę do domu w piątek, a w poniedziałek maskotka wraca do przedszkola. 🦉📚💜</p>
+</section>
+
 </main>
 <nav><button data-go="announcementsPage"><img src="icons/nav/announcements.svg" alt=""><small>Ogłoszenia</small></button><button data-go="menu"><img src="icons/nav/menu.svg" alt=""><small>Jadłospis</small></button><button data-go="calendar"><img src="icons/nav/calendar.svg" alt=""><small>Kalendarz</small></button><button data-go="home" class="home"><img src="icons/nav/home.svg?v=0515" alt=""><small>START</small></button><button data-go="surveysPage"><img src="icons/nav/surveys.svg" alt=""><small>Ankiety</small></button><button data-go="gallery"><img src="icons/nav/gallery.svg" alt=""><small>Galeria</small></button><button data-go="payments"><img src="icons/nav/payments.svg" alt=""><small>Rozliczenia</small></button></nav>
 <dialog id="parentMessageDlg" class="parent-message-dialog">
@@ -80,7 +164,7 @@
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.7.6</span>
+        <span class="admin-app-version">v0.7.7</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -134,6 +218,11 @@
       <span>Powiadomienia</span>
     </button>
 
+    <button type="button" data-tab="owl_trips" role="tab">
+      <span class="admin-tab-icon admin-tab-emoji">🦉</span>
+      <span>Sowie podróże</span>
+    </button>
+
     <button type="button" data-tab="stats" role="tab">
       <span class="admin-tab-icon admin-tab-emoji">📊</span>
       <span>Statystyki</span>
@@ -142,4 +231,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0706"></script><script src="js/app.js?v=0706"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0707"></script><script src="js/app.js?v=0707"></script></body></html>
