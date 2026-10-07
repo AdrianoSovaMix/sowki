@@ -3091,6 +3091,71 @@ function calendarShiftIso(iso,days){
   return calendarIsoFromDateUTC(d);
 }
 
+function calendarAnnualOccurrenceDate(sourceIso,year){
+  const source=calendarParseIso(sourceIso);
+  if(!source)return "";
+
+  const month=source.getUTCMonth();
+  const day=source.getUTCDate();
+  let occurrence=new Date(Date.UTC(Number(year),month,day,12));
+
+  // 29 lutego w roku nieprzestępnym pokazujemy 28 lutego.
+  if(occurrence.getUTCMonth()!==month || occurrence.getUTCDate()!==day){
+    if(month===1 && day===29){
+      occurrence=new Date(Date.UTC(Number(year),1,28,12));
+    }else{
+      return "";
+    }
+  }
+
+  return calendarIsoFromDateUTC(occurrence);
+}
+
+function calendarYearlyOccurrence(row,year){
+  if(!row?.repeats_yearly)return {...row};
+
+  const occurrence=calendarAnnualOccurrenceDate(row.date_from,year);
+  if(!occurrence)return null;
+
+  return {
+    ...row,
+    source_date_from:row.date_from,
+    source_date_to:row.date_to,
+    date_from:occurrence,
+    date_to:occurrence,
+    occurrence_date:occurrence
+  };
+}
+
+function calendarNextOccurrence(row,fromIso=calendarLocalToday()){
+  if(!row?.repeats_yearly)return {...row};
+
+  const from=calendarParseIso(fromIso);
+  if(!from)return calendarYearlyOccurrence(row,new Date().getUTCFullYear());
+
+  let year=from.getUTCFullYear();
+  let occurrence=calendarYearlyOccurrence(row,year);
+
+  if(!occurrence)return null;
+  if(String(occurrence.date_from)<String(fromIso)){
+    occurrence=calendarYearlyOccurrence(row,year+1);
+  }
+
+  return occurrence;
+}
+
+function calendarSortRows(a,b){
+  const byDate=String(a?.date_from||"").localeCompare(String(b?.date_from||""));
+  if(byDate!==0)return byDate;
+
+  const ta=String(a?.event_time||"");
+  const tb=String(b?.event_time||"");
+  const byTime=ta.localeCompare(tb);
+  if(byTime!==0)return byTime;
+
+  return Number(a?.id||0)-Number(b?.id||0);
+}
+
 function calendarMonthStartFromIso(iso){
   const d=calendarParseIso(iso)||new Date();
   return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1,12));
@@ -3222,12 +3287,13 @@ async function loadSowkiCalendarMonth(force=false){
   const grid=q("#calendarGrid");
   if(grid)grid.innerHTML=`<div class="calendar-loading">Ładowanie kalendarza…</div>`;
 
-  const [monthResult,upcomingResult]=await Promise.all([
+  const [monthResult,upcomingResult,yearlyResult]=await Promise.all([
     publicQueryWithRetry(
       "kalendarza",
       ()=>sb.from("sowki_calendar")
         .select("*")
         .eq("published",true)
+        .eq("repeats_yearly",false)
         .lte("date_from",bounds.last)
         .gte("date_to",bounds.first)
         .order("date_from",{ascending:true})
@@ -3238,10 +3304,20 @@ async function loadSowkiCalendarMonth(force=false){
       ()=>sb.from("sowki_calendar")
         .select("*")
         .eq("published",true)
+        .eq("repeats_yearly",false)
         .gte("date_to",calendarLocalToday())
         .order("date_from",{ascending:true})
         .order("id",{ascending:true})
-        .limit(3)
+        .limit(6)
+    ),
+    publicQueryWithRetry(
+      "wydarzeń corocznych",
+      ()=>sb.from("sowki_calendar")
+        .select("*")
+        .eq("published",true)
+        .eq("repeats_yearly",true)
+        .order("date_from",{ascending:true})
+        .order("id",{ascending:true})
     )
   ]);
 
@@ -3250,8 +3326,33 @@ async function loadSowkiCalendarMonth(force=false){
     return;
   }
 
-  sowkiCalendarMonthRows=monthResult.data||[];
-  sowkiCalendarUpcomingRows=upcomingResult.error?[]:(upcomingResult.data||[]);
+  const yearlyRows=yearlyResult.error?[]:(yearlyResult.data||[]);
+  const monthYear=sowkiCalendarMonthStart.getUTCFullYear();
+
+  const yearlyInMonth=yearlyRows
+    .map(row=>calendarYearlyOccurrence(row,monthYear))
+    .filter(Boolean)
+    .filter(row=>String(row.date_from)>=bounds.first && String(row.date_from)<=bounds.last);
+
+  sowkiCalendarMonthRows=[
+    ...(monthResult.data||[]),
+    ...yearlyInMonth
+  ].sort(calendarSortRows);
+
+  const today=calendarLocalToday();
+
+  const yearlyUpcoming=yearlyRows
+    .map(row=>calendarNextOccurrence(row,today))
+    .filter(Boolean)
+    .filter(row=>String(row.date_to||row.date_from)>=today);
+
+  sowkiCalendarUpcomingRows=[
+    ...(upcomingResult.error?[]:(upcomingResult.data||[])),
+    ...yearlyUpcoming
+  ]
+    .sort(calendarSortRows)
+    .slice(0,3);
+
   sowkiCalendarLoadedMonthKey=key;
   renderSowkiCalendar();
 }
@@ -3389,7 +3490,7 @@ function calendarEventCard(row){
         <span class="calendar-event-title">${esc(row.title)}</span>
         <span class="calendar-event-meta">
           <i class="calendar-category-emoji">${cat.icon}</i>
-          ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}
+          ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}${row.repeats_yearly?" • 🔁 Co roku":""}
         </span>
         ${row.description?`<span class="calendar-event-desc">${esc(row.description).replace(/\n/g," ")}</span>`:""}
       </span>
@@ -3526,11 +3627,24 @@ function calendarAdminReminderLabel(row){
     return `<span class="admin-status calendar-reminder-off">🔕 Przypomnienie wyłączone</span>`;
   }
 
-  if(row.reminder_sent_at){
+  const today=calendarLocalToday();
+  const occurrence=row.repeats_yearly
+    ?calendarNextOccurrence(row,today)
+    :row;
+
+  const occurrenceDate=String(occurrence?.date_from||row.date_from||"");
+  const sentFor=String(row.reminder_sent_for_date||"");
+
+  if(sentFor && sentFor===occurrenceDate && row.reminder_sent_at){
     return `<span class="admin-status calendar-reminder-sent">✅ PUSH wysłany: ${esc(formatWarsawDateTime(row.reminder_sent_at))}</span>`;
   }
 
-  if(String(row.date_from||"")<=calendarLocalToday()){
+  // Zgodność ze starymi wpisami jednorazowymi sprzed v0.8.8.
+  if(!row.repeats_yearly && row.reminder_sent_at && !row.reminder_sent_for_date){
+    return `<span class="admin-status calendar-reminder-sent">✅ PUSH wysłany: ${esc(formatWarsawDateTime(row.reminder_sent_at))}</span>`;
+  }
+
+  if(occurrenceDate && occurrenceDate<=today){
     return `<span class="admin-status calendar-reminder-missed">⚠️ Przypomnienie niewysłane</span>`;
   }
 
@@ -3633,6 +3747,11 @@ async function renderSowkiCalendarAdmin(editId=null){
         </fieldset>
 
         <div class="calendar-admin-options">
+          <label class="check calendar-yearly-check">
+            <input type="checkbox" name="repeats_yearly" ${edit?.repeats_yearly?"checked":""}>
+            🔁 Powtarzaj co roku
+          </label>
+
           <label class="check">
             <input type="checkbox" name="reminder_enabled" ${edit?(edit.reminder_enabled?"checked":""):"checked"}>
             🔔 Wyślij przypomnienie dzień wcześniej o 18:00
@@ -3661,7 +3780,7 @@ async function renderSowkiCalendarAdmin(editId=null){
       <div class="calendar-admin-list">
         ${rows.length?rows.map(row=>{
           const cat=calendarCategory(row);
-          const isPast=String(row.date_to||row.date_from)<today;
+          const isPast=!row.repeats_yearly && String(row.date_to||row.date_from)<today;
           return `
             <article class="calendar-admin-row ${isPast?"is-past":""}">
               <div class="calendar-admin-main">
@@ -3669,6 +3788,7 @@ async function renderSowkiCalendarAdmin(editId=null){
                   <i class="calendar-category-emoji calendar-admin-category-emoji">${cat.icon}</i>
                   <b>${esc(row.title)}</b>
                   <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
+                  ${row.repeats_yearly?`<span class="admin-status calendar-yearly-badge">🔁 Co roku</span>`:""}
                   ${calendarAdminReminderLabel(row)}
                 </div>
                 <div class="calendar-admin-meta">
@@ -3692,6 +3812,7 @@ async function renderSowkiCalendarAdmin(editId=null){
   const allDay=form.querySelector('[name="all_day"]');
   const timeInput=form.querySelector('[name="event_time"]');
   const multiDay=form.querySelector('[name="multi_day"]');
+  const yearly=form.querySelector('[name="repeats_yearly"]');
   const dateFromInput=form.querySelector('[name="date_from"]');
   const dateToInput=form.querySelector('[name="date_to"]');
   const dateToWrap=q("#calendarDateToWrap");
@@ -3707,6 +3828,11 @@ async function renderSowkiCalendarAdmin(editId=null){
 
     if(dateToWrap)dateToWrap.hidden=!enabled;
     if(dateFromLabel)dateFromLabel.textContent=enabled?"Data od":"Data wydarzenia";
+
+    if(yearly){
+      yearly.disabled=enabled;
+      if(enabled)yearly.checked=false;
+    }
 
     if(dateToInput){
       dateToInput.required=enabled;
@@ -3726,6 +3852,13 @@ async function renderSowkiCalendarAdmin(editId=null){
 
   allDay.addEventListener("change",syncTime);
   multiDay?.addEventListener("change",syncMultiDay);
+
+  yearly?.addEventListener("change",()=>{
+    if(yearly.checked && multiDay?.checked){
+      multiDay.checked=false;
+      syncMultiDay();
+    }
+  });
 
   dateFromInput?.addEventListener("change",()=>{
     if(!multiDay?.checked){
@@ -3805,6 +3938,7 @@ async function saveSowkiCalendarAdmin(ev){
     all_day:allDay,
     event_time:allDay?null:(String(fd.get("event_time")||"").trim()||null),
     category:String(fd.get("category")||"ogolne"),
+    repeats_yearly:fd.get("repeats_yearly")==="on",
     reminder_enabled:fd.get("reminder_enabled")==="on",
     published:fd.get("published")==="on",
     updated_at:new Date().toISOString()
@@ -3813,6 +3947,7 @@ async function saveSowkiCalendarAdmin(ev){
   if(!payload.title)return alert("Podaj tytuł wpisu.");
   if(!payload.date_from||!payload.date_to)return alert("Uzupełnij datę wydarzenia.");
   if(payload.date_to<payload.date_from)return alert("Data końcowa nie może być wcześniejsza od początkowej.");
+  if(payload.repeats_yearly && multiDay)return alert("Powtarzanie co roku jest dostępne dla wydarzeń jednodniowych.");
   if(!SOWKI_CALENDAR_CATEGORIES[payload.category])return alert("Wybierz prawidłową kategorię.");
 
   btn.disabled=true;

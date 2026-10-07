@@ -5657,3 +5657,35 @@ nav > .home .nav-new-dot{
     grid-template-columns:1fr !important;
   }
 }
+
+
+/* =========================================================
+   v0.8.8 — wydarzenia powtarzane co roku
+   ========================================================= */
+
+.calendar-yearly-badge{
+  background:#eef3ff !important;
+  color:#40538e !important;
+  border:1px solid #d9e0f5;
+}
+
+.calendar-yearly-check{
+  padding:7px 9px;
+  border:1px solid #e5dce2;
+  border-radius:11px;
+  background:#faf7f9;
+}
+
+.calendar-yearly-check:has(input:checked){
+  background:#f0f4ff;
+  border-color:#ccd7f4;
+  color:#354c8d;
+}
+
+.calendar-yearly-check:has(input:disabled){
+  opacity:.52;
+}
+
+.calendar-event-meta{
+  flex-wrap:wrap;
+}
