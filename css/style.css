@@ -3157,3 +3157,39 @@ nav > .home .nav-new-dot{
     flex-basis:20px!important;
   }
 }
+
+
+/* v0.7.4 — stabilne ładowanie danych publicznych */
+.public-loading-card{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:44px;
+}
+.public-loading-dot{
+  width:10px;
+  height:10px;
+  flex:0 0 10px;
+  border-radius:50%;
+  background:#d81b60;
+  box-shadow:0 0 0 0 rgba(216,27,96,.28);
+  animation:sowki-loading-pulse 1.15s ease-out infinite;
+}
+@keyframes sowki-loading-pulse{
+  0%{box-shadow:0 0 0 0 rgba(216,27,96,.30);opacity:1}
+  70%{box-shadow:0 0 0 8px rgba(216,27,96,0);opacity:.75}
+  100%{box-shadow:0 0 0 0 rgba(216,27,96,0);opacity:1}
+}
+.public-load-error{
+  border-color:#efc7d4;
+  background:#fffafb;
+}
+.public-load-error p{margin:.35rem 0 .7rem}
+.public-retry-btn{
+  width:auto;
+  min-height:36px;
+  padding:.5rem .8rem;
+}
+@media (prefers-reduced-motion:reduce){
+  .public-loading-dot{animation:none}
+}

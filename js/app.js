@@ -547,7 +547,7 @@ function markSectionContentSeen(page){
 }
 
 
-// v0.7.3 — „Daj Sówkę” + anonimowy licznik odczytań w panelu administratora.
+// v0.7.4 — stabilne ładowanie danych + „Daj Sówkę” i anonimowy licznik odczytań.
 // Rodzic nadal ma lokalne oznaczenie w localStorage. Dodatkowo aplikacja wysyła do Supabase
 // anonimowe potwierdzenie urządzenia, bez imienia, e-maila, numeru telefonu ani konta rodzica.
 const SOWKI_READ_STORAGE_PREFIX="sowki_read_v1";
@@ -775,116 +775,238 @@ document.addEventListener("click",e=>{
   window.setTimeout(()=>sowkiSetReadButtonState(btn,true),reduced?80:1050);
 });
 
+// v0.7.4 — stabilne pobieranie danych publicznych.
+// Zapytania startują równolegle, a chwilowy błąd sieci/Supabase jest automatycznie ponawiany.
+const PUBLIC_LOAD_RETRY_DELAYS=[350,900,1800];
+let publicLoadGeneration=0;
+
+function publicLoadSleep(ms){
+  return new Promise(resolve=>setTimeout(resolve,ms));
+}
+
+async function publicQueryWithRetry(label,queryFactory){
+  let lastResult={data:null,error:{message:`Nie udało się pobrać: ${label}`}};
+
+  for(let attempt=0;attempt<=PUBLIC_LOAD_RETRY_DELAYS.length;attempt++){
+    try{
+      const result=await queryFactory();
+      lastResult=result||lastResult;
+      if(!result?.error)return result;
+      console.warn(`Sówki: błąd pobierania ${label}, próba ${attempt+1}:`,result.error.message);
+    }catch(error){
+      lastResult={data:null,error:{message:error?.message||String(error)}};
+      console.warn(`Sówki: wyjątek podczas pobierania ${label}, próba ${attempt+1}:`,error);
+    }
+
+    if(attempt<PUBLIC_LOAD_RETRY_DELAYS.length){
+      await publicLoadSleep(PUBLIC_LOAD_RETRY_DELAYS[attempt]);
+    }
+  }
+
+  return lastResult;
+}
+
+function publicLoadingCard(text){
+  return `<div class="item muted public-loading-card"><span class="public-loading-dot" aria-hidden="true"></span>${esc(text)}</div>`;
+}
+
+function publicLoadErrorCard(sectionName){
+  return `<div class="item public-load-error">
+    <b>⚠️ Nie udało się pobrać ${esc(sectionName)}.</b>
+    <p class="muted">Aplikacja próbowała ponownie automatycznie. Sprawdź połączenie z internetem i spróbuj jeszcze raz.</p>
+    <button type="button" class="secondary public-retry-btn" data-public-retry>🔄 Spróbuj ponownie</button>
+  </div>`;
+}
+
+function publicShowLoadingIfEmpty(selector,text){
+  const el=q(selector);
+  if(el && !el.innerHTML.trim())el.innerHTML=publicLoadingCard(text);
+}
+
+function bindPublicRetryButtons(){
+  qa('[data-public-retry]').forEach(btn=>{
+    btn.onclick=()=>load();
+  });
+}
+
 async function load(){
- let r=await sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
- const homeNoticeRows=r.data||[];
- q("#notices").innerHTML=homeNoticeRows.length?homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div>${sowkiReadReaction("notice",x.id)}</div>`).join(""):empty("Brak nowych ogłoszeń.");
+ const loadGeneration=++publicLoadGeneration;
 
- r=await sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5);
- const homeEventRows=r.data||[];
- let a=[];
- for(const x of homeEventRows){
-   a.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p>${sowkiReadReaction("event",x.id)}</div>`);
- }
- q("#events").innerHTML=a.join("")||empty("Brak wydarzeń.");
- setNewContentTokens("home",[
-   ...homeNoticeRows.map(x=>`notice:${x.id}`),
-   ...homeEventRows.map(x=>`event:${x.id}`)
+ publicShowLoadingIfEmpty("#notices","Ładowanie najważniejszych informacji…");
+ publicShowLoadingIfEmpty("#events","Ładowanie wydarzeń…");
+ publicShowLoadingIfEmpty("#announcements","Ładowanie ogłoszeń…");
+ publicShowLoadingIfEmpty("#menus","Ładowanie jadłospisu…");
+ publicShowLoadingIfEmpty("#surveys","Ładowanie ankiet…");
+
+ const [noticesResult,eventsResult,announcementsResult,menusResult,surveysResult,galleryCheck]=await Promise.all([
+   publicQueryWithRetry("najważniejszych informacji",()=>sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
+   publicQueryWithRetry("wydarzeń",()=>sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}).limit(5)),
+   publicQueryWithRetry("ogłoszeń",()=>sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
+   publicQueryWithRetry("jadłospisu",()=>sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false})),
+   publicQueryWithRetry("ankiet",()=>sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
+   publicQueryWithRetry("galerii",()=>sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false}))
  ]);
- r=await sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});a=[];setNewContentTokens("announcementsPage",(r.data||[]).map(x=>`announcement:${x.id}`));if(!r.error){for(const x of r.data||[]){a.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}${sowkiReadReaction("announcement",x.id)}</article>`)}q("#announcements").innerHTML=a.join("")||empty("Nie ma jeszcze ogłoszeń.")}else q("#announcements").innerHTML=empty("Sekcja ogłoszeń będzie dostępna po uruchomieniu jej w Supabase.");
- r=await sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false});
- const menuRows=r.data||[];
- setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
 
- const todayParts=new Intl.DateTimeFormat("en-CA",{
-   timeZone:"Europe/Warsaw",
-   year:"numeric",
-   month:"2-digit",
-   day:"2-digit"
- }).formatToParts(new Date());
- const todayMap=Object.fromEntries(todayParts.map(p=>[p.type,p.value]));
- const todayKey=`${todayMap.year}-${todayMap.month}-${todayMap.day}`;
+ // Jeżeli w międzyczasie uruchomiono nowsze load(), starsza odpowiedź nie może nadpisać ekranu.
+ if(loadGeneration!==publicLoadGeneration)return;
 
- function menuDateKey(v){
-   if(!v)return "";
-   return String(v).slice(0,10);
+ // Najważniejsze informacje
+ let homeNoticeRows=[];
+ if(noticesResult.error){
+   q("#notices").innerHTML=publicLoadErrorCard("najważniejszych informacji");
+ }else{
+   homeNoticeRows=noticesResult.data||[];
+   q("#notices").innerHTML=homeNoticeRows.length
+     ? homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div>${sowkiReadReaction("notice",x.id)}</div>`).join("")
+     : empty("Brak nowych ogłoszeń.");
  }
 
- function menuCard(x,extraClass=""){
-   return `
-     <div class="item menu-history-card ${extraClass}">
-       <div class="date">${date(x.date_from)} – ${date(x.date_to)}</div>
-       <h3>${esc(x.title||"Jadłospis")}</h3>
-       ${x.image_url
-         ? storageImg(x.image_url,{className:"menu-photo",alt:x.title||"Jadłospis",title:"Dotknij, aby powiększyć",preview:true})
-         : `<p class="muted">Obraz niedostępny</p>`}
-     </div>
+ // Wydarzenia
+ let homeEventRows=[];
+ if(eventsResult.error){
+   q("#events").innerHTML=publicLoadErrorCard("wydarzeń");
+ }else{
+   homeEventRows=eventsResult.data||[];
+   const eventCards=[];
+   for(const x of homeEventRows){
+     eventCards.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p>${sowkiReadReaction("event",x.id)}</div>`);
+   }
+   q("#events").innerHTML=eventCards.join("")||empty("Brak wydarzeń.");
+ }
+
+ if(!noticesResult.error || !eventsResult.error){
+   setNewContentTokens("home",[
+     ...(!noticesResult.error?homeNoticeRows.map(x=>`notice:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("notice:"))),
+     ...(!eventsResult.error?homeEventRows.map(x=>`event:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("event:")))
+   ]);
+ }
+
+ // Ogłoszenia
+ if(announcementsResult.error){
+   q("#announcements").innerHTML=publicLoadErrorCard("ogłoszeń");
+ }else{
+   const announcementRows=announcementsResult.data||[];
+   const announcementCards=[];
+   setNewContentTokens("announcementsPage",announcementRows.map(x=>`announcement:${x.id}`));
+   for(const x of announcementRows){
+     announcementCards.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}${sowkiReadReaction("announcement",x.id)}</article>`);
+   }
+   q("#announcements").innerHTML=announcementCards.join("")||empty("Nie ma jeszcze ogłoszeń.");
+ }
+
+ // Jadłospis
+ if(menusResult.error){
+   q("#menus").innerHTML=publicLoadErrorCard("jadłospisu");
+ }else{
+   const menuRows=menusResult.data||[];
+   setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
+
+   const todayParts=new Intl.DateTimeFormat("en-CA",{
+     timeZone:"Europe/Warsaw",
+     year:"numeric",
+     month:"2-digit",
+     day:"2-digit"
+   }).formatToParts(new Date());
+   const todayMap=Object.fromEntries(todayParts.map(p=>[p.type,p.value]));
+   const todayKey=`${todayMap.year}-${todayMap.month}-${todayMap.day}`;
+
+   function menuDateKey(v){
+     if(!v)return "";
+     return String(v).slice(0,10);
+   }
+
+   function menuCard(x,extraClass=""){
+     return `
+       <div class="item menu-history-card ${extraClass}">
+         <div class="date">${date(x.date_from)} – ${date(x.date_to)}</div>
+         <h3>${esc(x.title||"Jadłospis")}</h3>
+         ${x.image_url
+           ? storageImg(x.image_url,{className:"menu-photo",alt:x.title||"Jadłospis",title:"Dotknij, aby powiększyć",preview:true})
+           : `<p class="muted">Obraz niedostępny</p>`}
+       </div>
+     `;
+   }
+
+   const currentMenus=menuRows.filter(x=>{
+     const from=menuDateKey(x.date_from);
+     const to=menuDateKey(x.date_to);
+     return from && to && from<=todayKey && todayKey<=to;
+   });
+
+   const pastMenus=menuRows
+     .filter(x=>{
+       const to=menuDateKey(x.date_to);
+       return to && to<todayKey;
+     })
+     .sort((a,b)=>String(b.date_from||"").localeCompare(String(a.date_from||"")));
+
+   const currentHtml=currentMenus.map(x=>menuCard(x,"menu-current-card")).join("");
+   const historyHtml=pastMenus.map(x=>menuCard(x,"")).join("");
+
+   q("#menus").innerHTML=`
+     <section class="menu-current-section">
+       <div class="menu-section-heading">
+         <h2>🍽️ Aktualny jadłospis</h2>
+       </div>
+       ${currentHtml||`<div class="item menu-empty-current"><b>Brak aktualnego jadłospisu.</b><p class="muted">Gdy pojawi się jadłospis obejmujący bieżący okres, zostanie wyświetlony tutaj.</p></div>`}
+     </section>
+
+     ${historyHtml?`
+       <details class="menu-history">
+         <summary>🗂️ Historia jadłospisów (${pastMenus.length})</summary>
+         <div class="menu-history-list">${historyHtml}</div>
+       </details>
+     `:""}
    `;
  }
 
- const currentMenus=menuRows.filter(x=>{
-   const from=menuDateKey(x.date_from);
-   const to=menuDateKey(x.date_to);
-   return from && to && from<=todayKey && todayKey<=to;
- });
+ // Ankiety
+ if(surveysResult.error){
+   q("#surveys").innerHTML=publicLoadErrorCard("ankiet");
+   q("#surveyArchive").innerHTML="";
+ }else{
+   const surveyRows=surveysResult.data||[];
+   const now=new Date(), active=[], archive=[];
+   for(const x of surveyRows){
+     const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;
+     (en&&en<now?archive:(!st||st<=now?active:archive)).push(x);
+   }
+   const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
+   setNewContentTokens("surveysPage",pending.map(x=>`survey:${x.id}`));
+   q("#surveys").innerHTML=pending.length
+     ? `<div class="survey-top-note">📌 <b>Ważne:</b> Po wysłaniu odpowiedzi w formularzu prosimy o kliknięcie przycisku <b>„✅ Wypełniłem/am tę ankietę”</b>. Dziękujemy!</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${formatWarsawDateTime(x.ends_at)}</div>`:""}<div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join("")
+     : `<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
 
- const pastMenus=menuRows
-   .filter(x=>{
-     const to=menuDateKey(x.date_to);
-     return to && to<todayKey;
-   })
-   .sort((a,b)=>String(b.date_from||"").localeCompare(String(a.date_from||"")));
+   qa("[data-survey-done]").forEach(b=>b.onclick=()=>{
+     localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");
+     load();
+   });
 
+   const archiveCards=[];
+   for(const x of archive){
+     archiveCards.push(`<div class="item survey-archive-item">
+       <h3>${esc(x.title)}</h3>
+       ${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}
+       ${x.results_image_url
+         ? `<button type="button" class="secondary survey-results-btn" data-survey-results-path="${esc(x.results_image_url)}" data-survey-title="${esc(x.title)}">📊 Pokaż wyniki</button>`
+         : `<div class="survey-results-pending">Wyniki nie zostały jeszcze opublikowane.</div>`}
+     </div>`);
+   }
+   q("#surveyArchive").innerHTML=archive.length
+     ? `<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archiveCards.join("")}</details>`
+     : "";
 
- const currentHtml=currentMenus.map(x=>menuCard(x,"menu-current-card")).join("");
- const historyHtml=pastMenus.map(x=>menuCard(x,"")).join("");
-
- q("#menus").innerHTML=`
-   <section class="menu-current-section">
-     <div class="menu-section-heading">
-       <h2>🍽️ Aktualny jadłospis</h2>
-     </div>
-     ${currentHtml||`<div class="item menu-empty-current"><b>Brak aktualnego jadłospisu.</b><p class="muted">Gdy pojawi się jadłospis obejmujący bieżący okres, zostanie wyświetlony tutaj.</p></div>`}
-   </section>
-
-
-   ${historyHtml?`
-     <details class="menu-history">
-       <summary>🗂️ Historia jadłospisów (${pastMenus.length})</summary>
-       <div class="menu-history-list">${historyHtml}</div>
-     </details>
-   `:""}
- `;
-
- r=await sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
- const now=new Date(), active=[], archive=[];
- for(const x of r.data||[]){const st=x.starts_at?new Date(x.starts_at):null,en=x.ends_at?new Date(x.ends_at):null;(en&&en<now?archive:(!st||st<=now?active:archive)).push(x)}
- const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
- setNewContentTokens("surveysPage",pending.map(x=>`survey:${x.id}`));
- q("#surveys").innerHTML=pending.length?`<div class="survey-top-note">📌 <b>Ważne:</b> Po wysłaniu odpowiedzi w formularzu prosimy o kliknięcie przycisku <b>„✅ Wypełniłem/am tę ankietę”</b>. Dziękujemy!</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${formatWarsawDateTime(x.ends_at)}</div>`:""}<div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join(""):`<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
- qa("[data-survey-done]").forEach(b=>b.onclick=()=>{localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");load()});
- let archiveCards=[];
- for(const x of archive){
-   archiveCards.push(`<div class="item survey-archive-item">
-     <h3>${esc(x.title)}</h3>
-     ${x.ends_at?`<div class="date">Zakończona: ${formatWarsawDateTime(x.ends_at)}</div>`:""}
-     ${x.results_image_url
-       ? `<button type="button" class="secondary survey-results-btn" data-survey-results-path="${esc(x.results_image_url)}" data-survey-title="${esc(x.title)}">📊 Pokaż wyniki</button>`
-       : `<div class="survey-results-pending">Wyniki nie zostały jeszcze opublikowane.</div>`}
-   </div>`);
+   qa("[data-survey-results-path]").forEach(b=>b.onclick=async()=>{
+     const url=await sign(b.dataset.surveyResultsPath);
+     if(url)openSurveyResults(url,b.dataset.surveyTitle||"Wyniki ankiety");
+   });
  }
- q("#surveyArchive").innerHTML=archive.length
-   ? `<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archiveCards.join("")}</details>`
-   : "";
 
- qa("[data-survey-results-path]").forEach(b=>b.onclick=async()=>{
-   const url=await sign(b.dataset.surveyResultsPath);
-   if(url)openSurveyResults(url,b.dataset.surveyTitle||"Wyniki ankiety");
- });
+ if(!galleryCheck.error){
+   setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
+ }
 
- const galleryCheck=await sb.from("gallery_albums").select("id").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false});
- if(!galleryCheck.error)setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
-
+ bindPublicRetryButtons();
  hydratePageImages(q(".page.active")?.id||"home");
 }
 q("#openPay").onclick=()=>{if(q("#pass").value==="SowkiGrupa3"){q("#gate").hidden=true;q("#pay").hidden=false}else q("#payErr").textContent="Nieprawidłowe hasło"};q("#pass").onkeydown=e=>{if(e.key==="Enter")q("#openPay").click()};
