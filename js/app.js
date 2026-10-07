@@ -1686,7 +1686,7 @@ async function renderStats(options={}){
           return `<div class="stats-page-row stats-page-row-v2"><div class="stats-page-label"><span>${x.icon}</span><b>${esc(x.label)}</b></div><div class="stats-bar"><span style="width:${pct}%"></span></div><strong>${n.toLocaleString("pl-PL")}</strong></div>`;
         }).join("")}</div>
       </section>
-      <p class="stats-note">ℹ️ Od v0.7.6 urządzenie jest rozpoznawane anonimowo przez losowy identyfikator. Jedno urządzenie może zostać policzone jako wejście do tego samego działu maksymalnie raz w ciągu kolejnych 24 godzin. Statystyki urządzeń sprzed v0.7.6 nie mogą zostać odtworzone wstecz.</p>`;
+      <p class="stats-note">ℹ️ Statystyki liczone są jako jedno urządzenie, które może zostać policzone jako wejście do tego samego działu maksymalnie raz w ciągu kolejnych 24 godzin.</p>`;
   }else if(statsDashboardState.tab==="traffic"){
     q("#statsContent").innerHTML=`
       ${kpis}
