@@ -3053,15 +3053,15 @@ async function save(ev){
 
 
 // =========================================================
-// v0.8.0 — natywny Kalendarz Sówki
+// v0.8.1 — natywny Kalendarz Sówki: większe ikony kategorii i łączone wydarzenia wielodniowe
 // Moduł pozostaje niezależny od „Wydarzeń przedszkolaków”.
 // =========================================================
 
 const SOWKI_CALENDAR_CATEGORIES={
-  ogolne:{label:"Ogólne",className:"cat-ogolne"},
-  urodziny:{label:"Urodziny",className:"cat-urodziny"},
-  swieta:{label:"Święta",className:"cat-swieta"},
-  dyzury:{label:"Dyżury",className:"cat-dyzury"}
+  ogolne:{label:"Ogólne",className:"cat-ogolne",icon:"💗"},
+  urodziny:{label:"Urodziny",className:"cat-urodziny",icon:"🟢"},
+  swieta:{label:"Święta",className:"cat-swieta",icon:"🟡"},
+  dyzury:{label:"Dyżury",className:"cat-dyzury",icon:"⚫"}
 };
 
 let sowkiCalendarMonthStart=null;
@@ -3082,6 +3082,13 @@ function calendarParseIso(iso){
   const m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if(!m)return null;
   return new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),12));
+}
+
+function calendarShiftIso(iso,days){
+  const d=calendarParseIso(iso);
+  if(!d)return "";
+  d.setUTCDate(d.getUTCDate()+Number(days||0));
+  return calendarIsoFromDateUTC(d);
 }
 
 function calendarMonthStartFromIso(iso){
@@ -3228,19 +3235,37 @@ function renderSowkiCalendar(){
     const iso=calendarIsoFromDateUTC(cellDate);
     const inMonth=cellDate.getUTCMonth()===m;
     const events=calendarEventsForDate(iso);
-    const categories=[...new Set(events.map(x=>String(x.category||"ogolne")))].slice(0,4);
+    const categories=[...new Set(events.map(x=>String(x.category||"ogolne")))].slice(0,3);
+
+    const multiDayEvents=events
+      .filter(row=>String(row.date_to||row.date_from)>String(row.date_from||""))
+      .slice(0,2);
+
+    const rangeBars=multiDayEvents.map((row,rangeIndex)=>{
+      const cat=calendarCategory(row);
+      const prevIso=calendarShiftIso(iso,-1);
+      const nextIso=calendarShiftIso(iso,1);
+      const continuesLeft=(i%7!==0)&&calendarEventIncludesDate(row,prevIso);
+      const continuesRight=(i%7!==6)&&calendarEventIncludesDate(row,nextIso);
+
+      return `<span
+        class="calendar-range-bar ${cat.className}${continuesLeft?" continues-left":""}${continuesRight?" continues-right":""}"
+        style="--calendar-range-index:${rangeIndex}"
+        title="${esc(row.title)}"></span>`;
+    }).join("");
 
     cells.push(`
       <button type="button"
-        class="calendar-day${inMonth?"":" is-outside"}${iso===today?" is-today":""}${iso===sowkiCalendarSelectedDate?" is-selected":""}"
+        class="calendar-day${inMonth?"":" is-outside"}${iso===today?" is-today":""}${iso===sowkiCalendarSelectedDate?" is-selected":""}${events.length?" has-events":""}"
         data-calendar-date="${iso}">
         <span class="calendar-day-number">${cellDate.getUTCDate()}</span>
-        <span class="calendar-day-dots">
+        <span class="calendar-day-icons">
           ${categories.map(cat=>{
             const meta=SOWKI_CALENDAR_CATEGORIES[cat]||SOWKI_CALENDAR_CATEGORIES.ogolne;
-            return `<i class="calendar-dot ${meta.className}"></i>`;
+            return `<i class="calendar-day-icon ${meta.className}" title="${esc(meta.label)}">${meta.icon}</i>`;
           }).join("")}
         </span>
+        ${rangeBars}
       </button>`);
   }
 
@@ -3283,7 +3308,7 @@ function calendarEventCard(row){
       <span class="calendar-event-content">
         <span class="calendar-event-title">${esc(row.title)}</span>
         <span class="calendar-event-meta">
-          <i class="calendar-dot ${cat.className}"></i>
+          <i class="calendar-category-emoji">${cat.icon}</i>
           ${esc(cat.label)} • ${esc(calendarTimeLabel(row))}
         </span>
         ${row.description?`<span class="calendar-event-desc">${esc(row.description).replace(/\n/g," ")}</span>`:""}
@@ -3361,7 +3386,7 @@ function openSowkiCalendarEvent(row){
   body.innerHTML=`
     <div class="calendar-detail-head">
       <div class="calendar-detail-category ${cat.className}">
-        <i class="calendar-dot ${cat.className}"></i>${esc(cat.label)}
+        <i class="calendar-category-emoji">${cat.icon}</i>${esc(cat.label)}
       </div>
       <h2>${esc(row.title)}</h2>
     </div>
@@ -3375,10 +3400,7 @@ function openSowkiCalendarEvent(row){
       <div class="calendar-detail-description">
         ${esc(row.description).replace(/\n/g,"<br>")}
       </div>`:""}
-
-    <div class="calendar-detail-note">
-      🔔 Jeśli administrator włączył przypomnienie, dzień wcześniej o 18:00 aplikacja wyśle automatyczny PUSH.
-    </div>`;
+`;
 
   dlg.showModal();
 }
@@ -3483,7 +3505,7 @@ async function renderSowkiCalendarAdmin(editId=null){
             <article class="calendar-admin-row ${isPast?"is-past":""}">
               <div class="calendar-admin-main">
                 <div class="calendar-admin-title-line">
-                  <i class="calendar-dot ${cat.className}"></i>
+                  <i class="calendar-category-emoji calendar-admin-category-emoji">${cat.icon}</i>
                   <b>${esc(row.title)}</b>
                   <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
                   ${calendarAdminReminderLabel(row)}
@@ -3540,12 +3562,19 @@ async function renderSowkiCalendarAdmin(editId=null){
           Wydarzenie całodniowe
         </label>
 
-        <label>Kategoria
-          <select name="category" required>
+        <fieldset class="calendar-category-fieldset">
+          <legend>Kategoria</legend>
+          <div class="calendar-category-picker">
             ${Object.entries(SOWKI_CALENDAR_CATEGORIES).map(([key,meta])=>`
-              <option value="${key}" ${String(edit?.category||"ogolne")===key?"selected":""}>${esc(meta.label)}</option>`).join("")}
-          </select>
-        </label>
+              <label class="calendar-category-option ${meta.className}">
+                <input type="radio" name="category" value="${key}" ${String(edit?.category||"ogolne")===key?"checked":""} required>
+                <span>
+                  <i class="calendar-category-picker-icon">${meta.icon}</i>
+                  <b>${esc(meta.label)}</b>
+                </span>
+              </label>`).join("")}
+          </div>
+        </fieldset>
 
         <div class="calendar-admin-options">
           <label class="check">

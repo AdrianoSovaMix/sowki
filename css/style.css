@@ -4420,15 +4420,6 @@ nav > .home .nav-new-dot{
   color:#4d464d;
 }
 
-.calendar-detail-note{
-  margin-top:12px;
-  padding:10px 12px;
-  border-radius:12px;
-  background:#fff6e4;
-  color:#705b23;
-  font-size:11px;
-  line-height:1.45;
-}
 
 /* Admin */
 .calendar-admin-manager{
@@ -4532,4 +4523,219 @@ nav > .home .nav-new-dot{
   }
 
   .calendar-admin-row .adminitem-actions{align-self:flex-end}
+}
+
+
+/* =========================================================
+   v0.8.1 — czytelniejsze kategorie i wydarzenia wielodniowe
+   ========================================================= */
+
+.calendar-legend-emoji,
+.calendar-category-emoji{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-style:normal;
+  line-height:1;
+}
+
+.calendar-legend-emoji{
+  font-size:13px;
+}
+
+.calendar-category-emoji{
+  font-size:14px;
+}
+
+.calendar-admin-category-emoji{
+  font-size:15px;
+}
+
+.calendar-day{
+  position:relative;
+  min-height:58px;
+  padding:6px 3px 12px;
+  overflow:visible;
+}
+
+.calendar-day.has-events{
+  background:#fffdfd;
+}
+
+.calendar-day.is-selected.has-events{
+  background:linear-gradient(145deg,#ef2c75,#d81b60);
+}
+
+.calendar-day-icons{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:2px;
+  min-height:23px;
+  margin-top:5px;
+}
+
+.calendar-day-icon{
+  display:inline-grid;
+  place-items:center;
+  width:20px;
+  height:20px;
+  border-radius:8px;
+  font-style:normal;
+  font-size:14px;
+  line-height:1;
+  box-shadow:0 1px 3px rgba(45,25,34,.08);
+}
+
+.calendar-day-icon.cat-ogolne{
+  background:#ffe6ef !important;
+}
+.calendar-day-icon.cat-urodziny{
+  background:#e5f7ed !important;
+}
+.calendar-day-icon.cat-swieta{
+  background:#fff4c9 !important;
+}
+.calendar-day-icon.cat-dyzury{
+  background:#ece9ef !important;
+}
+
+.calendar-day.is-selected .calendar-day-icon{
+  background:rgba(255,255,255,.90) !important;
+}
+
+.calendar-range-bar{
+  position:absolute;
+  z-index:3;
+  left:4px;
+  right:4px;
+  bottom:calc(3px + (var(--calendar-range-index,0) * 5px));
+  height:4px;
+  border-radius:999px;
+  pointer-events:none;
+  opacity:.92;
+  box-shadow:0 1px 2px rgba(60,30,45,.10);
+}
+
+.calendar-range-bar.continues-left{
+  left:-4px;
+  border-top-left-radius:0;
+  border-bottom-left-radius:0;
+}
+
+.calendar-range-bar.continues-right{
+  right:-4px;
+  border-top-right-radius:0;
+  border-bottom-right-radius:0;
+}
+
+.calendar-day.is-selected .calendar-range-bar{
+  outline:1px solid rgba(255,255,255,.65);
+}
+
+.calendar-category-fieldset{
+  margin:4px 0 0;
+  padding:0;
+  border:0;
+}
+
+.calendar-category-fieldset legend{
+  margin-bottom:6px;
+  font-size:11px;
+  font-weight:900;
+}
+
+.calendar-category-picker{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+
+.calendar-category-option{
+  position:relative;
+  margin:0;
+  cursor:pointer;
+}
+
+.calendar-category-option input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+
+.calendar-category-option>span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:43px;
+  padding:7px 8px;
+  border:2px solid transparent;
+  border-radius:12px;
+  transition:.15s ease;
+}
+
+.calendar-category-option.cat-ogolne>span{
+  background:#fff0f5 !important;
+  color:#aa1f54;
+}
+.calendar-category-option.cat-urodziny>span{
+  background:#edf9f2 !important;
+  color:#247b4e;
+}
+.calendar-category-option.cat-swieta>span{
+  background:#fff8da !important;
+  color:#8c6c0c;
+}
+.calendar-category-option.cat-dyzury>span{
+  background:#f0edf2 !important;
+  color:#4e4658;
+}
+
+.calendar-category-option input:checked + span{
+  border-color:currentColor;
+  box-shadow:0 0 0 2px rgba(216,27,96,.06);
+  transform:translateY(-1px);
+}
+
+.calendar-category-option input:focus-visible + span{
+  outline:2px solid #d81b60;
+  outline-offset:2px;
+}
+
+.calendar-category-picker-icon{
+  font-style:normal;
+  font-size:17px;
+  line-height:1;
+}
+
+.calendar-category-option b{
+  font-size:11px;
+}
+
+.calendar-detail-category .calendar-category-emoji{
+  margin-right:1px;
+}
+
+@media(max-width:600px){
+  .calendar-day{
+    min-height:52px;
+    padding-bottom:11px;
+  }
+
+  .calendar-day-icons{
+    min-height:19px;
+    margin-top:4px;
+  }
+
+  .calendar-day-icon{
+    width:17px;
+    height:17px;
+    border-radius:6px;
+    font-size:12px;
+  }
+
+  .calendar-category-picker{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
 }
