@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0818"></head><body>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#d81b60"><title>Sówki – Grupa Pani Kasi</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="css/style.css?v=0819"></head><body>
 <header class="app-header">
 <div class="header-left-actions">
   <button id="notificationsBell" class="bell-btn" aria-label="Powiadomienia">🔔<span id="notificationBadge" hidden>0</span></button>
@@ -229,12 +229,28 @@
 
     <button id="installLater" class="secondary">Może później</button>
   </div>
-</dialog><dialog id="dlg"><button class="x">✕</button><div id="login"><h2>🔐 Panel administratora</h2><label>E-mail</label><input id="email" type="email"><label>Hasło</label><input id="pwd" type="password"><button class="primary" id="loginBtn">Zaloguj</button><p id="loginErr" class="err"></p></div><div id="panel" hidden>
+</dialog><dialog id="dlg"><button class="x">✕</button><div id="login">
+  <aside class="admin-project-note" aria-label="O projekcie Sówki">
+    <div class="admin-project-note-title">💡 O projekcie</div>
+    <p>Aplikacja Sówki powstała z pasji i z myślą o rodzicach naszych dzieci z Grupy 3, uczęszczających do przedszkola w Tarczynie. Chciałem stworzyć proste miejsce, które ułatwia dostęp do najważniejszych informacji i organizację życia naszej grupy.</p>
+    <p>Jeśli widzisz możliwość zastosowania podobnego rozwiązania w innej placówce, chętnie nawiążę współpracę.</p>
+    <p class="admin-project-note-signature">Pozdrawiam<br><strong>Adrian Mencel</strong></p>
+    <a class="admin-project-note-mail" href="mailto:SovaMix@outlook.com">📧 SovaMix@outlook.com</a>
+  </aside>
+
+  <h2>🔐 Panel administratora</h2>
+  <label>E-mail</label>
+  <input id="email" type="email">
+  <label>Hasło</label>
+  <input id="pwd" type="password">
+  <button class="primary" id="loginBtn">Zaloguj</button>
+  <p id="loginErr" class="err"></p>
+</div><div id="panel" hidden>
   <div class="panelhead">
     <div class="panel-title-wrap">
       <div class="panel-title-line">
         <h2>Panel administratora</h2>
-        <span class="admin-app-version">v0.8.18</span>
+        <span class="admin-app-version">v0.8.19</span>
       </div>
       <p>Zarządzanie treścią aplikacji Sówki</p>
     </div>
@@ -306,4 +322,4 @@
 
   <div id="editor"></div>
 </div></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0818"></script><script src="js/app.js?v=0818"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js?v=0819"></script><script src="js/app.js?v=0819"></script></body></html>

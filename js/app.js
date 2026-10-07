@@ -4707,7 +4707,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.18 — informacja o 12-godzinnej sesji i blokadzie po błędnych hasłach
+// v0.8.19 — notatka „O projekcie” i kontakt do autora w oknie administratora
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================
