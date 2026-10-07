@@ -3917,3 +3917,56 @@ nav > .home .nav-new-dot{
     min-height:115px;
   }
 }
+
+
+/* =========================================================
+   v0.7.13 — stały prefiks +48 i format telefonu 000-000-000
+   ========================================================= */
+
+.parent-phone-wrap{
+  display:flex;
+  align-items:stretch;
+  width:100%;
+  border:1px solid #d9cbd1;
+  border-radius:9px;
+  background:#fff;
+  overflow:hidden;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+
+.parent-phone-wrap:focus-within{
+  border-color:#d81b60;
+  box-shadow:0 0 0 3px rgba(216,27,96,.10);
+}
+
+.parent-phone-prefix{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 54px;
+  padding:0 10px;
+  background:#f7eef2;
+  border-right:1px solid #e7d8df;
+  color:#6d5963;
+  font-weight:900;
+  font-size:14px;
+  user-select:none;
+}
+
+.parent-phone-wrap input[name="contact"]{
+  flex:1;
+  min-width:0;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  outline:none !important;
+  letter-spacing:.5px;
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+}
+
+.parent-phone-wrap input[name="contact"]::placeholder{
+  font-weight:500;
+  letter-spacing:.2px;
+  color:#a99ba2;
+}

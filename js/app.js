@@ -179,11 +179,49 @@ document.addEventListener("keydown",e=>{
 });
 
 // =========================================================
-// v0.7.12 — kontakt z Panią Kasią: dane dziecka, rodzica/opiekuna, telefon i wiadomość
+// v0.7.13 — kontakt z Panią Kasią: stały prefiks +48 i automatyczny format 000-000-000
 // =========================================================
 const parentMessageDlg=q("#parentMessageDlg");
 const parentMessageForm=q("#parentMessageForm");
 const parentMessageStatus=q("#parentMessageStatus");
+const parentMessagePhoneInput=parentMessageForm?.querySelector('input[name="contact"]');
+
+function formatPolishLocalPhone(value){
+  let digits=String(value||"").replace(/\D/g,"");
+
+  // Ułatwienie przy wklejeniu pełnego numeru +48XXXXXXXXX.
+  if(digits.length>9 && digits.startsWith("48")){
+    digits=digits.slice(2);
+  }
+
+  digits=digits.slice(0,9);
+
+  const parts=[];
+  if(digits.length)parts.push(digits.slice(0,3));
+  if(digits.length>3)parts.push(digits.slice(3,6));
+  if(digits.length>6)parts.push(digits.slice(6,9));
+
+  return parts.join("-");
+}
+
+function polishPhonePayload(value){
+  const formatted=formatPolishLocalPhone(value);
+  const digits=formatted.replace(/\D/g,"");
+  return digits.length===9 ? `+48 ${formatted}` : "";
+}
+
+if(parentMessagePhoneInput){
+  parentMessagePhoneInput.addEventListener("input",()=>{
+    const formatted=formatPolishLocalPhone(parentMessagePhoneInput.value);
+    if(parentMessagePhoneInput.value!==formatted){
+      parentMessagePhoneInput.value=formatted;
+    }
+  });
+
+  parentMessagePhoneInput.addEventListener("blur",()=>{
+    parentMessagePhoneInput.value=formatPolishLocalPhone(parentMessagePhoneInput.value);
+  });
+}
 
 q("#parentMessageBtn").onclick=()=>{
   if(parentMessageStatus)parentMessageStatus.textContent="";
@@ -203,21 +241,24 @@ parentMessageForm.addEventListener("submit",async e=>{
   const website=String(fd.get("website")||"").trim();
   if(website)return;
 
+  const localPhone=String(fd.get("contact")||"").trim();
+  const formattedContact=polishPhonePayload(localPhone);
+
   const payload={
     p_parent_name:String(fd.get("parent_name")||"").trim(),
     p_child_name:String(fd.get("child_name")||"").trim(),
-    p_contact:String(fd.get("contact")||"").trim(),
+    p_contact:formattedContact,
     p_message:String(fd.get("message")||"").trim()
   };
 
-  if(!payload.p_parent_name||!payload.p_child_name||!payload.p_contact||!payload.p_message){
+  if(!payload.p_parent_name||!payload.p_child_name||!localPhone||!payload.p_message){
     parentMessageStatus.textContent="Uzupełnij wszystkie pola.";
     return;
   }
 
-  const contactDigits=payload.p_contact.replace(/\D/g,"");
-  if(!/^[0-9+() .-]+$/.test(payload.p_contact)||contactDigits.length<9||contactDigits.length>15){
-    parentMessageStatus.textContent="Podaj prawidłowy numer telefonu (9–15 cyfr).";
+  if(!formattedContact){
+    parentMessageStatus.textContent="Numer telefonu musi zawierać dokładnie 9 cyfr.";
+    parentMessagePhoneInput?.focus();
     return;
   }
 
