@@ -3702,3 +3702,49 @@ nav > .home .nav-new-dot{
   .owl-trips-popover{top:60px}
   .owl-trips-pop-name{font-size:8.5px}
 }
+
+
+/* v0.7.10 — statusy realizacji „Sowich podróży” */
+.owl-trips-admin-row.is-completed{
+  background:linear-gradient(90deg,#fbfbfb,#f7fbf8);
+  border-color:#dbe9df;
+}
+.owl-trips-admin-row.is-current{
+  border-color:#d8c8f3;
+  box-shadow:0 0 0 2px rgba(111,69,190,.06);
+}
+.admin-status.is-done{
+  background:#e9f7ee;
+  color:#17723c;
+  border-color:#cfe8d7;
+}
+.admin-status.is-current{
+  background:#f1eafb;
+  color:#6c3ca5;
+  border-color:#dfcff5;
+}
+.admin-status.is-upcoming{
+  background:#eef5fb;
+  color:#315e86;
+  border-color:#d7e6f2;
+}
+.admin-status.is-push-sent{
+  background:#eaf8ef;
+  color:#16703b;
+  border-color:#cde9d6;
+}
+.admin-status.is-scheduled{
+  background:#fff7df;
+  color:#7b5a00;
+  border-color:#ecdca7;
+}
+.admin-status.is-warning{
+  background:#fff0ef;
+  color:#a33a32;
+  border-color:#f1cfcb;
+}
+.admin-status.is-muted{
+  background:#f3f1f3;
+  color:#766d76;
+  border-color:#e3dde3;
+}

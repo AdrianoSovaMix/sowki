@@ -2989,7 +2989,7 @@ async function save(ev){
 }
 
 // =========================================================
-// v0.7.9 — Bajkowe podróże sowiej rodziny + oszczędne pobieranie harmonogramu
+// v0.7.10 — Bajkowe podróże: status realizacji i status wysłania PUSH
 // Harmonogram jest publiczny, anonimowy i edytowalny przez administratora.
 // Rodzice nie są identyfikowani i nie przypisujemy urządzeń do numerów dzieci.
 // =========================================================
@@ -3299,6 +3299,40 @@ function owlTripsAdminDateRange(row){
   return owlTripRangeLabel(row.date_from,row.date_to);
 }
 
+function owlTripsAdminTermStatus(row){
+  const today=owlTripsWarsawToday();
+  const from=String(row?.date_from||"");
+  const to=String(row?.date_to||"");
+
+  if(to && to<today){
+    return {label:"✅ Zrealizowany",className:"is-done",rowClass:"is-completed"};
+  }
+  if(from && to && from<=today && today<=to){
+    return {label:"🟣 W trakcie",className:"is-current",rowClass:"is-current"};
+  }
+  return {label:"⏳ Nadchodzący",className:"is-upcoming",rowClass:"is-upcoming"};
+}
+
+function owlTripsAdminPushStatus(row){
+  if(row?.friday_push_sent_at){
+    return {
+      label:`🔔 Powiadomienie wysłane: ${formatWarsawDateTime(row.friday_push_sent_at)}`,
+      className:"is-push-sent"
+    };
+  }
+
+  const today=owlTripsWarsawToday();
+  const to=String(row?.date_to||"");
+
+  if(row?.published===false){
+    return {label:"🔕 PUSH wyłączony — termin ukryty",className:"is-muted"};
+  }
+  if(to && to<today){
+    return {label:"⚠️ Powiadomienie nie zostało wysłane",className:"is-warning"};
+  }
+  return {label:"🔔 PUSH: piątek 13:00",className:"is-scheduled"};
+}
+
 async function renderOwlTripsAdmin(editId=null){
   setActiveAdminTab("owl_trips");
   q("#editor").dataset.table="owl_trips";
@@ -3363,15 +3397,17 @@ async function renderOwlTripsAdmin(editId=null){
       </div>
 
       <div class="owl-trips-admin-list">
-        ${rows.length?rows.map(row=>`
-          <article class="owl-trips-admin-row">
+        ${rows.length?rows.map(row=>{
+          const termStatus=owlTripsAdminTermStatus(row);
+          const pushStatus=owlTripsAdminPushStatus(row);
+          return `
+          <article class="owl-trips-admin-row ${termStatus.rowClass}">
             <div class="owl-trips-admin-row-main">
               <div class="owl-trips-admin-row-head">
                 <b>📅 ${esc(owlTripsAdminDateRange(row))}</b>
                 <span class="admin-status ${row.published?"is-published":"is-hidden"}">${row.published?"● Widoczny":"○ Ukryty"}</span>
-                ${row.friday_push_sent_at
-                  ? `<span class="admin-status is-published">🔔 PUSH: ${formatWarsawDateTime(row.friday_push_sent_at)}</span>`
-                  : `<span class="admin-status">🔔 piątek 13:00</span>`}
+                <span class="admin-status ${termStatus.className}">${termStatus.label}</span>
+                <span class="admin-status ${pushStatus.className}">${esc(pushStatus.label)}</span>
               </div>
               <div class="owl-trips-admin-mini-members">
                 ${OWL_TRIP_MEMBERS.map(member=>`
@@ -3387,7 +3423,8 @@ async function renderOwlTripsAdmin(editId=null){
               <button type="button" data-owl-trip-visibility="${row.id}" data-published="${row.published?"1":"0"}" title="${row.published?"Ukryj":"Pokaż"}" aria-label="${row.published?"Ukryj":"Pokaż"}">${row.published?"👁️":"🙈"}</button>
               <button type="button" data-owl-trip-delete="${row.id}" class="danger-lite" title="Usuń" aria-label="Usuń">🗑️</button>
             </div>
-          </article>`).join(""):`<div class="admin-empty">Nie ma jeszcze wpisów w harmonogramie.</div>`}
+          </article>`;
+        }).join(""):`<div class="admin-empty">Nie ma jeszcze wpisów w harmonogramie.</div>`}
       </div>
     </section>`;
 
