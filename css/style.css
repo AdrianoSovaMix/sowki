@@ -5689,3 +5689,113 @@ nav > .home .nav-new-dot{
 .calendar-event-meta{
   flex-wrap:wrap;
 }
+
+
+/* =========================================================
+   v0.8.9 — czytelne statusy w pełnym harmonogramie Sówek
+   ========================================================= */
+
+.owl-trips-schedule-row{
+  margin:3px 0;
+  padding:9px 8px !important;
+  border-bottom:0 !important;
+  border:1px solid transparent;
+  border-radius:12px;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+
+.owl-trips-schedule-date{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+  min-width:0;
+}
+
+.owl-trips-schedule-status{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  max-width:100%;
+  padding:3px 7px;
+  border-radius:999px;
+  font-size:8px;
+  line-height:1.2;
+  font-weight:950;
+  letter-spacing:.18px;
+  white-space:nowrap;
+}
+
+/* Terminy, które już się odbyły */
+.owl-trips-schedule-row.is-past{
+  background:#f3f2f3;
+  border-color:#e7e3e6;
+  opacity:.70;
+}
+
+.owl-trips-schedule-row.is-past time{
+  color:#777176 !important;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members>span{
+  background:#e9e7e9 !important;
+  color:#6e686d;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members svg{
+  filter:grayscale(.75);
+  opacity:.72;
+}
+
+.owl-trips-schedule-status.is-past{
+  background:#e3e0e2;
+  color:#696267;
+}
+
+/* Najbliższy termin — ma od razu przyciągać wzrok */
+.owl-trips-schedule-row.is-featured{
+  position:relative;
+  background:linear-gradient(90deg,#fff1f6 0%,#fff8fb 100%);
+  border-color:#ef9abc;
+  box-shadow:
+    0 4px 13px rgba(216,27,96,.09),
+    inset 3px 0 0 #e91e63;
+}
+
+.owl-trips-schedule-row.is-featured time{
+  color:#9f194b !important;
+  font-weight:950 !important;
+}
+
+.owl-trips-schedule-status.is-featured{
+  background:#e91e63;
+  color:#fff;
+  box-shadow:0 2px 5px rgba(216,27,96,.16);
+}
+
+/* Przyszłe terminy pozostają czyste i neutralne */
+.owl-trips-schedule-row:not(.is-past):not(.is-featured){
+  background:#fff;
+}
+
+.owl-trips-schedule-row:not(.is-past):not(.is-featured):hover{
+  background:#fffbfc;
+  border-color:#f0dce4;
+}
+
+@media(max-width:600px){
+  .owl-trips-schedule-row{
+    padding:9px 7px !important;
+  }
+
+  .owl-trips-schedule-date{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+  }
+
+  .owl-trips-schedule-status{
+    font-size:7.5px;
+  }
+}

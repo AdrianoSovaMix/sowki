@@ -4151,18 +4151,40 @@ function renderOwlTripsFullPage(){
     .slice()
     .sort((a,b)=>String(a.date_from).localeCompare(String(b.date_from)));
 
-  full.innerHTML=rows.length?rows.map(row=>`
-    <article class="owl-trips-schedule-row">
-      <time>${esc(owlTripRangeLabel(row.date_from,row.date_to))}</time>
-      <div class="owl-trips-schedule-members">
-        ${OWL_TRIP_MEMBERS.map(member=>`
-          <span class="tone-${member.tone}">
-            ${owlTripAvatar(member.tone,"small")}
-            <b>${esc(member.short)}</b>
-            <strong>${Number(row[member.key]||0)}</strong>
-          </span>`).join("")}
-      </div>
-    </article>`).join(""):`<div class="item muted">Brak wpisów w harmonogramie.</div>`;
+  const today=owlTripsWarsawToday();
+
+  // Pierwszy termin, który jeszcze się nie zakończył:
+  // jeśli właśnie trwa — oznaczamy „TEN WEEKEND”,
+  // w przeciwnym razie — „NAJBLIŻSZY WEEKEND”.
+  const featuredRow=rows.find(row=>String(row.date_to||row.date_from)>=today)||null;
+
+  full.innerHTML=rows.length?rows.map(row=>{
+    const isPast=String(row.date_to||row.date_from)<today;
+    const isFeatured=Boolean(featuredRow && String(featuredRow.id)===String(row.id));
+    const isCurrent=isFeatured &&
+      String(row.date_from||"")<=today &&
+      String(row.date_to||row.date_from)>=today;
+
+    return `
+      <article class="owl-trips-schedule-row${isPast?" is-past":""}${isFeatured?" is-featured":""}">
+        <div class="owl-trips-schedule-date">
+          <time>${esc(owlTripRangeLabel(row.date_from,row.date_to))}</time>
+          ${isPast?`<span class="owl-trips-schedule-status is-past">✓ Zrealizowany</span>`:""}
+          ${isFeatured?`
+            <span class="owl-trips-schedule-status is-featured">
+              ${isCurrent?"🟣 TEN WEEKEND":"⭐ NAJBLIŻSZY WEEKEND"}
+            </span>`:""}
+        </div>
+        <div class="owl-trips-schedule-members">
+          ${OWL_TRIP_MEMBERS.map(member=>`
+            <span class="tone-${member.tone}">
+              ${owlTripAvatar(member.tone,"small")}
+              <b>${esc(member.short)}</b>
+              <strong>${Number(row[member.key]||0)}</strong>
+            </span>`).join("")}
+        </div>
+      </article>`;
+  }).join(""):`<div class="item muted">Brak wpisów w harmonogramie.</div>`;
 }
 
 async function loadOwlTripsSchedule(){
