@@ -4169,7 +4169,7 @@ function renderOwlTripsFullPage(){
       <article class="owl-trips-schedule-row${isPast?" is-past":""}${isFeatured?" is-featured":""}">
         <div class="owl-trips-schedule-date">
           <time>${esc(owlTripRangeLabel(row.date_from,row.date_to))}</time>
-          ${isPast?`<span class="owl-trips-schedule-status is-past">✓ Zrealizowany</span>`:""}
+          ${isPast?`<span class="owl-trips-schedule-status is-past">✓ TERMIN ZREALIZOWANY</span>`:""}
           ${isFeatured?`
             <span class="owl-trips-schedule-status is-featured">
               ${isCurrent?"🟣 TEN WEEKEND":"⭐ NAJBLIŻSZY WEEKEND"}
@@ -4232,11 +4232,7 @@ async function loadOwlTripsFullSchedule(force=false){
   owlTripsFullSchedulePromise=(async()=>{
     const result=await publicQueryWithRetry(
       "pełnego harmonogramu Sówek",
-      ()=>sb.from("owl_trips_schedule")
-        .select("id,date_from,date_to,uszatka_no,puchacz_no,nocek_no,huhu_no,published")
-        .eq("published",true)
-        .order("date_from",{ascending:true})
-        .order("id",{ascending:true})
+      ()=>sb.rpc("get_owl_trips_public_schedule")
     );
 
     if(result.error){

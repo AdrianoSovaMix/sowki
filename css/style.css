@@ -5952,3 +5952,48 @@ nav > .home .nav-new-dot{
     flex-basis:100%;
   }
 }
+
+
+/* =========================================================
+   v0.8.11 — historia pełnego harmonogramu wizyt Sówek
+   ========================================================= */
+
+/* Minione terminy mają być wyraźnie historyczne, ale numery dzieci
+   nadal muszą być łatwe do odczytania. */
+.owl-trips-schedule-row.is-past{
+  background:#f1f1f2 !important;
+  border-color:#dedde0 !important;
+  opacity:1 !important;
+  filter:none !important;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-date time{
+  color:#777177 !important;
+  text-decoration:none;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members>span{
+  background:#e6e5e7 !important;
+  color:#625d62 !important;
+  border:1px solid #dcdbdd;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members>span b{
+  color:#625d62 !important;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members>span strong{
+  color:#454145 !important;
+  font-weight:950 !important;
+}
+
+.owl-trips-schedule-row.is-past .owl-trips-schedule-members svg{
+  filter:grayscale(1) !important;
+  opacity:.62 !important;
+}
+
+.owl-trips-schedule-status.is-past{
+  background:#d9d7da !important;
+  color:#5c565b !important;
+  border:1px solid #cbc8cc;
+}
