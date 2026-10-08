@@ -1,4 +1,4 @@
-const C="sowki-v0824-eco-mediafix";const A=["./","index.html","css/style.css?v=0824","js/config.js?v=0824","js/app.js?v=0824","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0825-eco-backup";const A=["./","index.html","css/style.css?v=0825","js/config.js?v=0825","js/app.js?v=0825","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>{
   e.waitUntil((async()=>{
     const c=await caches.open(C);

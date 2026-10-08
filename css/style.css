@@ -6404,3 +6404,28 @@ nav > .home .nav-new-dot{
 @media(max-width:390px){
   .photo-preview .preview-hint{font-size:10px}
 }
+
+/* Sówki v0.8.25 • prywatny Backup Manager (panel administratora) */
+.sowki-backup-manager{display:grid;gap:13px;padding:4px 0 24px;max-width:100%;min-width:0}
+.sowki-backup-manager h4{margin:14px 0 0}
+.sowki-backup-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px;background:var(--surface,#f4f6f9);border-radius:14px}
+.sowki-backup-toolbar>div{flex:1;min-width:160px}
+.sowki-backup-shortcuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:8px}
+.sowki-backup-shortcuts button{min-height:40px;white-space:normal;padding:9px 6px}
+.sowki-backup-shortcuts button:disabled{opacity:.4}
+.sowki-backup-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:7px}
+.sowki-backup-sections label{display:flex;align-items:center;gap:7px;background:#f6f7fc;border-radius:10px;padding:10px 8px;font-size:.92rem;cursor:pointer}
+.sowki-backup-sections input{width:auto;flex-shrink:0}
+.sowki-backup-summary{border:1px solid #d9dce6;border-radius:10px;padding:12px;font-size:.9rem}
+.sowki-backup-warning{background:#fff8e9;border:1px solid #f0d19a;border-radius:12px;padding:14px;color:#633f10}
+.sowki-backup-warning p{margin:8px 0 0;font-size:.9rem;line-height:1.5}
+.sowki-backup-actions{display:flex;flex-wrap:wrap;gap:10px}
+#sowkiBackupPicker,#sowkiBackupPassword,#sowkiBackupConfirmation{width:100%;box-sizing:border-box;min-height:44px}
+#sowkiBackupRestore{padding:12px;max-width:100%;width:100%}
+@media(max-width:520px){.sowki-backup-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}.sowki-backup-toolbar>button{flex:1 1 120px}}
+
+.sowki-backup-trash{display:grid;gap:7px;max-height:290px;overflow:auto}
+.sowki-backup-trash-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e2e5ef;border-radius:10px}
+.sowki-backup-trash-row>span{min-width:0;overflow-wrap:anywhere}
+.sowki-backup-trash-row small{display:block;margin-top:4px;color:#6c7184;font-size:.78rem}
+.sowki-backup-trash-row button{flex-shrink:0}

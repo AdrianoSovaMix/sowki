@@ -1180,6 +1180,7 @@ qa("[data-tab]").forEach(b=>b.onclick=()=>{
   else if(b.dataset.tab==="message_recipients")renderMessageRecipients();
   else if(b.dataset.tab==="owl_trips")renderOwlTripsAdmin();
   else if(b.dataset.tab==="sowki_calendar")renderSowkiCalendarAdmin();
+  else if(b.dataset.tab==="sowki_backup")renderSowkiBackupAdmin();
   else render(b.dataset.tab);
 });
 
@@ -2019,6 +2020,14 @@ function supabaseStoredObject(table,value){
 }
 
 async function cleanupMediaForRecord(table,imageValue){
+  // BACKUP v0.8.25: nie kasuj zdjęć fizycznie przy usuwaniu wpisu,
+  // podmianie fotografii ani migracji do R2. Migawki DB przechowują URL.
+  // Pozwala to przywrócić wpis nawet po usunięciu go przez administratora.
+  // UWAGA: oryginały muszą być zachowane w R2/Storage; sprzątanie po
+  // retencji wymaga osobnego bezpiecznego procesu weryfikacji migawek.
+  if(usesPublicMediaBucket(table)){
+    return {ok:true,deleted:0,retained:true};
+  }
   const value=String(imageValue||"").trim();
   if(!value)return {ok:true,deleted:0};
 
@@ -2225,9 +2234,9 @@ async function optimizeExistingAdminImage(table,id,path,button){
       `Łączna oszczędność miejsca: ${saving}%\n\n`+
       `${usesPublicMediaBucket(table)?"Rodzice pobierają ten obraz z media.sowkitarczyn.pl, a nie z Supabase Storage.":"Okładka galerii jest przechowywana w Cloudflare R2."}`+
       `${moveToR2
-        ? (oldMediaCleanup.ok
-            ? `\n\n🧹 Stary plik w Supabase został usunięty.`
-            : `\n\n⚠️ Obraz działa już z R2, ale nie udało się usunąć starego pliku z Supabase: ${oldMediaCleanup.error||"nieznany błąd"}`)
+        ? (oldMediaCleanup.retained
+            ? `\n\n🛡️ Stary plik pozostaje zachowany na potrzeby kopii zapasowych.`
+            : (oldMediaCleanup.ok ? `\n\n🧹 Stary plik w Supabase został usunięty.` : `\n\n⚠️ Starego pliku nie udało się usunąć.`))
         : ""}`
     );
 
@@ -2359,7 +2368,7 @@ async function render(table,id){
   });
 
   qa("[data-d]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Usunąć wpis? Jeśli ma przypisane zdjęcie, zostanie ono również usunięte ze Storage."))return;
+    if(!confirm("Usunąć wpis? Zdjęcia pozostaną w pamięci R2/Storage, aby można było odtworzyć wpis z kopii zapasowej."))return;
 
     const row=rows.find(x=>String(x.id)===String(b.dataset.d));
     const imageValues=adminImageValues(table,row);
@@ -5895,3 +5904,219 @@ setInterval(()=>sowkiEcoCheckAppVersion(),SOWKI_ECO_VERSION_POLL_MS);
 sowkiEcoStartRealtime();
 sowkiEcoRestorePage();
 sowkiEcoCheckAppVersion(true);
+
+
+/* =================== SÓWKI v0.8.25 • BACKUP MANAGER ====================
+ * Panel zarządza historią przez odrębną Edge Function tylko właściciela.
+ * Wrażliwe hasło nigdy nie jest zapisywane w repozytorium ani localStorage.
+ * --------------------------------------------------------------------- */
+const SOWKI_BACKUP_SECTIONS=[
+  ["monthly_notices","📌 Najważniejsze"],
+  ["announcements","📢 Ogłoszenia"],
+  ["events","📰 Wydarzenia"],
+  ["menus","🍽️ Jadłospisy"],
+  ["surveys","📊 Ankiety"],
+  ["gallery_albums","📸 Galerie i okładki"],
+  ["sowki_calendar","📅 Kalendarz"],
+  ["owl_trips_schedule","🦉 Sowie podróże"]
+];
+const SOWKI_BACKUP_PERIODS=[
+  ["1h",3600000],["8h",28800000],["24h",86400000],
+  ["2 dni",2*86400000],["3 dni",3*86400000],["4 dni",4*86400000],
+  ["5 dni",5*86400000],["6 dni",6*86400000],["7 dni",7*86400000],
+  ["8 dni",8*86400000],["9 dni",9*86400000]
+];
+let sowkiBackupList=[];
+let sowkiBackupMediaConfigured=false;
+let sowkiBackupTrash=[];
+let sowkiBackupSelectedId=null;
+function sowkiBackupDate(iso){
+  const d=new Date(iso);
+  return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("pl-PL",{
+    dateStyle:"medium",timeStyle:"short",timeZone:"Europe/Warsaw"
+  }).format(d);
+}
+function sowkiBackupError(err){
+  const msg=String(err?.message||err||"Nieznany błąd");
+  return msg.includes("FunctionsFetchError")
+    ? "Nie udało się połączyć z serwerem kopii. Sprawdź Edge Function w Supabase."
+    : msg;
+}
+async function sowkiBackupInvoke(action,payload={}){
+  const {data,error}=await sb.functions.invoke("sowki-backup",{
+    body:{action,...payload}
+  });
+  if(error){
+    const body=await error.context?.json?.().catch(()=>null);
+    throw new Error(body?.error||error.message||"Błąd serwera kopii");
+  }
+  if(data?.error)throw new Error(data.error);
+  return data;
+}
+function sowkiBackupNearest(ms){
+  const target=Date.now()-ms;
+  return sowkiBackupList.find(x=>new Date(x.at).getTime()<=target)||null;
+}
+function sowkiBackupSetSelected(id){
+  sowkiBackupSelectedId=String(id||"");
+  const s=sowkiBackupList.find(x=>String(x.id)===sowkiBackupSelectedId);
+  const select=q("#sowkiBackupPicker");
+  if(select)select.value=sowkiBackupSelectedId;
+  const summary=q("#sowkiBackupSummary");
+  if(summary){
+    summary.textContent=s
+      ? `Kopia: ${sowkiBackupDate(s.at)} • ${Object.values(s.counts||{}).reduce((a,b)=>a+(Number(b)||0),0)} wpisów • ${(Number(s.bytes||0)/1024).toFixed(1)} KB`
+      : "Wybierz dostępną kopię.";
+  }
+}
+async function renderSowkiBackupAdmin(){
+  setActiveAdminTab("sowki_backup");
+  q("#editor").dataset.table="sowki_backup";
+  q("#editor").innerHTML='<div class="admin-messages-loading">Ładowanie kopii zapasowych…</div>';
+  try{
+    const out=await sowkiBackupInvoke("list");
+    sowkiBackupList=out.snapshots||[];
+    sowkiBackupMediaConfigured=!!out.mediaBackupConfigured;
+    sowkiBackupTrash=out.trash||[];
+  }catch(err){
+    q("#editor").innerHTML=`<section class="admin-order-warning">
+      <b>⚠️ System kopii zapasowych nie jest jeszcze gotowy.</b><br>
+      ${esc(sowkiBackupError(err))}<br><br>
+      Sprawdź wdrożenie prywatnego SQL, funkcji <b>sowki-backup</b> i sekretów w Supabase.
+    </section>`;
+    return;
+  }
+  const last=sowkiBackupList[0];
+  const previous=sowkiBackupSelectedId;
+  sowkiBackupSelectedId=sowkiBackupList.some(x=>String(x.id)===String(previous))
+    ?String(previous):String(last?.id||"");
+  q("#editor").innerHTML=`
+    <section class="sowki-backup-manager">
+      <div class="admin-content-head">
+        <div><h3>🛡️ Kopie zapasowe Sówek</h3>
+          <p>Kopie wybranych treści, kalendarzy, ankiet i galerii. Dane rodziców, powiadomienia i liczniki „Daj sówkę” nie są cofane.</p></div>
+      </div>
+      <div class="sowki-backup-toolbar">
+        <div><b>Ostatnia kopia:</b><br><span>${last?sowkiBackupDate(last.at):"Brak kopii"}</span></div>
+        <button class="secondary" type="button" id="sowkiBackupCreate">📦 Zrób kopię teraz</button>
+        <button class="secondary" type="button" id="sowkiBackupReload">🔄 Odśwież listę</button>
+      </div>
+      <h4>Wybierz okres, do którego chcesz wrócić</h4>
+      <p class="admin-field-note">Przycisk wskazuje rzeczywistą, najbliższą starszą kopię. Wpisy powstałe później zostaną ukryte, a nie skasowane.</p>
+      <div class="sowki-backup-shortcuts">
+        ${SOWKI_BACKUP_PERIODS.map(([label,ms])=>{
+          const snap=sowkiBackupNearest(ms);
+          return `<button type="button" data-backup-period-id="${snap?snap.id:""}" class="secondary" ${snap?"":"disabled"} title="${snap?esc(sowkiBackupDate(snap.at)):"Brak kopii w tym okresie"}">${esc(label)}</button>`;
+        }).join("")}
+      </div>
+      <label for="sowkiBackupPicker">Dostępne kopie i dokładne daty</label>
+      <select id="sowkiBackupPicker" ${last?"":"disabled"}>
+        ${sowkiBackupList.map(x=>`<option value="${x.id}">${esc(sowkiBackupDate(x.at))} • ${esc(x.kind)}</option>`).join("")}
+      </select>
+      <div class="sowki-backup-summary" id="sowkiBackupSummary"></div>
+      <h4>🗑️ Kosz usuniętych wpisów (ostatnie 10 dni)</h4>
+      <p class="admin-field-note">Z kosza możesz odtworzyć jeden wpis bez cofania pozostałej zawartości. Wymaga tego samego dodatkowego hasła.</p>
+      <div class="sowki-backup-trash">
+        ${sowkiBackupTrash.filter(x=>!x.restored).length
+          ? sowkiBackupTrash.filter(x=>!x.restored).map(x=>`<div class="sowki-backup-trash-row">
+            <span><b>${esc(x.title||"Usunięty wpis")}</b><small>${esc(SOWKI_BACKUP_SECTIONS.find(t=>t[0]===x.section)?.[1]||x.section)} • ${esc(sowkiBackupDate(x.at))}</small></span>
+            <button type="button" class="secondary" data-backup-trash-restore="${x.id}">↩️ Przywróć</button>
+          </div>`).join("")
+          : `<p class="admin-empty">Kosz jest pusty.</p>`}
+      </div>
+      <h4>Co przywrócić?</h4>
+      <div class="sowki-backup-sections">
+        ${SOWKI_BACKUP_SECTIONS.map(([key,label])=>`<label><input type="checkbox" data-backup-table="${key}" checked> ${label}</label>`).join("")}
+      </div>
+      <div class="sowki-backup-actions">
+        <button class="secondary" id="sowkiBackupDownload" type="button" ${last?"":"disabled"}>⬇️ Pobierz kopię JSON</button>
+      </div>
+      <div class="sowki-backup-warning">
+        <b>⚠️ Przywracanie treści</b>
+        <p>System automatycznie utworzy kopię bieżącego stanu. Nadpisze treści wybranych sekcji i ukryje nowe wpisy z tych sekcji. Nie cofnie liczników, reakcji, wiadomości ani statystyk.</p>
+        <p>${sowkiBackupMediaConfigured
+          ? "☁️ Dodatkowa ochrona R2 jest skonfigurowana. Przed odtworzeniem wpisów aplikacja spróbuje odzyskać brakujące zdjęcia z prywatnej kopii R2."
+          : "Zdjęcia pozostają w Cloudflare R2 / Storage. Kopia zawiera ich adresy — nie kopiuje bajtów zdjęć. Aby dodatkowo kopiować fizyczne zdjęcia R2, skonfiguruj osobnego Workera z prywatnego pakietu."}</p>
+      </div>
+      <label for="sowkiBackupPassword">Dodatkowe hasło właściciela (wymagane do przywrócenia i pobrania kopii)</label>
+      <input type="password" id="sowkiBackupPassword" autocomplete="off" placeholder="Hasło kopii zapasowych" minlength="12">
+      <label for="sowkiBackupConfirmation">Aby przywrócić, wpisz dokładnie: <b>PRZYWRÓĆ</b></label>
+      <input id="sowkiBackupConfirmation" type="text" autocomplete="off" placeholder="PRZYWRÓĆ">
+      <button class="danger" type="button" id="sowkiBackupRestore" ${last?"":"disabled"}>♻️ Przywróć wybrane sekcje</button>
+      <p id="sowkiBackupStatus" class="admin-save-status" aria-live="polite"></p>
+    </section>`;
+  sowkiBackupSetSelected(sowkiBackupSelectedId);
+  q("#sowkiBackupPicker").addEventListener("change",e=>sowkiBackupSetSelected(e.target.value));
+  qa("[data-backup-period-id]").forEach(b=>b.onclick=()=>{
+    sowkiBackupSetSelected(b.dataset.backupPeriodId);
+  });
+  q("#sowkiBackupReload").onclick=()=>renderSowkiBackupAdmin();
+  qa("[data-backup-trash-restore]").forEach(btn=>btn.onclick=async()=>{
+    const trash=sowkiBackupTrash.find(x=>String(x.id)===btn.dataset.backupTrashRestore);
+    const pw=q("#sowkiBackupPassword");const password=pw.value;pw.value="";
+    const confirmation=q("#sowkiBackupConfirmation").value.trim();
+    const status=q("#sowkiBackupStatus");
+    if(!password||confirmation!=="PRZYWRÓĆ"){
+      status.textContent="Wpisz hasło i potwierdzenie PRZYWRÓĆ na dole panelu.";return;
+    }
+    if(!trash||!confirm(`Odtworzyć usunięty wpis „${trash.title||trash.section}”?`))return;
+    btn.disabled=true;
+    status.textContent="Przywracanie wpisu z kosza…";
+    try{
+      await sowkiBackupInvoke("trash_restore",{id:trash.id,password,confirm:"PRZYWRÓĆ"});
+      sowkiCalendarLoadedMonthKey="";
+      invalidateOwlTripsFullSchedule();
+      await load();
+      await renderSowkiBackupAdmin();
+      q("#sowkiBackupStatus").textContent="✅ Wpis został przywrócony z kosza.";
+    }catch(e){status.textContent="❌ "+sowkiBackupError(e);btn.disabled=false;}
+  });
+  const status=q("#sowkiBackupStatus");
+  q("#sowkiBackupCreate").onclick=async()=>{
+    const btn=q("#sowkiBackupCreate");btn.disabled=true;
+    status.textContent="Tworzenie kopii na serwerze…";
+    try{
+      await sowkiBackupInvoke("create");
+      await renderSowkiBackupAdmin();
+      q("#sowkiBackupStatus").textContent="✅ Kopia utworzona.";
+    }catch(e){status.textContent="❌ "+sowkiBackupError(e);btn.disabled=false;}
+  };
+  q("#sowkiBackupDownload").onclick=async()=>{
+    const pw=q("#sowkiBackupPassword");const password=pw.value;pw.value="";
+    if(!password){status.textContent="Podaj hasło do kopii.";return;}
+    status.textContent="Pobieranie prywatnej kopii…";
+    try{
+      const data=await sowkiBackupInvoke("download",{id:sowkiBackupSelectedId,password});
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+      const u=URL.createObjectURL(blob);const a=document.createElement("a");
+      a.href=u;a.download=`Sowki-backup-${sowkiBackupSelectedId}.json`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),60000);
+      status.textContent="✅ Kopia została przygotowana. Zachowaj plik w bezpiecznym miejscu.";
+    }catch(e){status.textContent="❌ "+sowkiBackupError(e);}
+  };
+  q("#sowkiBackupRestore").onclick=async()=>{
+    const tables=qa("[data-backup-table]:checked").map(x=>x.dataset.backupTable);
+    const pw=q("#sowkiBackupPassword");const password=pw.value;pw.value="";
+    const confirmation=q("#sowkiBackupConfirmation").value.trim();
+    if(!tables.length){status.textContent="Wybierz przynajmniej jedną sekcję.";return;}
+    if(!password||confirmation!=="PRZYWRÓĆ"){
+      status.textContent="Podaj dodatkowe hasło i wpisz PRZYWRÓĆ.";return;
+    }
+    const snap=sowkiBackupList.find(x=>String(x.id)===String(sowkiBackupSelectedId));
+    if(!snap||!confirm(`Przywrócić ${tables.length} sekcji ze stanu ${sowkiBackupDate(snap.at)}?\n\nPóźniejsze wpisy zostaną ukryte. Przed zmianą powstanie kopia bieżącego stanu.`))return;
+    const btn=q("#sowkiBackupRestore");btn.disabled=true;
+    status.textContent="Przywracanie danych na serwerze… Nie zamykaj panelu.";
+    try{
+      await sowkiBackupInvoke("restore",{
+        id:sowkiBackupSelectedId,tables,password,confirm:"PRZYWRÓĆ"
+      });
+      sowkiCalendarLoadedMonthKey="";
+      invalidateOwlTripsFullSchedule();
+      await load();
+      await renderSowkiBackupAdmin();
+      q("#sowkiBackupStatus").textContent="✅ Przywrócono treści. Wykonano kopię stanu sprzed operacji.";
+    }catch(e){status.textContent="❌ "+sowkiBackupError(e);btn.disabled=false;}
+  };
+}
+/* ====================================================================== */
