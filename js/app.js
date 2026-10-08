@@ -451,22 +451,47 @@ function multiStorageImages(row,{className="",alt="",preview=true}={}){
   </div>`;
 }
 
-// ECO LIVE: podpisuj URL-e zdjęć dopiero przed pojawieniem się na ekranie.
-// Przy długiej galerii nie pobieramy od razu kilkudziesięciu podpisów.
+// ECO LIVE: pobieramy miniatury blisko widocznego ekranu.
+// Cloudflare R2 to publiczne URL-e: nie generujemy dla nich podpisow Supabase.
+// Gdy starszy obraz nie ma miniatury, automatycznie wybieramy plik pelny.
+const sowkiEcoMissingThumbs=new Set();
 async function sowkiEcoHydrateImage(img){
-  if(!img?.isConnected||img.dataset.storageLoaded==="1")return;
+  if(!img?.isConnected||img.dataset.storageLoaded==="1"||img.dataset.storageLoading==="1")return;
   const displayPath=img.dataset.storagePath;
   if(!displayPath)return;
-  const displayUrl=await sign(displayPath);
-  if(!displayUrl||!img.isConnected)return;
-  img.src=displayUrl;
-  img.dataset.storageLoaded="1";
-  if(img.dataset.storagePreview==="1"){
-    img.onclick=async()=>{
-      const fullPath=img.dataset.storageFullPath||displayPath;
+  const fullPath=img.dataset.storageFullPath||displayPath;
+  img.dataset.storageLoading="1";
+  try{
+    const firstPath=sowkiEcoMissingThumbs.has(displayPath)?fullPath:displayPath;
+    const displayUrl=await sign(firstPath);
+    if(!displayUrl||!img.isConnected)return;
+
+    // Handler podpinamy przed ustawieniem src (w tym przy odpowiedziach z cache).
+    let fallbackUsed=firstPath===fullPath;
+    img.onerror=async()=>{
+      if(fallbackUsed||!img.isConnected){
+        img.dataset.storageLoaded="error";
+        return;
+      }
+      fallbackUsed=true;
+      sowkiEcoMissingThumbs.add(displayPath);
       const fullUrl=await sign(fullPath);
-      if(fullUrl)openMenuPreview(fullUrl,img.alt||"Powiększone zdjęcie");
+      if(fullUrl&&img.isConnected){
+        img.src=fullUrl;
+      }else{
+        img.dataset.storageLoaded="error";
+      }
     };
+    img.src=displayUrl;
+    img.dataset.storageLoaded="1";
+    if(img.dataset.storagePreview==="1"){
+      img.onclick=async()=>{
+        const fullUrl=await sign(fullPath);
+        if(fullUrl)openMenuPreview(fullUrl,img.alt||"Powiększone zdjęcie");
+      };
+    }
+  }finally{
+    delete img.dataset.storageLoading;
   }
 }
 const sowkiEcoImageObserver=typeof IntersectionObserver!=="undefined"

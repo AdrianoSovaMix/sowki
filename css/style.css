@@ -2645,8 +2645,25 @@ nav > .home .nav-new-dot{
    v0.5.6.3 — ECO / ograniczenie transferu Supabase
    ========================================================= */
 
+/* v0.8.24: Obraz bez src musi miec wymiary, zeby IntersectionObserver
+   zobaczyl go i mogl pobrac URL z Cloudflare R2 / Supabase.
+   display:none powodowal, ze zaden obraz nie zaczynal ladowania. */
 .storage-lazy-img:not([src]){
-  display:none !important;
+  display:block !important;
+  color:transparent;
+  background-color:#f5f1f3;
+  min-height:150px;
+}
+.storage-lazy-img.menu-photo:not([src]){
+  min-height:220px;
+  aspect-ratio:4/5;
+}
+.storage-lazy-img.album-cover:not([src]){
+  min-height:180px;
+  aspect-ratio:4/3;
+}
+.storage-lazy-img.announcement-photo:not([src]){
+  min-height:160px;
 }
 
 .storage-lazy-img[src]{
