@@ -6272,3 +6272,30 @@ nav > .home .nav-new-dot{
     overflow-wrap:anywhere;
   }
 }
+
+
+/* =========================================================
+   v0.8.20 — ochrona przed przypadkowym zoomem interfejsu PWA
+   ========================================================= */
+
+/*
+  Na urządzeniach dotykowych sam interfejs aplikacji pozwala na normalne
+  przewijanie, ale nie rozpoczyna gestu pinch-to-zoom / double-tap zoom.
+
+  Podgląd zdjęcia (.photo-preview) jest celowo wyłączony z tej zasady,
+  dzięki czemu zdjęcia nadal można powiększać dwoma palcami.
+*/
+@media (pointer: coarse){
+  body > .app-header,
+  body > main,
+  body > nav,
+  body > dialog:not(.photo-preview){
+    touch-action:pan-x pan-y;
+  }
+
+  .photo-preview,
+  .photo-preview .preview-stage,
+  .photo-preview .preview-stage img{
+    touch-action:pan-x pan-y pinch-zoom !important;
+  }
+}

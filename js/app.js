@@ -4572,6 +4572,37 @@ async function saveOwlTripsAdmin(ev){
 initOwlTripsUi();
 loadOwlTripsSchedule();
 
+
+// =========================================================
+// v0.8.20 — blokada przypadkowego powiększania interfejsu
+// Zdjęcia otwarte w .photo-preview zachowują pinch-to-zoom.
+// =========================================================
+function isPhotoZoomArea(target){
+  return target instanceof Element && !!target.closest(".photo-preview");
+}
+
+function initAppZoomGuard(){
+  if(!(navigator.maxTouchPoints>0 || "ontouchstart" in window))return;
+
+  // iOS Safari / PWA: gesture* obsługuje systemowy pinch.
+  ["gesturestart","gesturechange","gestureend"].forEach(type=>{
+    document.addEventListener(type,e=>{
+      if(isPhotoZoomArea(e.target))return;
+      e.preventDefault();
+    },{passive:false});
+  });
+
+  // Android + dodatkowa ochrona iOS: dwa lub więcej palców
+  // nie powiększa interfejsu poza pełnym podglądem zdjęcia.
+  document.addEventListener("touchmove",e=>{
+    if(e.touches?.length<2)return;
+    if(isPhotoZoomArea(e.target))return;
+    e.preventDefault();
+  },{passive:false});
+}
+
+initAppZoomGuard();
+
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 function openMenuPreview(url){
   let d=q("#menuPreview");
@@ -4707,7 +4738,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.19 — notatka „O projekcie” i kontakt do autora w oknie administratora
+// v0.8.20 — blokada przypadkowego zoomu interfejsu z zachowaniem zoomu zdjęć
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================
