@@ -1,4 +1,4 @@
-const C="sowki-v0821";const A=["./","index.html","css/style.css?v=0821","js/config.js?v=0821","js/app.js?v=0821","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v0823-eco";const A=["./","index.html","css/style.css?v=0823","js/config.js?v=0823","js/app.js?v=0823","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>{
   e.waitUntil((async()=>{
     const c=await caches.open(C);
@@ -26,6 +26,14 @@ self.addEventListener("fetch",e=>{
   if(url.origin!==self.location.origin)return;
 
   e.respondWith((async()=>{
+    // Statyczne pliki interfejsu trzymamy lokalnie (szybszy start PWA).
+    // HTML pozostaje network-first, aby łatwo wykrywać nowe wydania.
+    // Dane Supabase i prywatne zasoby nigdy nie trafiają do tego cache.
+    if(req.mode!=="navigate"){
+      const cache=await caches.open(C);
+      const precached=await cache.match(req);
+      if(precached)return precached;
+    }
     try{
       return await fetch(req);
     }catch{

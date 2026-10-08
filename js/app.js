@@ -451,30 +451,47 @@ function multiStorageImages(row,{className="",alt="",preview=true}={}){
   </div>`;
 }
 
+// ECO LIVE: podpisuj URL-e zdjęć dopiero przed pojawieniem się na ekranie.
+// Przy długiej galerii nie pobieramy od razu kilkudziesięciu podpisów.
+async function sowkiEcoHydrateImage(img){
+  if(!img?.isConnected||img.dataset.storageLoaded==="1")return;
+  const displayPath=img.dataset.storagePath;
+  if(!displayPath)return;
+  const displayUrl=await sign(displayPath);
+  if(!displayUrl||!img.isConnected)return;
+  img.src=displayUrl;
+  img.dataset.storageLoaded="1";
+  if(img.dataset.storagePreview==="1"){
+    img.onclick=async()=>{
+      const fullPath=img.dataset.storageFullPath||displayPath;
+      const fullUrl=await sign(fullPath);
+      if(fullUrl)openMenuPreview(fullUrl,img.alt||"Powiększone zdjęcie");
+    };
+  }
+}
+const sowkiEcoImageObserver=typeof IntersectionObserver!=="undefined"
+  ? new IntersectionObserver(entries=>{
+      for(const entry of entries){
+        if(!entry.isIntersecting)continue;
+        const img=entry.target;
+        sowkiEcoImageObserver.unobserve(img);
+        sowkiEcoHydrateImage(img).catch(()=>{});
+      }
+    },{rootMargin:"450px 0px",threshold:0.01})
+  : null;
 async function hydrateStorageImages(root){
   const el=typeof root==="string"?q(root):root;
   if(!el)return;
-
   const imgs=[...el.querySelectorAll('img[data-storage-path]:not([data-storage-loaded="1"])')];
-
-  await Promise.all(imgs.map(async img=>{
-    const displayPath=img.dataset.storagePath;
-    if(!displayPath)return;
-
-    const displayUrl=await sign(displayPath);
-    if(!displayUrl)return;
-
-    img.src=displayUrl;
-    img.dataset.storageLoaded="1";
-
-    if(img.dataset.storagePreview==="1"){
-      img.onclick=async()=>{
-        const fullPath=img.dataset.storageFullPath||displayPath;
-        const fullUrl=await sign(fullPath);
-        if(fullUrl)openMenuPreview(fullUrl,img.alt||"Powiększone zdjęcie");
-      };
-    }
-  }));
+  if(!sowkiEcoImageObserver){
+    await Promise.all(imgs.map(sowkiEcoHydrateImage));
+    return;
+  }
+  for(const img of imgs){
+    if(img.dataset.storageQueued==="1")continue;
+    img.dataset.storageQueued="1";
+    sowkiEcoImageObserver.observe(img);
+  }
 }
 
 function hydratePageImages(id){
@@ -826,7 +843,10 @@ document.addEventListener("click",e=>{
 // v0.7.4 — stabilne pobieranie danych publicznych.
 // Zapytania startują równolegle, a chwilowy błąd sieci/Supabase jest automatycznie ponawiany.
 const PUBLIC_LOAD_RETRY_DELAYS=[350,900,1800];
-let publicLoadGeneration=0;
+// Liczniki per sekcja: odpowiedź wolniejszego żądania nie nadpisze nowszej.
+const publicLoadGenerationByArea=new Map();
+const sowkiEcoLastFetch=new Map();
+const SOWKI_PUBLIC_AREAS=["notices","events","announcements","menus","surveys","galleryTokens"];
 
 function publicLoadSleep(ms){
   return new Promise(resolve=>setTimeout(resolve,ms));
@@ -877,61 +897,118 @@ function bindPublicRetryButtons(){
   });
 }
 
-async function load(){
- const loadGeneration=++publicLoadGeneration;
+// v0.8.22 — ciche odświeżanie bez przebudowy niezmienionego HTML.
+// Osadzone formularze, rozwinięte archiwa i obrazy nie tracą stanu przy odpytywaniu bazy.
+const sowkiLastRenderedHtml=new Map();
+function updatePublicHtml(selector,html){
+  const el=q(selector);
+  if(!el)return false;
+  const markup=String(html??"");
+  if(sowkiLastRenderedHtml.get(selector)===markup)return false;
 
- publicShowLoadingIfEmpty("#notices","Ładowanie najważniejszych informacji…");
- publicShowLoadingIfEmpty("#events","Ładowanie wydarzeń…");
- publicShowLoadingIfEmpty("#announcements","Ładowanie ogłoszeń…");
- publicShowLoadingIfEmpty("#menus","Ładowanie jadłospisu…");
- publicShowLoadingIfEmpty("#surveys","Ładowanie ankiet…");
+  const expanded=[...el.querySelectorAll("details")]
+    .filter(d=>d.open).map(d=>[d.className,[...el.querySelectorAll("details")].indexOf(d)]);
+  sowkiLastRenderedHtml.set(selector,markup);
+  // Odłącz zdjęcia usuwane z DOM od obserwatora (bez wycieków pamięci).
+  if(sowkiEcoImageObserver){
+    el.querySelectorAll('img[data-storage-queued="1"]').forEach(img=>sowkiEcoImageObserver.unobserve(img));
+  }
+  el.innerHTML=markup;
+  const details=[...el.querySelectorAll("details")];
+  for(const [cls,index] of expanded){
+    if(details[index] && details[index].className===cls)details[index].open=true;
+  }
+  return true;
+}
+function publicShowErrorUnlessCached(selector,title,quiet){
+  if(quiet && sowkiLastRenderedHtml.has(selector))return;
+  updatePublicHtml(selector,publicLoadErrorCard(title));
+}
+
+async function load({quiet=false,areas=null}={}){
+ const wanted=[...new Set((areas||SOWKI_PUBLIC_AREAS).filter(a=>SOWKI_PUBLIC_AREAS.includes(a)))];
+ // Każda sekcja renderuje się od razu, gdy przyjdzie JEJ odpowiedź.
+ // Wolniejsza galeria lub jadłospis nie blokują wyświetlenia ogłoszeń.
+ if(wanted.length>1){
+   await Promise.allSettled(wanted.map(area=>load({quiet,areas:[area]})));
+   return;
+ }
+ if(!wanted.length)return;
+ const area=wanted[0];
+ const generation=(publicLoadGenerationByArea.get(area)||0)+1;
+ publicLoadGenerationByArea.set(area,generation);
+ const only=a=>a===area;
+
+ if(only("notices"))publicShowLoadingIfEmpty("#notices","Ładowanie najważniejszych informacji…");
+ if(only("events"))publicShowLoadingIfEmpty("#events","Ładowanie wydarzeń…");
+ if(only("announcements"))publicShowLoadingIfEmpty("#announcements","Ładowanie ogłoszeń…");
+ if(only("menus"))publicShowLoadingIfEmpty("#menus","Ładowanie jadłospisu…");
+ if(only("surveys"))publicShowLoadingIfEmpty("#surveys","Ładowanie ankiet…");
 
  const [noticesResult,eventsResult,announcementsResult,menusResult,surveysResult,galleryCheck]=await Promise.all([
-   publicQueryWithRetry("najważniejszych informacji",()=>sb.from("monthly_notices").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("wydarzeń",()=>sb.from("events").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("ogłoszeń",()=>sb.from("announcements").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("jadłospisu",()=>sb.from("menus").select("*").eq("published",true).order("date_from",{ascending:false}).order("id",{ascending:false})),
-   publicQueryWithRetry("ankiet",()=>sb.from("surveys").select("*").eq("published",true).order("sort_order",{ascending:true}).order("id",{ascending:false})),
-   publicQueryWithRetry("galerii",()=>sb.rpc("get_gallery_public_tokens"))
+   only("notices")?publicQueryWithRetry("najważniejszych informacji",()=>sb.from("monthly_notices")
+     .select("id,event_date,icon,title,content").eq("published",true)
+     .order("sort_order",{ascending:true}).order("id",{ascending:false})):null,
+   only("events")?publicQueryWithRetry("wydarzeń",()=>sb.from("events")
+     .select("id,event_date,title,content,image_url,image_urls").eq("published",true)
+     .order("sort_order",{ascending:true}).order("id",{ascending:false})):null,
+   only("announcements")?publicQueryWithRetry("ogłoszeń",()=>sb.from("announcements")
+     .select("id,event_date,title,description,image_url,image_urls").eq("published",true)
+     .order("sort_order",{ascending:true}).order("id",{ascending:false})):null,
+   only("menus")?publicQueryWithRetry("jadłospisu",()=>sb.from("menus")
+     .select("id,date_from,date_to,title,image_url").eq("published",true)
+     .order("date_from",{ascending:false}).order("id",{ascending:false})):null,
+   only("surveys")?publicQueryWithRetry("ankiet",()=>sb.from("surveys")
+     .select("id,title,form_url,starts_at,ends_at,results_image_url").eq("published",true)
+     .order("sort_order",{ascending:true}).order("id",{ascending:false})):null,
+   only("galleryTokens")?publicQueryWithRetry("galerii",()=>sb.rpc("get_gallery_public_tokens")):null
  ]);
 
- // Jeżeli w międzyczasie uruchomiono nowsze load(), starsza odpowiedź nie może nadpisać ekranu.
- if(loadGeneration!==publicLoadGeneration)return;
+ if(publicLoadGenerationByArea.get(area)!==generation)return;
+ const received=[noticesResult,eventsResult,announcementsResult,menusResult,surveysResult,galleryCheck]
+   .find(v=>v!==null);
+ if(received&&!received.error)sowkiEcoLastFetch.set(area,Date.now());
 
  // Najważniejsze informacje
  let homeNoticeRows=[];
- if(noticesResult.error){
-   q("#notices").innerHTML=publicLoadErrorCard("najważniejszych informacji");
+ if(!noticesResult){
+   // Odświeżenie innego działu; zachowaj aktualną zawartość.
+ }else if(noticesResult.error){
+   publicShowErrorUnlessCached("#notices","najważniejszych informacji",quiet);
  }else{
    homeNoticeRows=noticesResult.data||[];
-   q("#notices").innerHTML=homeNoticeRows.length
+   updatePublicHtml("#notices",homeNoticeRows.length
      ? homeNoticeRows.map(x=>`<div class="item"><div class="date">${date(x.event_date)}</div><h3>${esc(x.icon||"📌")} ${esc(x.title)}</h3><div class="muted">${richDisplay(x.content||"")}</div>${sowkiReadReaction("notice",x.id)}</div>`).join("")
-     : empty("Brak nowych ogłoszeń.");
+     : empty("Brak nowych ogłoszeń."));
  }
 
  // Wydarzenia
  let homeEventRows=[];
- if(eventsResult.error){
-   q("#events").innerHTML=publicLoadErrorCard("wydarzeń");
+ if(!eventsResult){
+   // Nie odświeżamy tej sekcji.
+ }else if(eventsResult.error){
+   publicShowErrorUnlessCached("#events","wydarzeń",quiet);
  }else{
    homeEventRows=eventsResult.data||[];
    const eventCards=[];
    for(const x of homeEventRows){
      eventCards.push(`<div class="item">${multiStorageImages(x,{className:"event-photo",alt:x.title||"Wydarzenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3><p>${richDisplay(x.content||"")}</p>${sowkiReadReaction("event",x.id)}</div>`);
    }
-   q("#events").innerHTML=eventCards.join("")||empty("Brak wydarzeń.");
+   updatePublicHtml("#events",eventCards.join("")||empty("Brak wydarzeń."));
  }
 
- if(!noticesResult.error || !eventsResult.error){
+ if((noticesResult&&!noticesResult.error)||(eventsResult&&!eventsResult.error)){
    setNewContentTokens("home",[
-     ...(!noticesResult.error?homeNoticeRows.map(x=>`notice:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("notice:"))),
-     ...(!eventsResult.error?homeEventRows.map(x=>`event:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("event:")))
+     ...(noticesResult&&!noticesResult.error?homeNoticeRows.map(x=>`notice:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("notice:"))),
+     ...(eventsResult&&!eventsResult.error?homeEventRows.map(x=>`event:${x.id}`):newContentState.home.filter(x=>String(x).startsWith("event:")))
    ]);
  }
 
  // Ogłoszenia
- if(announcementsResult.error){
-   q("#announcements").innerHTML=publicLoadErrorCard("ogłoszeń");
+ if(!announcementsResult){
+   // Bez zmian.
+ }else if(announcementsResult.error){
+   publicShowErrorUnlessCached("#announcements","ogłoszeń",quiet);
  }else{
    const announcementRows=announcementsResult.data||[];
    const announcementCards=[];
@@ -939,12 +1016,14 @@ async function load(){
    for(const x of announcementRows){
      announcementCards.push(`<article class="item announcement">${multiStorageImages(x,{className:"announcement-photo",alt:x.title||"Ogłoszenie",preview:true})}<div class="date">${date(x.event_date)}</div><h3>${esc(x.title)}</h3>${x.description?`<div class="muted">${richDisplay(x.description)}</div>`:""}${sowkiReadReaction("announcement",x.id)}</article>`);
    }
-   q("#announcements").innerHTML=announcementCards.join("")||empty("Nie ma jeszcze ogłoszeń.");
+   updatePublicHtml("#announcements",announcementCards.join("")||empty("Nie ma jeszcze ogłoszeń."));
  }
 
  // Jadłospis
- if(menusResult.error){
-   q("#menus").innerHTML=publicLoadErrorCard("jadłospisu");
+ if(!menusResult){
+   // Bez zmian.
+ }else if(menusResult.error){
+   publicShowErrorUnlessCached("#menus","jadłospisu",quiet);
  }else{
    const menuRows=menusResult.data||[];
    setNewContentTokens("menu",menuRows.map(x=>`menu:${x.id}`));
@@ -991,7 +1070,7 @@ async function load(){
    const currentHtml=currentMenus.map(x=>menuCard(x,"menu-current-card")).join("");
    const historyHtml=pastMenus.map(x=>menuCard(x,"")).join("");
 
-   q("#menus").innerHTML=`
+   updatePublicHtml("#menus",`
      <section class="menu-current-section">
        <div class="menu-section-heading">
          <h2>🍽️ Aktualny jadłospis</h2>
@@ -1005,13 +1084,15 @@ async function load(){
          <div class="menu-history-list">${historyHtml}</div>
        </details>
      `:""}
-   `;
+   `);
  }
 
  // Ankiety
- if(surveysResult.error){
-   q("#surveys").innerHTML=publicLoadErrorCard("ankiet");
-   q("#surveyArchive").innerHTML="";
+ if(!surveysResult){
+   // Nie niszcz aktywnego formularza w innej sekcji.
+ }else if(surveysResult.error){
+   publicShowErrorUnlessCached("#surveys","ankiet",quiet);
+   if(!quiet)updatePublicHtml("#surveyArchive","");
  }else{
    const surveyRows=surveysResult.data||[];
    const now=new Date(), active=[], archive=[];
@@ -1021,13 +1102,13 @@ async function load(){
    }
    const pending=active.filter(x=>localStorage.getItem(`sowki_survey_done_${x.id}`)!=="1");
    setNewContentTokens("surveysPage",pending.map(x=>`survey:${x.id}`));
-   q("#surveys").innerHTML=pending.length
+   updatePublicHtml("#surveys",pending.length
      ? `<div class="survey-top-note">📌 <b>Ważne:</b> Po wysłaniu odpowiedzi w formularzu prosimy o kliknięcie przycisku <b>„✅ Wypełniłem/am tę ankietę”</b>. Dziękujemy!</div>`+pending.map(x=>{const embed=surveyEmbedUrl(x.form_url);return `<article class="item survey-card" data-survey-id="${x.id}"><div class="survey-done-box"><b>Jeśli wysłałeś już odpowiedź w tej ankiecie:</b><button type="button" class="survey-done-btn" data-survey-done="${x.id}">✅ Wypełniłem/am tę ankietę</button></div><h3>${esc(x.title)}</h3>${x.ends_at?`<div class="date">Ankieta do ${formatWarsawDateTime(x.ends_at)}</div>`:""}<div class="survey-fallback">Ankieta powinna wyświetlić się poniżej. <a target="_blank" rel="noopener" href="${esc(x.form_url)}">Ankieta się nie wyświetla? Otwórz ją tutaj ↗</a></div><iframe class="survey-frame" src="${esc(embed)}" loading="lazy" allowfullscreen scrolling="no" title="${esc(x.title)}"></iframe></article>`}).join("")
-     : `<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`;
+     : `<div class="item survey-all-done"><h3>✅ Wypełniłeś już wszystkie ankiety, które dotychczas były dostępne.</h3><p class="muted">Gdy pojawi się nowa ankieta, zostanie tutaj automatycznie wyświetlona.</p></div>`);
 
    qa("[data-survey-done]").forEach(b=>b.onclick=()=>{
      localStorage.setItem(`sowki_survey_done_${b.dataset.surveyDone}`,"1");
-     load();
+     load({areas:["surveys"]});
    });
 
    const archiveCards=[];
@@ -1040,9 +1121,9 @@ async function load(){
          : `<div class="survey-results-pending">Wyniki nie zostały jeszcze opublikowane.</div>`}
      </div>`);
    }
-   q("#surveyArchive").innerHTML=archive.length
+   updatePublicHtml("#surveyArchive",archive.length
      ? `<details class="archive"><summary>🗂️ Zakończone / pozostałe ankiety (${archive.length})</summary>${archiveCards.join("")}</details>`
-     : "";
+     : "");
 
    qa("[data-survey-results-path]").forEach(b=>b.onclick=async()=>{
      const url=await sign(b.dataset.surveyResultsPath);
@@ -1050,7 +1131,7 @@ async function load(){
    });
  }
 
- if(!galleryCheck.error){
+ if(galleryCheck&&!galleryCheck.error){
    setNewContentTokens("gallery",(galleryCheck.data||[]).map(x=>`gallery:${x.id}`));
  }
 
@@ -3269,7 +3350,7 @@ function calendarNormalizeState(){
   }
 }
 
-async function loadSowkiCalendarMonth(force=false){
+async function loadSowkiCalendarMonth(force=false,quiet=false){
   calendarNormalizeState();
 
   const key=calendarMonthKey(sowkiCalendarMonthStart);
@@ -3283,7 +3364,7 @@ async function loadSowkiCalendarMonth(force=false){
   }
 
   const grid=q("#calendarGrid");
-  if(grid)grid.innerHTML=`<div class="calendar-loading">Ładowanie kalendarza…</div>`;
+  if(grid&&!quiet)grid.innerHTML=`<div class="calendar-loading">Ładowanie kalendarza…</div>`;
 
   const [monthResult,upcomingResult,yearlyResult]=await Promise.all([
     publicQueryWithRetry(
@@ -3319,8 +3400,11 @@ async function loadSowkiCalendarMonth(force=false){
     )
   ]);
 
+  // Użytkownik mógł w trakcie pobierania zmienić miesiąc.
+  if(calendarMonthKey(sowkiCalendarMonthStart)!==key)return;
+
   if(monthResult.error){
-    if(grid)grid.innerHTML=publicLoadErrorCard("kalendarza");
+    if(grid&&!quiet)grid.innerHTML=publicLoadErrorCard("kalendarza");
     return;
   }
 
@@ -3332,7 +3416,7 @@ async function loadSowkiCalendarMonth(force=false){
     .filter(Boolean)
     .filter(row=>String(row.date_from)>=bounds.first && String(row.date_from)<=bounds.last);
 
-  sowkiCalendarMonthRows=[
+  const newMonthRows=[
     ...(monthResult.data||[]),
     ...yearlyInMonth
   ].sort(calendarSortRows);
@@ -3344,15 +3428,21 @@ async function loadSowkiCalendarMonth(force=false){
     .filter(Boolean)
     .filter(row=>String(row.date_to||row.date_from)>=today);
 
-  sowkiCalendarUpcomingRows=[
+  const newUpcomingRows=[
     ...(upcomingResult.error?[]:(upcomingResult.data||[])),
     ...yearlyUpcoming
   ]
     .sort(calendarSortRows)
     .slice(0,3);
 
+  const changed=sowkiCalendarLoadedMonthKey!==key
+    || JSON.stringify(sowkiCalendarMonthRows)!==JSON.stringify(newMonthRows)
+    || JSON.stringify(sowkiCalendarUpcomingRows)!==JSON.stringify(newUpcomingRows);
+  sowkiCalendarMonthRows=newMonthRows;
+  sowkiCalendarUpcomingRows=newUpcomingRows;
   sowkiCalendarLoadedMonthKey=key;
-  renderSowkiCalendar();
+  sowkiEcoLastFetch.set("calendar",Date.now());
+  if(changed||!quiet)renderSowkiCalendar();
 }
 
 function renderSowkiCalendar(){
@@ -4211,16 +4301,24 @@ async function loadOwlTripsSchedule(){
     return;
   }
 
-  owlTripsScheduleCache=result.data||[];
-  renderOwlTripsHeader();
+  const newSchedule=result.data||[];
+  const hasChanged=JSON.stringify(owlTripsScheduleCache)!==JSON.stringify(newSchedule)
+    || renderOwlTripsHeader._lastDay!==today;
+  owlTripsScheduleCache=newSchedule;
+  sowkiEcoLastFetch.set("owlTrips",Date.now());
+  if(hasChanged||!renderOwlTripsHeader._wasRendered){
+    renderOwlTripsHeader();
+    renderOwlTripsHeader._wasRendered=true;
+    renderOwlTripsHeader._lastDay=today;
+  }
 
   // Jeśli rodzic jest już na stronie akcji, odświeżamy tylko kartę bieżącego weekendu.
-  if(q("#owlTripsPage")?.classList.contains("active")){
+  if(hasChanged && q("#owlTripsPage")?.classList.contains("active")){
     renderOwlTripsFullPage();
   }
 }
 
-async function loadOwlTripsFullSchedule(force=false){
+async function loadOwlTripsFullSchedule(force=false,quiet=false){
   if(!force && owlTripsFullScheduleCache!==null){
     renderOwlTripsFullPage();
     return owlTripsFullScheduleCache;
@@ -4231,7 +4329,7 @@ async function loadOwlTripsFullSchedule(force=false){
   }
 
   const full=q("#owlTripsScheduleFull");
-  if(full)full.innerHTML=`<div class="item muted">⏳ Ładowanie pełnego harmonogramu…</div>`;
+  if(full&&!quiet)full.innerHTML=`<div class="item muted">⏳ Ładowanie pełnego harmonogramu…</div>`;
 
   owlTripsFullSchedulePromise=(async()=>{
     const result=await publicQueryWithRetry(
@@ -4241,7 +4339,7 @@ async function loadOwlTripsFullSchedule(force=false){
 
     if(result.error){
       console.debug("OWL TRIPS FULL LOAD ERROR:",result.error);
-      if(full){
+      if(full&&!quiet){
         full.innerHTML=`
           <div class="item err">
             ⚠️ Nie udało się pobrać pełnego harmonogramu.
@@ -4252,8 +4350,11 @@ async function loadOwlTripsFullSchedule(force=false){
       return null;
     }
 
-    owlTripsFullScheduleCache=result.data||[];
-    renderOwlTripsFullPage();
+    const newRows=result.data||[];
+    const changed=JSON.stringify(owlTripsFullScheduleCache)!==JSON.stringify(newRows);
+    owlTripsFullScheduleCache=newRows;
+    sowkiEcoLastFetch.set("owlTripsFull",Date.now());
+    if(changed||!quiet)renderOwlTripsFullPage();
     return owlTripsFullScheduleCache;
   })();
 
@@ -4574,7 +4675,7 @@ loadOwlTripsSchedule();
 
 
 // =========================================================
-// v0.8.21 — stała blokada zoomu interfejsu, także w czasie
+// v0.8.22 — stała blokada zoomu interfejsu, także w czasie
 // bezwładnościowego przewijania. Zdjęcia: własny zoom + pan
 // jednym palcem (bez zoomowania całej strony przeglądarki).
 // =========================================================
@@ -4604,7 +4705,7 @@ function initAppZoomGuard(){
 
 initAppZoomGuard();
 
-load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}));
 
 // Każde zdjęcie otwierane z Wydarzeń, Ogłoszeń, Jadłospisu,
 // Galerii i Wyników Ankiet używa tego samego podglądu.
@@ -4880,6 +4981,7 @@ function showPage(id){
  if(page && previous!==id)trackPageView(id);
 
  hydratePageImages(id);
+ if(typeof sowkiEcoOnPageEnter==="function")sowkiEcoOnPageEnter(id);
 
  if(id==="owlTripsPage"){
    renderOwlTripsFullPage();
@@ -4903,7 +5005,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.21 — blokada zoomu interfejsu, natywny dostęp prywatny bez zmian
+// v0.8.22 — blokada zoomu interfejsu, natywny dostęp prywatny bez zmian
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================
@@ -5008,7 +5110,7 @@ function renderProtectedGallery(rows){
 
   setNewContentTokens("gallery",(rows||[]).map(x=>`gallery:${x.id}`));
 
-  albums.innerHTML=(rows||[]).map(x=>`
+  updatePublicHtml("#galleryAlbums",(rows||[]).map(x=>`
     <article class="item">
       ${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć",title:"Dotknij, aby powiększyć",preview:true})}
       <div class="date">${date(x.event_date)}</div>
@@ -5018,7 +5120,7 @@ function renderProtectedGallery(rows){
         ?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`
         :""}
     </article>
-  `).join("")||empty("Nie ma jeszcze albumów.");
+  `).join("")||empty("Nie ma jeszcze albumów."));
 
   hydratePageImages("gallery");
 }
@@ -5064,7 +5166,10 @@ async function unlockPrivateResource(resource,password){
 
   savePrivateAccessSession(resource,result);
 
-  if(resource==="gallery")unlockGalleryView(result);
+  if(resource==="gallery"){
+    unlockGalleryView(result);
+    sowkiEcoLastFetch.set("gallery",Date.now());
+  }
   else renderProtectedPayments(result);
 
   return true;
@@ -5083,7 +5188,10 @@ async function restorePrivateResource(resource){
 
   savePrivateAccessSession(resource,result);
 
-  if(resource==="gallery")unlockGalleryView(result);
+  if(resource==="gallery"){
+    unlockGalleryView(result);
+    sowkiEcoLastFetch.set("gallery",Date.now());
+  }
   else renderProtectedPayments(result);
 
   return true;
@@ -5397,21 +5505,22 @@ function updateNotificationItemState(el,read){
 async function loadNotifications(){
   const nowISO=new Date().toISOString();
   const {data,error}=await sb.from("notifications")
-    .select("*")
+    .select("id,created_at,title,body,target_page")
     .eq("published",true)
     .or(`scheduled_at.is.null,scheduled_at.lte.${nowISO}`)
     .order("sort_order",{ascending:true})
     .order("id",{ascending:false});
 
   if(error){
-    q("#notificationsList").innerHTML=empty("Nie udało się pobrać powiadomień.");
+    if(!sowkiLastRenderedHtml.has("#notificationsList"))updatePublicHtml("#notificationsList",empty("Nie udało się pobrać powiadomień."));
     return;
   }
 
+  sowkiEcoLastFetch.set("notifications",Date.now());
   migrateOldNotificationReadState(data||[]);
   const read=getReadNotificationIds();
 
-  q("#notificationsList").innerHTML=(data||[]).map(x=>{
+  updatePublicHtml("#notificationsList",(data||[]).map(x=>{
     const wasRead=read.has(String(x.id));
     return `<article
       class="item notification-item ${wasRead?"read":"unread"}"
@@ -5428,7 +5537,7 @@ async function loadNotifications(){
         <div class="notification-plain-body">${esc(notificationPlainText(x.body||"")).replace(/\n/g,"<br>")}</div>
         ${x.target_page?'<div class="notification-target">Dotknij, aby przejść do informacji →</div>':""}
       </article>`;
-  }).join("")||empty("Nie wysłano jeszcze żadnych powiadomień.");
+  }).join("")||empty("Nie wysłano jeszcze żadnych powiadomień."));
 
   updateNotificationBadge(data||[]);
 
@@ -5505,7 +5614,7 @@ if("serviceWorker" in navigator){
   });
 }
 
-q('#notificationsBell').onclick=()=>{showPage('notificationsPage');loadNotifications();refreshPushStatus()};
+q('#notificationsBell').onclick=()=>{showPage('notificationsPage');refreshPushStatus()};
 q('#enablePush').onclick=enablePush;
 
 // Po powrocie z Ustawień telefonu sprawdzamy stan ponownie.
@@ -5514,3 +5623,250 @@ window.addEventListener("focus",()=>refreshPushStatus());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshPushStatus()});
 
 setTimeout(()=>{loadNotifications();refreshPushStatus()},700);
+
+
+// =========================================================
+// v0.8.23 ECO LIVE — do 300 zainstalowanych urządzeń / Supabase Free
+// • otwarta aplikacja: Realtime => pobierz wyłącznie zmienioną sekcję
+// • przeglądanie / powrót: sprawdzaj potrzebne dane, nie cały serwis
+// • fallback co 5 min TYLKO dla aktywnego widoku i listy powiadomień
+// • niewidoczna PWA rozłącza WebSocket i nie odpytuje bazy
+// • prywatna galeria wyłącznie przez autoryzowaną Edge Function
+// • brak wskaźnika synchronizacji i przerywania formularzy
+// =========================================================
+const SOWKI_ECO_POLL_MS=5*60_000;
+const SOWKI_ECO_DEBOUNCE_MS=250;
+const SOWKI_ECO_RESUME_MIN_MS=30_000;
+const SOWKI_ECO_PAGE_STALE_MS=60_000;
+const SOWKI_ECO_VERSION_POLL_MS=30*60_000;
+const SOWKI_ECO_VERSION_MIN_MS=5*60_000;
+const SOWKI_ECO_TABLES={
+  monthly_notices:"notices",events:"events",announcements:"announcements",
+  menus:"menus",surveys:"surveys",notifications:"notifications",
+  sowki_calendar:"calendar",owl_trips_schedule:"owlTrips"
+};
+let sowkiEcoPending=new Set();
+let sowkiEcoTimer=null;
+let sowkiEcoRefreshing=false;
+let sowkiEcoRealtime=null;
+let sowkiEcoRealtimeBusy=false;
+let sowkiEcoLastBackground=0;
+let sowkiEcoLastCatchUp=Date.now();
+let sowkiEcoLastVersionCheck=0;
+let sowkiEcoPendingAppUpdate=false;
+let sowkiEcoHadController=Boolean(navigator.serviceWorker?.controller);
+
+function sowkiEcoActive(){
+  return !document.hidden && navigator.onLine!==false;
+}
+function sowkiEcoPageAreas(id=q(".page.active")?.id||"home"){
+  switch(id){
+    case "home":return ["notices","events","owlTrips"];
+    case "announcementsPage":return ["announcements"];
+    case "menu":return ["menus"];
+    case "surveysPage":return ["surveys"];
+    case "calendar":return ["calendar"];
+    case "owlTripsPage":return ["owlTrips","owlTripsFull"];
+    case "gallery":return ["galleryTokens","gallery"];
+    case "notificationsPage":return ["notifications"];
+    default:return [];
+  }
+}
+function sowkiEcoQueue(...areas){
+  if(!sowkiEcoActive())return;
+  areas.forEach(a=>sowkiEcoPending.add(a));
+  if(sowkiEcoTimer!==null)clearTimeout(sowkiEcoTimer);
+  sowkiEcoTimer=setTimeout(sowkiEcoRun,SOWKI_ECO_DEBOUNCE_MS);
+}
+function sowkiEcoStale(area,maxAge){
+  return Date.now()-(sowkiEcoLastFetch.get(area)||0)>=maxAge;
+}
+function sowkiEcoQueueForPage(maxAge=0){
+  const areas=sowkiEcoPageAreas().filter(a=>sowkiEcoStale(a,maxAge));
+  if(areas.length)sowkiEcoQueue(...areas);
+}
+function sowkiEcoOnPageEnter(id){
+  // Nie odświeżamy po każdej zmianie zakładki; nowo otwarty dział
+  // aktualizujemy tylko, gdy jest nieodświeżany od co najmniej minuty.
+  const areas=sowkiEcoPageAreas(id).filter(a=>{
+    // Wchodząc do kalendarza i harmonogramu po raz pierwszy mamy już
+    // osobny szybki loader w showPage; nie dubluj jego zapytań.
+    if(a==="calendar" && sowkiCalendarLoadedMonthKey===null)return false;
+    if(a==="owlTripsFull" && owlTripsFullScheduleCache===null)return false;
+    if(a==="gallery" && q("#galleryAlbums")?.hidden)return false;
+    return sowkiEcoStale(a,SOWKI_ECO_PAGE_STALE_MS);
+  });
+  if(areas.length)sowkiEcoQueue(...areas);
+}
+async function sowkiEcoRefreshGallery(){
+  if(!q("#gallery")?.classList.contains("active")||q("#galleryAlbums")?.hidden)return;
+  const session=readPrivateAccessSession("gallery");
+  if(!session)return;
+  try{
+    const result=await privateAccessRequest("gallery",{token:session.token});
+    if(result?.ok){
+      savePrivateAccessSession("gallery",result);
+      renderProtectedGallery(result.payload?.albums||[]);
+      sowkiEcoLastFetch.set("gallery",Date.now());
+    }else if(result?.code==="expired_token"){
+      clearPrivateAccessSession("gallery");
+      q("#galleryAlbums").hidden=true;
+      q("#galleryGate").hidden=false;
+    }
+  }catch(error){console.debug("Sówki ECO: galeria chwilowo niedostępna",error)}
+}
+// Zgodność z odwołaniami w panelu administratora.
+async function loadGallery(){return sowkiEcoRefreshGallery()}
+
+async function sowkiEcoRun(){
+  sowkiEcoTimer=null;
+  if(sowkiEcoRefreshing||!sowkiEcoActive())return;
+  if(!sowkiEcoPending.size)return;
+  sowkiEcoRefreshing=true;
+  const pending=[...sowkiEcoPending];
+  sowkiEcoPending.clear();
+  try{
+    const content=pending.filter(a=>SOWKI_PUBLIC_AREAS.includes(a));
+    const tasks=[];
+    if(content.length)tasks.push(load({areas:content,quiet:true}));
+    if(pending.includes("notifications"))tasks.push(loadNotifications());
+    if(pending.includes("calendar") && q("#calendar")?.classList.contains("active")){
+      tasks.push(loadSowkiCalendarMonth(true,true));
+    }
+    if(pending.includes("owlTrips")){
+      tasks.push(loadOwlTripsSchedule());
+    }
+    if(pending.includes("owlTripsFull") && q("#owlTripsPage")?.classList.contains("active")){
+      tasks.push(loadOwlTripsFullSchedule(true,true));
+    }
+    if(pending.includes("gallery"))tasks.push(sowkiEcoRefreshGallery());
+    await Promise.allSettled(tasks);
+  }catch(error){console.debug("Sówki ECO: odświeżenie zostanie ponowione",error)}
+  finally{
+    sowkiEcoRefreshing=false;
+    if(sowkiEcoPending.size&&sowkiEcoActive()){
+      sowkiEcoTimer=setTimeout(sowkiEcoRun,SOWKI_ECO_DEBOUNCE_MS);
+    }
+  }
+}
+function sowkiEcoCatchUp(force=false){
+  if(!sowkiEcoActive())return;
+  const now=Date.now();
+  if(!force&&now-sowkiEcoLastCatchUp<SOWKI_ECO_RESUME_MIN_MS)return;
+  sowkiEcoLastCatchUp=now;
+  sowkiEcoQueueForPage();
+  // Nieodczytane powiadomienia i badge sprawdzamy po dłuższej przerwie.
+  if(sowkiEcoStale("notifications",SOWKI_ECO_RESUME_MIN_MS))sowkiEcoQueue("notifications");
+}
+function sowkiEcoStartRealtime(){
+  if(!sowkiEcoActive()||sowkiEcoRealtime||sowkiEcoRealtimeBusy||typeof sb.channel!=="function")return;
+  sowkiEcoRealtimeBusy=true;
+  try{
+    let ch=sb.channel("sowki-eco-live-0823");
+    for(const [table,area] of Object.entries(SOWKI_ECO_TABLES)){
+      ch=ch.on("postgres_changes",{
+        event:"*",schema:"public",table,filter:"published=eq.true"
+      },()=>{
+        if(sowkiEcoActive())sowkiEcoQueue(area);
+      });
+    }
+    sowkiEcoRealtime=ch;
+    ch.subscribe(status=>{
+      if(status==="SUBSCRIBED"){
+        sowkiEcoRealtimeBusy=false;
+      }else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){
+        sowkiEcoRealtimeBusy=false;
+        // Gdy połączenie zostanie przywrócone, fallback będzie dostępny.
+        // Brak agresywnej pętli reconnect i zbędnych requestów.
+      }
+    });
+  }catch(error){
+    sowkiEcoRealtimeBusy=false;
+    sowkiEcoRealtime=null;
+    console.debug("Sówki ECO: nasłuchiwanie niedostępne; działa fallback",error);
+  }
+}
+function sowkiEcoStopRealtime(){
+  if(sowkiEcoTimer!==null){clearTimeout(sowkiEcoTimer);sowkiEcoTimer=null;}
+  const ch=sowkiEcoRealtime;
+  sowkiEcoRealtime=null;
+  sowkiEcoRealtimeBusy=false;
+  if(ch&&typeof sb.removeChannel==="function"){
+    Promise.resolve(sb.removeChannel(ch)).catch(()=>{});
+  }else if(ch&&typeof ch.unsubscribe==="function"){
+    Promise.resolve(ch.unsubscribe()).catch(()=>{});
+  }
+}
+function sowkiEcoSafeReload(){
+  if(document.querySelector("dialog[open]"))return false;
+  const field=document.activeElement;
+  if(field&&field.matches('input:not([type="button"]),textarea,[contenteditable="true"],select,iframe'))return false;
+  if(q("#surveysPage")?.classList.contains("active"))return false;
+  return true;
+}
+function sowkiEcoReloadIfSafe(){
+  if(!sowkiEcoPendingAppUpdate||!sowkiEcoSafeReload())return;
+  sowkiEcoPendingAppUpdate=false;
+  try{sessionStorage.setItem("sowki_page_after_upgrade_v1",q(".page.active")?.id||"home")}catch{}
+  location.reload();
+}
+async function sowkiEcoCheckAppVersion(force=false){
+  if(!("serviceWorker" in navigator)||!sowkiEcoActive())return;
+  if(!force&&Date.now()-sowkiEcoLastVersionCheck<SOWKI_ECO_VERSION_MIN_MS)return;
+  sowkiEcoLastVersionCheck=Date.now();
+  try{
+    const registration=await navigator.serviceWorker.getRegistration();
+    if(!registration)return;
+    await registration.update();
+    if(registration.waiting&&navigator.serviceWorker.controller)sowkiEcoPendingAppUpdate=true;
+  }catch(error){console.debug("Sówki ECO: wersja zostanie sprawdzona później",error)}
+}
+function sowkiEcoRestorePage(){
+  let id="";
+  try{id=sessionStorage.getItem("sowki_page_after_upgrade_v1")||"";
+      sessionStorage.removeItem("sowki_page_after_upgrade_v1")}catch{}
+  if(id&&id!=="home"&&q("#"+CSS.escape(id)))showPage(id);
+}
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(sowkiEcoHadController)sowkiEcoPendingAppUpdate=true;
+    sowkiEcoHadController=true;
+  });
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){
+    sowkiEcoLastBackground=Date.now();
+    sowkiEcoStopRealtime();
+    return;
+  }
+  if(!sowkiEcoActive())return;
+  sowkiEcoStartRealtime();
+  if(Date.now()-sowkiEcoLastBackground>=SOWKI_ECO_RESUME_MIN_MS)sowkiEcoCatchUp(true);
+  sowkiEcoCheckAppVersion();
+  sowkiEcoReloadIfSafe();
+});
+window.addEventListener("focus",()=>{
+  if(!sowkiEcoActive())return;
+  sowkiEcoStartRealtime();
+  sowkiEcoCatchUp();
+  sowkiEcoCheckAppVersion();
+});
+window.addEventListener("online",()=>{
+  sowkiEcoStartRealtime();
+  sowkiEcoCatchUp(true);
+  sowkiEcoCheckAppVersion(true);
+});
+window.addEventListener("offline",sowkiEcoStopRealtime);
+// 5-minutowy fallback nie działa na ekranie zablokowanym / w ukrytej karcie.
+setInterval(()=>{
+  if(!sowkiEcoActive())return;
+  sowkiEcoQueueForPage(SOWKI_ECO_POLL_MS-10_000);
+  if(sowkiEcoStale("notifications",SOWKI_ECO_POLL_MS-10_000))sowkiEcoQueue("notifications");
+  // Gdy Realtime utracił połączenie, SDK próbuje je przywrócić.
+  sowkiEcoStartRealtime();
+},SOWKI_ECO_POLL_MS);
+setInterval(()=>sowkiEcoCheckAppVersion(),SOWKI_ECO_VERSION_POLL_MS);
+
+sowkiEcoStartRealtime();
+sowkiEcoRestorePage();
+sowkiEcoCheckAppVersion(true);

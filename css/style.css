@@ -6275,7 +6275,7 @@ nav > .home .nav-new-dot{
 
 
 /* =========================================================
-   v0.8.21 — nie zoomujemy aplikacji nawet przy przewijaniu,
+   v0.8.22 — nie zoomujemy aplikacji nawet przy przewijaniu,
    natomiast zdjęcie ma niezależny zoom + przesuwanie 1 palcem.
    ========================================================= */
 @media (pointer:coarse){
