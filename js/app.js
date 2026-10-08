@@ -471,7 +471,7 @@ async function hydrateStorageImages(root){
       img.onclick=async()=>{
         const fullPath=img.dataset.storageFullPath||displayPath;
         const fullUrl=await sign(fullPath);
-        if(fullUrl)openMenuPreview(fullUrl);
+        if(fullUrl)openMenuPreview(fullUrl,img.alt||"Powiększone zdjęcie");
       };
     }
   }));
@@ -4574,8 +4574,9 @@ loadOwlTripsSchedule();
 
 
 // =========================================================
-// v0.8.20 — blokada przypadkowego powiększania interfejsu
-// Zdjęcia otwarte w .photo-preview zachowują pinch-to-zoom.
+// v0.8.21 — stała blokada zoomu interfejsu, także w czasie
+// bezwładnościowego przewijania. Zdjęcia: własny zoom + pan
+// jednym palcem (bez zoomowania całej strony przeglądarki).
 // =========================================================
 function isPhotoZoomArea(target){
   return target instanceof Element && !!target.closest(".photo-preview");
@@ -4584,56 +4585,220 @@ function isPhotoZoomArea(target){
 function initAppZoomGuard(){
   if(!(navigator.maxTouchPoints>0 || "ontouchstart" in window))return;
 
-  // iOS Safari / PWA: gesture* obsługuje systemowy pinch.
-  ["gesturestart","gesturechange","gestureend"].forEach(type=>{
-    document.addEventListener(type,e=>{
-      if(isPhotoZoomArea(e.target))return;
-      e.preventDefault();
-    },{passive:false});
-  });
-
-  // Android + dodatkowa ochrona iOS: dwa lub więcej palców
-  // nie powiększa interfejsu poza pełnym podglądem zdjęcia.
-  document.addEventListener("touchmove",e=>{
-    if(e.touches?.length<2)return;
+  // Zatrzymujemy gest PRZED obsługą przez przewijaną zawartość.
+  // Szczególnie ważne przy rozpoczynaniu pinch podczas momentum-scroll.
+  const blockPinch=e=>{
     if(isPhotoZoomArea(e.target))return;
-    e.preventDefault();
-  },{passive:false});
+    if(e.cancelable)e.preventDefault();
+  };
+  ["gesturestart","gesturechange","gestureend"].forEach(type=>{
+    document.addEventListener(type,blockPinch,{capture:true,passive:false});
+  });
+  ["touchstart","touchmove"].forEach(type=>{
+    document.addEventListener(type,e=>{
+      if(e.touches.length<2 || isPhotoZoomArea(e.target))return;
+      if(e.cancelable)e.preventDefault();
+    },{capture:true,passive:false});
+  });
 }
 
 initAppZoomGuard();
 
 load();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
-function openMenuPreview(url){
-  let d=q("#menuPreview");
-  if(!d){
-    d=document.createElement("dialog");
-    d.id="menuPreview";
-    d.className="photo-preview";
-    d.innerHTML=`<button class="preview-close" aria-label="Zamknij">✕</button><div class="preview-stage"><img alt="Powiększony jadłospis"></div><div class="preview-hint">Przesuwaj obraz palcem • użyj gestu powiększania</div>`;
-    document.body.appendChild(d);
-    d.querySelector(".preview-close").onclick=()=>d.close();
-    d.onclick=e=>{if(e.target===d)d.close()};
+
+// Każde zdjęcie otwierane z Wydarzeń, Ogłoszeń, Jadłospisu,
+// Galerii i Wyników Ankiet używa tego samego podglądu.
+// Dzięki touch-action:none wewnątrz podglądu system nie powiększa
+// całej aplikacji. Powiększamy tylko zdjęcie (CSS transform).
+function initPhotoPreviewGestures(dialog){
+  const stage=dialog.querySelector(".preview-stage");
+  const img=stage.querySelector("img");
+  const zoomValue=dialog.querySelector(".preview-zoom-value");
+  const pointers=new Map();
+  const MIN_ZOOM=1;
+  const MAX_ZOOM=6;
+  let scale=1,panX=0,panY=0;
+  let gesture=null;
+  let lastTap=null;
+  let moved=false;
+
+  const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+
+  function constrain(){
+    // offsetWidth/Height nie zawiera transform: otrzymujemy wymiary bazowe.
+    const maxX=Math.max(0,(img.offsetWidth*scale-stage.clientWidth)/2);
+    const maxY=Math.max(0,(img.offsetHeight*scale-stage.clientHeight)/2);
+    panX=clamp(panX,-maxX,maxX);
+    panY=clamp(panY,-maxY,maxY);
   }
-  d.querySelector("img").src=url;
-  d.showModal();
+
+  function paint(){
+    constrain();
+    img.style.transform=`translate3d(${panX}px,${panY}px,0) scale(${scale})`;
+    if(zoomValue)zoomValue.textContent=`${Math.round(scale*100)}%`;
+    stage.classList.toggle("is-zoomed",scale>1.005);
+  }
+
+  function midpoint(a,b){
+    return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  }
+
+  function distance(a,b){
+    return Math.hypot(a.x-b.x,a.y-b.y);
+  }
+
+  function stagePoint(p){
+    const r=stage.getBoundingClientRect();
+    return {x:p.x-r.left-r.width/2,y:p.y-r.top-r.height/2};
+  }
+
+  function zoomAt(newScale,point={x:0,y:0}){
+    const next=clamp(newScale,MIN_ZOOM,MAX_ZOOM);
+    const ratio=next/scale;
+    // Punkt pod palcem pozostaje pod palcem także podczas zoomu.
+    panX=point.x-(point.x-panX)*ratio;
+    panY=point.y-(point.y-panY)*ratio;
+    scale=next;
+    if(scale===MIN_ZOOM){panX=0;panY=0;}
+    paint();
+  }
+
+  function reset(){
+    pointers.clear();
+    gesture=null;
+    lastTap=null;
+    scale=1;panX=0;panY=0;
+    paint();
+  }
+
+  function beginGesture(){
+    const pts=[...pointers.values()];
+    if(pts.length>=2){
+      const p=stagePoint(midpoint(pts[0],pts[1]));
+      gesture={kind:"pinch",startDist:Math.max(1,distance(pts[0],pts[1])),startScale:scale,
+        startX:panX,startY:panY,anchor:p};
+      lastTap=null;
+    }else if(pts.length===1){
+      gesture={kind:"pan",start:pts[0],startX:panX,startY:panY};
+    }else gesture=null;
+  }
+
+  stage.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"&&e.button!==0)return;
+    // Własne operacje na obrazie; nie dopuszczamy systemowego pinch.
+    e.preventDefault();
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    moved=false;
+    try{stage.setPointerCapture(e.pointerId)}catch{}
+    beginGesture();
+  });
+
+  stage.addEventListener("pointermove",e=>{
+    if(!pointers.has(e.pointerId))return;
+    const p={x:e.clientX,y:e.clientY};
+    pointers.set(e.pointerId,p);
+    if(!gesture)return;
+
+    if(gesture.kind==="pinch"&&pointers.size>=2){
+      const pts=[...pointers.values()];
+      const mid=stagePoint(midpoint(pts[0],pts[1]));
+      const ratio=clamp(gesture.startScale*distance(pts[0],pts[1])/gesture.startDist,
+        MIN_ZOOM,MAX_ZOOM)/gesture.startScale;
+      scale=gesture.startScale*ratio;
+      panX=mid.x-(gesture.anchor.x-gesture.startX)*ratio;
+      panY=mid.y-(gesture.anchor.y-gesture.startY)*ratio;
+      moved=true;
+      paint();
+    }else if(gesture.kind==="pan"&&pointers.size===1){
+      const dx=p.x-gesture.start.x,dy=p.y-gesture.start.y;
+      if(Math.abs(dx)>8||Math.abs(dy)>8)moved=true;
+      if(scale>MIN_ZOOM){
+        panX=gesture.startX+dx;
+        panY=gesture.startY+dy;
+        paint();
+      }
+    }
+    e.preventDefault();
+  });
+
+  function endPointer(e){
+    if(!pointers.has(e.pointerId))return;
+    const old=pointers.get(e.pointerId);
+    const canTap=!moved&&pointers.size===1&&e.type==="pointerup";
+    pointers.delete(e.pointerId);
+    try{if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId)}catch{}
+    if(canTap){
+      const now=Date.now();
+      if(lastTap&&now-lastTap.when<320&&Math.hypot(old.x-lastTap.x,old.y-lastTap.y)<30){
+        zoomAt(scale>1.01?1:2.5,stagePoint(old));
+        lastTap=null;
+      }else lastTap={when:now,x:old.x,y:old.y};
+    }else lastTap=null;
+    beginGesture();
+  }
+
+  stage.addEventListener("pointerup",endPointer);
+  stage.addEventListener("pointercancel",endPointer);
+  stage.addEventListener("lostpointercapture",endPointer);
+  // Użytkownicy komputerów: Ctrl + kółko powiększa zdjęcie, nie stronę.
+  stage.addEventListener("wheel",e=>{
+    if(!e.ctrlKey)return;
+    e.preventDefault();
+    zoomAt(scale*(e.deltaY<0?1.16:1/1.16),stagePoint({x:e.clientX,y:e.clientY}));
+  },{passive:false});
+
+  dialog.querySelector('[data-preview-zoom="in"]').addEventListener("click",()=>zoomAt(scale*1.5));
+  dialog.querySelector('[data-preview-zoom="out"]').addEventListener("click",()=>zoomAt(scale/1.5));
+  dialog.querySelector('[data-preview-zoom="reset"]').addEventListener("click",()=>zoomAt(1));
+  img.addEventListener("load",reset);
+  dialog.addEventListener("close",reset);
+  window.addEventListener("resize",()=>{if(dialog.open)paint();});
+  dialog.sowkiPhotoReset=reset;
+}
+
+function photoPreviewDialog(id,{results=false}={}){
+  let dialog=q("#"+id);
+  if(dialog)return dialog;
+
+  dialog=document.createElement("dialog");
+  dialog.id=id;
+  dialog.className="photo-preview"+(results?" survey-results-preview":"");
+  dialog.innerHTML=`
+    <button type="button" class="preview-close" aria-label="Zamknij zdjęcie">✕</button>
+    ${results?'<div class="survey-results-preview-title"></div>':""}
+    <div class="preview-stage" aria-label="Powiększone zdjęcie. Przesuń jednym palcem lub zbliż dwa palce, aby zmienić powiększenie.">
+      <img alt="Powiększone zdjęcie" draggable="false">
+    </div>
+    <div class="preview-controls" role="group" aria-label="Powiększenie zdjęcia">
+      <button type="button" data-preview-zoom="out" aria-label="Pomniejsz zdjęcie">−</button>
+      <button type="button" data-preview-zoom="reset" class="preview-zoom-value" aria-label="Przywróć rozmiar zdjęcia">100%</button>
+      <button type="button" data-preview-zoom="in" aria-label="Powiększ zdjęcie">+</button>
+    </div>
+    <div class="preview-hint">Powiększ dwoma palcami • po powiększeniu przesuwaj jednym palcem</div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector(".preview-close").onclick=()=>dialog.close();
+  dialog.onclick=e=>{if(e.target===dialog)dialog.close();};
+  initPhotoPreviewGestures(dialog);
+  return dialog;
+}
+
+function showSowkiPhoto(dialog,url,alt){
+  dialog.sowkiPhotoReset?.();
+  const img=dialog.querySelector(".preview-stage img");
+  img.alt=alt;
+  img.src=url;
+  if(!dialog.open)dialog.showModal();
+}
+
+function openMenuPreview(url,alt="Powiększone zdjęcie"){
+  const d=photoPreviewDialog("menuPreview");
+  showSowkiPhoto(d,url,alt);
 }
 
 function openSurveyResults(url,title="Wyniki ankiety"){
-  let d=q("#surveyResultsPreview");
-  if(!d){
-    d=document.createElement("dialog");
-    d.id="surveyResultsPreview";
-    d.className="photo-preview survey-results-preview";
-    d.innerHTML=`<button class="preview-close" aria-label="Zamknij">✕</button><div class="survey-results-preview-title"></div><div class="preview-stage"><img alt="Wyniki ankiety"></div><div class="preview-hint">Przesuwaj obraz palcem • użyj gestu powiększania</div>`;
-    document.body.appendChild(d);
-    d.querySelector(".preview-close").onclick=()=>d.close();
-    d.onclick=e=>{if(e.target===d)d.close()};
-  }
+  const d=photoPreviewDialog("surveyResultsPreview",{results:true});
   d.querySelector(".survey-results-preview-title").textContent=title;
-  d.querySelector("img").src=url;
-  d.querySelector("img").alt=`Wyniki ankiety: ${title}`;
-  d.showModal();
+  showSowkiPhoto(d,url,`Wyniki ankiety: ${title}`);
 }
 
 const TRACKED_PAGES=new Set([
@@ -4738,7 +4903,7 @@ function showPage(id){
 setActiveNav(q(".page.active")?.id||"home");
 
 // =========================================================
-// v0.8.20 — blokada przypadkowego zoomu interfejsu z zachowaniem zoomu zdjęć
+// v0.8.21 — blokada zoomu interfejsu, natywny dostęp prywatny bez zmian
 // Hasła oraz linki Rozliczeń NIE znajdują się w kodzie publicznym.
 // Weryfikacja odbywa się przez Edge Function private-access.
 // =========================================================
@@ -4845,7 +5010,7 @@ function renderProtectedGallery(rows){
 
   albums.innerHTML=(rows||[]).map(x=>`
     <article class="item">
-      ${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć"})}
+      ${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć",title:"Dotknij, aby powiększyć",preview:true})}
       <div class="date">${date(x.event_date)}</div>
       <h3>${esc(x.title)}</h3>
       <p>${richDisplay(x.description||"")}</p>

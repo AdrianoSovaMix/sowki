@@ -6275,27 +6275,115 @@ nav > .home .nav-new-dot{
 
 
 /* =========================================================
-   v0.8.20 — ochrona przed przypadkowym zoomem interfejsu PWA
+   v0.8.21 — nie zoomujemy aplikacji nawet przy przewijaniu,
+   natomiast zdjęcie ma niezależny zoom + przesuwanie 1 palcem.
    ========================================================= */
-
-/*
-  Na urządzeniach dotykowych sam interfejs aplikacji pozwala na normalne
-  przewijanie, ale nie rozpoczyna gestu pinch-to-zoom / double-tap zoom.
-
-  Podgląd zdjęcia (.photo-preview) jest celowo wyłączony z tej zasady,
-  dzięki czemu zdjęcia nadal można powiększać dwoma palcami.
-*/
-@media (pointer: coarse){
+@media (pointer:coarse){
+  html,body{
+    touch-action:pan-x pan-y;
+    overscroll-behavior-x:none;
+  }
   body > .app-header,
   body > main,
   body > nav,
   body > dialog:not(.photo-preview){
     touch-action:pan-x pan-y;
   }
+}
 
-  .photo-preview,
-  .photo-preview .preview-stage,
-  .photo-preview .preview-stage img{
-    touch-action:pan-x pan-y pinch-zoom !important;
-  }
+/* Zdjęcia są pośrodku i dopasowują się do aktualnego ekranu.
+   Scroll / pinch całej strony jest wyłączony wyłącznie w podglądzie. */
+.photo-preview .preview-stage{
+  position:absolute;
+  inset:0 0 68px 0;
+  width:auto;
+  height:auto;
+  padding:62px 8px 24px;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  touch-action:none!important;
+  overscroll-behavior:contain;
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:grab;
+}
+.photo-preview .preview-stage.is-zoomed{cursor:grab}
+.photo-preview .preview-stage:active{cursor:grabbing}
+.photo-preview .preview-stage img{
+  display:block;
+  flex-shrink:0;
+  width:auto!important;
+  height:auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  transform-origin:center center;
+  will-change:transform;
+  touch-action:none!important;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none;
+}
+.photo-preview.survey-results-preview .preview-stage{
+  padding-top:112px;
+}
+.photo-preview .survey-results-preview-title{
+  position:absolute;
+  top:calc(65px + env(safe-area-inset-top));
+  left:12px;
+  right:12px;
+  z-index:2;
+  pointer-events:none;
+}
+.photo-preview .preview-controls{
+  position:absolute;
+  z-index:5;
+  bottom:calc(54px + env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(28,28,30,.87);
+  border:1px solid #ffffff40;
+  border-radius:999px;
+  padding:5px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  touch-action:none;
+}
+.photo-preview .preview-controls button{
+  appearance:none;
+  border:0;
+  background:#fff;
+  color:#25252a;
+  border-radius:50%;
+  width:42px;
+  height:42px;
+  font:700 23px/1 system-ui,sans-serif;
+  cursor:pointer;
+}
+.photo-preview .preview-controls .preview-zoom-value{
+  width:66px;
+  border-radius:999px;
+  font-size:14px;
+}
+.photo-preview .preview-hint{
+  position:absolute;
+  z-index:4;
+  left:0;
+  right:0;
+  bottom:0;
+  padding:8px 8px calc(9px + env(safe-area-inset-bottom));
+  text-align:center;
+  font-size:11px;
+  line-height:1.25;
+  color:#ddd;
+  background:#111;
+  pointer-events:none;
+}
+@media(max-width:390px){
+  .photo-preview .preview-hint{font-size:10px}
 }
