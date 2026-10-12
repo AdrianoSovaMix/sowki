@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Sówki — test połączenia OneDrive</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#25202a;background:#fff8fb}
+    body{margin:0;padding:24px 16px;min-height:100vh;box-sizing:border-box}
+    main{max-width:610px;margin:20px auto;background:white;border:1px solid #eddce5;border-radius:20px;padding:clamp(20px,4vw,36px);box-shadow:0 12px 40px #2d00160b}
+    h1{margin:0 0 8px;color:#a91150;font-size:1.7rem} h2{font-size:1.12rem;margin:25px 0 10px}
+    p{line-height:1.55;color:#574c58} .hint{background:#fff0f6;border:1px solid #f5d4e3;border-radius:12px;padding:13px 16px}
+    button{font:inherit;border:0;padding:13px 18px;background:#cf195a;color:white;border-radius:12px;font-weight:650;cursor:pointer;display:block;width:100%;margin:12px 0}
+    button.secondary{color:#a91150;background:#fbe9f1}button:disabled{opacity:.45;cursor:default}
+    #status{min-height:4rem;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #e8d9e0;border-radius:13px;padding:14px;line-height:1.5}
+    a{color:#a91150} small{color:#6c626c;display:block;margin-top:15px;line-height:1.5}
+  </style>
+</head>
+<body>
+<main>
+  <h1>🦉 Test OneDrive — Sówki</h1>
+  <p class="hint"><strong>Wyłącznie etap testowy.</strong> Ten ekran nie zmienia istniejącej galerii ani nie wysyła zdjęć. Połączenie konta jest dostępne tylko dla właściciela wskazanego w konfiguracji serwera.</p>
+  <p>Aby działało logowanie, najpierw otwórz zwykłe Sówki <strong>w tej samej przeglądarce i pod tą samą domeną</strong>, zaloguj się jako właściciel, a potem wróć tutaj.</p>
+  <h2>Status połączenia</h2>
+  <div id="status" role="status" aria-live="polite">Uruchamianie testu…</div>
+  <button class="secondary" id="check" disabled>🔍 Sprawdź status</button>
+  <button id="connect" disabled>🔐 Połącz osobisty OneDrive</button>
+  <button class="secondary" id="verify" disabled>🔄 Przetestuj odnowienie połączenia</button>
+  <p><a href="/">← Wróć do aplikacji Sówki</a></p>
+  <small>Funkcja korzysta z uwierzytelnienia Supabase właściciela. Nie wpisuj tutaj hasła ani klucza aplikacji Microsoft. Po autoryzacji Microsoft powróci do głównej aplikacji; otwórz tę stronę ponownie, aby sprawdzić status.</small>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/config.js?v=0826"></script>
+<script>
+(async()=>{
+  'use strict';
+  const output=document.getElementById('status');
+  const buttons=['check','connect','verify'].map(id=>document.getElementById(id));
+  const show=(text)=>{output.textContent=text;};
+  const fail=(error)=>{show('⚠️ '+String(error?.message||error||'Nieznany błąd'));};
+  if(!window.supabase?.createClient || !window.SOWKI?.url || !window.SOWKI?.key){
+    show('Nie udało się załadować konfiguracji Sówki. Upewnij się, że plik onedrive-test.html jest umieszczony w głównym katalogu strony razem z istniejącym katalogiem js/.');return;
+  }
+  const sb=window.supabase.createClient(window.SOWKI.url,window.SOWKI.key);
+  async function invoke(action){
+    const {data,error}=await sb.functions.invoke('sowki-onedrive',{body:{action}});
+    if(error){
+      let message=error.message||'Błąd wywołania';
+      try{const detail=await error.context?.json?.();if(detail?.error)message=detail.error;}catch{}
+      throw new Error(message);
+    }
+    if(data?.error)throw new Error(data.error);
+    return data;
+  }
+  async function ensureLogin(){
+    const {data,error}=await sb.auth.getUser();
+    if(error||!data?.user){show('Nie znaleziono aktywnej sesji administratora. Zaloguj się do Sówek na tej samej domenie i wróć na ten ekran.');return false;}
+    return true;
+  }
+  async function run(button,callback){
+    buttons.forEach(b=>b.disabled=true);
+    try{await callback();}
+    catch(e){fail(e);}
+    finally{buttons.forEach(b=>b.disabled=false);}
+  }
+  async function check(){
+    show('Sprawdzanie…');
+    const r=await invoke('status');
+    show(r.connected?'✅ OneDrive połączony: '+(r.display_name||'konto osobiste')+'\nDysk: '+(r.drive_name||'OneDrive'):'OneDrive nie jest jeszcze połączony.');
+  }
+  buttons[0].onclick=()=>run(buttons[0],check);
+  buttons[1].onclick=()=>run(buttons[1],async()=>{
+    show('Przygotowywanie bezpiecznego logowania Microsoft…');
+    const r=await invoke('start');
+    if(!r?.url?.startsWith('https://login.microsoftonline.com/consumers/'))throw new Error('Nieprawidłowy adres logowania Microsoft.');
+    window.location.assign(r.url);
+  });
+  buttons[2].onclick=()=>run(buttons[2],async()=>{
+    show('Sprawdzanie odnowienia tokenu…');
+    const r=await invoke('test');
+    show(r?.ok?'✅ Odnowienie połączenia działa. Dysk: '+(r.drive_name||'OneDrive'):'Nie udało się potwierdzić połączenia.');
+  });
+  if(await ensureLogin()){
+    buttons.forEach(b=>b.disabled=false);
+    try{await check();}catch(e){fail(e);}
+  }
+})();
+</script>
+</body>
+</html>
