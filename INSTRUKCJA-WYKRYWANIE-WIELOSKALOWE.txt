@@ -1,0 +1,33 @@
+SÓWKI Gallery 2.0 – v0.8.28.4 | DOKŁADNIEJSZE WYKRYWANIE TWARZY
+
+OBJAW: Poprzedni detektor zwracał 0 twarzy dla czytelnych zdjęć grupowych.
+MOŻLIWA PRZYCZYNA: Model BlazeFace short-range analizował duży obraz na małej wewnętrznej rozdzielczości, więc małe twarze były pomijane. Nie można tego bezpośrednio potwierdzić bez uruchomienia na urządzeniu użytkownika.
+
+ZMIANY: 
+- 2 niezależne modele MediaPipe (full-range, short-range), z progami 0.32/0.36.
+- Cała fotografia + siatki wycinków 2x2 oraz 3x3 z nakładaniem.
+- Scalanie wykryć z pokrywających się kadrów (bez duplikatów).
+- Przeliczenie współrzędnych masek na oryginalną fotografię.
+- Postęp analizy oraz ostrzeżenie, że wynik 0 NIE potwierdza braku twarzy.
+- Brak zmian w Supabase, OneDrive, maskowaniu mozaiką/blur i zasadach publikacji.
+
+INSTALACJA (TYLKO GITHUB):
+1. Wykonaj kopię bieżącej wersji repozytorium.
+2. Rozpakuj ZIP i wgraj tylko następujące pliki, zachowując ścieżki:
+   index.html
+   sw.js
+   js/onedrive-gallery.js
+3. Commit; zaczekaj na zielone GitHub Actions.
+4. Zamknij i otwórz ponownie aplikację; w PWA na iPhonie po aktualizacji SW czasem konieczne są dwa uruchomienia.
+5. Admin > Galeria > Sprawdź i przygotuj > Wykryj twarze.
+6. Przed zapisem koniecznie popraw ręcznie pominięte twarze. Detekcja nie identyfikuje ludzi.
+
+PRYWATNOŚĆ:
+- Zdjęcia pozostają na OneDrive i w pamięci urządzenia podczas moderacji.
+- Biblioteki i modele MediaPipe pobierane są z publicznych serwerów CDN Google/jsDelivr/UNPKG; nie są tam wysyłane zdjęcia.
+- Nie wgrywaj żadnych sekretów do publicznego repozytorium.
+
+TESTY:
+- Kontrola składni JS i integralności ZIP wykonana lokalnie.
+- Bez dostępu do zewnętrznych CDN nie zweryfikowano rzeczywistego wykrywania twarzy na fotografii.
+- Przetestuj najpierw zdjęcie testowe dorosłych za ich wiedzą.

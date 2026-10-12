@@ -7,36 +7,128 @@
 const esc=(v)=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const goodUrl=(v)=>{try{const u=new URL(v);return u.protocol==='https:'?u.toString():'';}catch{return '';}};
 const invoke=async(action,p={})=>await sowkiOneDriveInvoke(action,p);
-let detectorPromise=null;
-async function faceDetector(){
-  if(!detectorPromise)detectorPromise=(async()=>{
-    // v0.8.28.3: "0.10.22" bez sufiksu -rc nie jest prawidłowym wydaniem.
-    // Wczytuj prawdziwy plik ESM (bez generowanego +esm) i zachowaj zapasowe CDN.
-    // Zdjęcia przetwarzane są lokalnie w przeglądarce; do CDN idzie wyłącznie kod/WASM.
+// Detekcja wieloskalowa: z daleka twarze w zdjęciu grupowym stają się
+// kilkoma pikselami dla modeli BlazeFace (128x128). Analizujemy całe zdjęcie,
+// a potem nakładające się kadry. W żadnej postaci nie wysyłamy zdjęcia do CDN.
+const detectorPromises=new Map();
+let visionLibPromise=null;
+async function visionLibrary(){
+  if(!visionLibPromise)visionLibPromise=(async()=>{
     const version='0.10.32';
     const roots=[
       `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${version}`,
       `https://unpkg.com/@mediapipe/tasks-vision@${version}`
     ];
-    const failures=[];
+    const errors=[];
     for(const root of roots){
       try{
         const imported=await import(/* webpackIgnore: true */ `${root}/vision_bundle.mjs`);
         const lib=imported.FaceDetector?imported:imported.default;
-        if(!lib?.FaceDetector||!lib?.FilesetResolver)throw new Error('MediaPipe nie udostępnia FaceDetector i FilesetResolver.');
+        if(!lib?.FaceDetector||!lib?.FilesetResolver)throw new Error('Brakuje wymaganych składników MediaPipe.');
         const resolver=await lib.FilesetResolver.forVisionTasks(`${root}/wasm`);
-        return await lib.FaceDetector.createFromOptions(resolver,{
-          baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},
-          runningMode:'IMAGE',minDetectionConfidence:.4
-        });
-      }catch(e){
-        // Po błędzie pobrania z jednego CDN spróbuj kolejnego.
-        failures.push(`${new URL(root).hostname}: ${String(e?.message||e).slice(0,140)}`);
+        return {lib,resolver};
+      }catch(e){errors.push(`${new URL(root).hostname}: ${String(e?.message||e).slice(0,110)}`);}
+    }
+    throw new Error('Nie można załadować biblioteki MediaPipe: '+errors.join(' / '));
+  })().catch(e=>{visionLibPromise=null;throw e;});
+  return await visionLibPromise;
+}
+async function faceDetector(model='full'){
+  if(!detectorPromises.has(model)){
+    const promise=(async()=>{
+      const {lib,resolver}=await visionLibrary();
+      const name=model==='full'?'blaze_face_full_range':'blaze_face_short_range';
+      const modelUrl=`https://storage.googleapis.com/mediapipe-models/face_detector/${name}/float16/1/${name}.tflite`;
+      return await lib.FaceDetector.createFromOptions(resolver,{
+        baseOptions:{modelAssetPath:modelUrl},
+        runningMode:'IMAGE',
+        minDetectionConfidence:model==='full'?.32:.36
+      });
+    })().catch(e=>{detectorPromises.delete(model);throw e;});
+    detectorPromises.set(model,promise);
+  }
+  return await detectorPromises.get(model);
+}
+const clamp01=v=>Math.max(0,Math.min(1,v));
+function isDuplicateFace(a,b){
+  const left=Math.max(a.x,b.x),top=Math.max(a.y,b.y);
+  const right=Math.min(a.x+a.w,b.x+b.w),bottom=Math.min(a.y+a.h,b.y+b.h);
+  const intersection=Math.max(0,right-left)*Math.max(0,bottom-top);
+  const areaA=a.w*a.h,areaB=b.w*b.h;
+  if(!areaA||!areaB||!intersection)return false;
+  const iou=intersection/(areaA+areaB-intersection);
+  const contained=intersection/Math.min(areaA,areaB);
+  const sizeRatio=Math.max(areaA,areaB)/Math.min(areaA,areaB);
+  return iou>.25||(contained>.59&&sizeRatio<3.6);
+}
+// Zwraca współrzędne twarzy jako udział szerokości/wysokości ORYGINAŁU.
+// Dwie rozdzielczości kadrowania + dwa modele poprawiają wykrywanie małych
+// twarzy; lista nigdy nie jest automatycznie publikowana.
+async function scanFacesMultiScale(image,onProgress=()=>{}){
+  const found=[];
+  const diagnostics=[];
+  const jobs=[];
+  for(const [model,levels] of [
+    ['full',[1,2,3]], // dalsze ujęcia / zdjęcia grupowe
+    ['short',[1,2]]   // ujęcia bliższe, w tym częściowo odwrócone twarze
+  ]){
+    for(const split of levels){
+      for(let row=0;row<split;row++)for(let col=0;col<split;col++){
+        const overlap=split===1?0:(.17/split);
+        const x0=clamp01(col/split-overlap),x1=clamp01((col+1)/split+overlap);
+        const y0=clamp01(row/split-overlap),y1=clamp01((row+1)/split+overlap);
+        jobs.push({model,x0,y0,x1,y1,split,row,col});
       }
     }
-    throw new Error('Nie udało się pobrać MediaPipe (jsDelivr / UNPKG). Sprawdź połączenie z Internetem lub blokowanie CDN. '+failures.join(' | '));
-  })().catch(e=>{detectorPromise=null;throw e;});
-  return await detectorPromise;
+  }
+  // Nie rozciągamy pojedynczych kadrów: zachowujemy proporcje.
+  const scratch=document.createElement('canvas');
+  const ctx=scratch.getContext('2d',{willReadFrequently:false});
+  if(!ctx)throw new Error('Przeglądarka nie udostępnia kanwy do wykrywania twarzy.');
+  const detectors={};let processed=0;
+  const failedModels=new Set();
+  for(const job of jobs){
+    processed++;
+    if(failedModels.has(job.model))continue;
+    onProgress(`🤖 Analiza zdjęcia: ${processed}/${jobs.length} (model ${job.model==='full'?'grupowy':'bliskie ujęcia'})…`);
+    try{
+      if(!detectors[job.model])detectors[job.model]=await faceDetector(job.model);
+      const sx=job.x0*image.naturalWidth,sy=job.y0*image.naturalHeight;
+      const sw=(job.x1-job.x0)*image.naturalWidth,sh=(job.y1-job.y0)*image.naturalHeight;
+      const scale=Math.min(1,960/sw,960/sh);
+      scratch.width=Math.max(1,Math.round(sw*scale));
+      scratch.height=Math.max(1,Math.round(sh*scale));
+      ctx.clearRect(0,0,scratch.width,scratch.height);
+      ctx.drawImage(image,sx,sy,sw,sh,0,0,scratch.width,scratch.height);
+      const result=detectors[job.model].detect(scratch);
+      for(const det of result?.detections||[]){
+        const b=det.boundingBox;if(!b||!Number.isFinite(b.originX)||!Number.isFinite(b.width))continue;
+        // MediaPipe zwraca współrzędne w pikselach *kadru*, nie zdjęcia źródłowego.
+        const left=clamp01((sx+b.originX*sw/scratch.width)/image.naturalWidth);
+        const top=clamp01((sy+b.originY*sh/scratch.height)/image.naturalHeight);
+        const right=clamp01((sx+(b.originX+b.width)*sw/scratch.width)/image.naturalWidth);
+        const bottom=clamp01((sy+(b.originY+b.height)*sh/scratch.height)/image.naturalHeight);
+        if(right-left<.002||bottom-top<.002)continue;
+        // Odrzuć wąskie artefakty przy krawędziach skanowanych kadrów.
+        const aspect=((right-left)*image.naturalWidth)/((bottom-top)*image.naturalHeight);
+        if(aspect<.28||aspect>3.0)continue;
+        const box={x:left,y:top,w:right-left,h:bottom-top,
+          score:Number(det.categories?.[0]?.score||0)};
+        const existing=found.findIndex(f=>isDuplicateFace(f,box));
+        if(existing<0)found.push(box);
+        else if(box.score>found[existing].score)found[existing]=box;
+      }
+    }catch(e){
+      diagnostics.push(`${job.model} ${job.split}x${job.split}: ${String(e?.message||e).slice(0,100)}`);
+      if(!detectors[job.model])failedModels.add(job.model);
+    }
+    // Oddaj sterowanie przeglądarce; na telefonie widać postęp.
+    if(processed%2===0)await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(!Object.keys(detectors).length){
+    throw new Error('Nie udało się uruchomić żadnego modelu. '+diagnostics[0]);
+  }
+  return {faces:found,scans:processed,diagnostics};
 }
 const imgBlob=async(url)=>{
   const safe=goodUrl(url);if(!safe)throw new Error('Nieprawidłowy adres zdjęcia OneDrive.');
@@ -297,20 +389,24 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       reset.onclick=()=>{if(!masks.length)return;if(!confirm('Usunąć wszystkie zaznaczone obszary?'))return;
         masks=[];invalidateReview();draw();};
       auto.onclick=async()=>{
-        if(sending)return;auto.disabled=true;msg.textContent='🤖 Wykrywam twarze na tym urządzeniu…';
+        if(sending)return;auto.disabled=true;msg.textContent='🤖 Dokładna analiza grupowego zdjęcia. Może potrwać kilkanaście sekund…';
         try{
-          const detector=await faceDetector();const detections=detector.detect(image).detections||[];
-          // Ponowne wykrycie nie powinno nakładać powielonych masek; ręczne pozostają.
+          const result=await scanFacesMultiScale(image,text=>{msg.textContent=text;});
+          // Ponowne wykrywanie nie powiela masek; istniejące ręczne pozostają.
           masks=masks.filter(m=>m.source!=='auto');
-          for(const det of detections){
-            const b=det.boundingBox;if(!b)continue;
-            const padX=b.width*.22,padY=b.height*.35;
-            const x=Math.max(0,(b.originX-padX)/image.naturalWidth),y=Math.max(0,(b.originY-padY)/image.naturalHeight);
-            const right=Math.min(1,(b.originX+b.width+padX)/image.naturalWidth),bottom=Math.min(1,(b.originY+b.height+padY)/image.naturalHeight);
+          for(const b of result.faces){
+            const padX=b.w*.25,padY=b.h*.38;
+            const x=clamp01(b.x-padX),y=clamp01(b.y-padY);
+            const right=clamp01(b.x+b.w+padX),bottom=clamp01(b.y+b.h+padY);
             if(right>x&&bottom>y)masks.push({x,y,w:right-x,h:bottom-y,active:true,source:'auto'});
           }
           setDrawMode(false);invalidateReview();draw();
-          msg.textContent=`✅ Automatycznie wykryto ${detections.length} twarzy. Sprawdź całe zdjęcie, w tym małe twarze z boku.`;
+          if(result.faces.length){
+            msg.textContent=`✅ Znaleziono ${result.faces.length} prawdopodobnych twarzy (${result.scans} analiz kadrów). Sprawdź WSZYSTKIE osoby i popraw maski ręcznie.`;
+          }else{
+            msg.textContent=`⚠️ Nie znaleziono twarzy po ${result.scans} analizach różnych fragmentów zdjęcia. To NIE oznacza, że na zdjęciu nie ma twarzy. Użyj „Zaznacz ręcznie”.`;
+          }
+          if(result.diagnostics.length)msg.textContent+=' Uwaga: '+result.diagnostics.slice(0,2).join(' / ');
         }catch(e){msg.textContent='⚠️ Automatyczne wykrywanie jest niedostępne ('+errText(e)+'). Zaznacz twarze ręcznie.';}
         finally{auto.disabled=false;}
       };
