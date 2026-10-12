@@ -6481,3 +6481,33 @@ nav > .home .nav-new-dot{
 #panel .sowki-onedrive-result{font-size:12px;overflow-wrap:anywhere;line-height:1.55;margin-top:12px;max-height:240px;overflow:auto}
 #panel .sowki-onedrive-result ul{padding-left:18px}
 @media(max-width:460px){#panel .sowki-onedrive-beta{padding:12px}#panel .sowki-onedrive-create-row{flex-wrap:wrap}#panel .sowki-onedrive-create-row button{width:100%}}
+/* === Sówki Gallery 2.0 / OneDrive - 2026-10 === */
+.sowki-gallery-mod{margin-top:18px;padding:16px;border:1px solid #c9d8f2;border-radius:17px;background:#fbfdff;color:#142542}
+.sowki-gallery-mod h3,.sowki-gallery-mod h4{margin:4px 0 12px}
+.sowki-gallery-mod p{line-height:1.5}
+.sowki-mod-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.sowki-mod-summary{font-size:.86rem;color:#455271}
+.sowki-mod-file{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #d9e3f4;padding:9px;margin:8px 0;border-radius:12px;background:white;flex-wrap:wrap}
+.sowki-mod-file b{overflow-wrap:anywhere;font-size:.9rem}
+.sowki-mod-file small{display:block;color:#55616b;margin-top:5px}
+.sowki-mod-file button,.sowki-mod-controls button,.sowki-mod-file-actions button{border:1px solid #e6cada;border-radius:10px;padding:9px 12px;background:#fff7fb;color:#a40055;cursor:pointer;font-weight:650}
+.sowki-mod-file-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sowki-mod-editor{padding:12px;background:white;border:2px solid #d1dcff;border-radius:12px;margin:15px 0}
+.sowki-mod-editor canvas{width:100%;height:auto;display:block;border:1px solid #d6d9e0;border-radius:8px;touch-action:pan-y;cursor:pointer}
+.sowki-mod-editor canvas.sowki-mod-draw{touch-action:none;cursor:crosshair}
+.sowki-mod-check{display:flex;gap:7px;margin:12px 0;font-size:.9rem;line-height:1.4}
+.sowki-mod-check input{width:21px;height:21px;flex:none}
+.sowki-mod-editor>button{margin:8px 8px 0 0}
+.sowki-mod-approval-preview{padding:8px;border:1px solid #e7cede;background:#fff;border-radius:10px}
+.sowki-mod-approval-preview img{max-height:400px;max-width:100%;object-fit:contain}
+.sowki-od-public{margin:20px 0;padding:14px 10px;border-radius:16px;background:#fff8fc;border:1px solid #efcee0}
+.sowki-od-album{margin:10px 0}
+.sowki-od-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px}
+.sowki-od-photo{margin:0;padding:6px;background:white;border:1px solid #eed2e0;border-radius:10px;min-width:0}
+.sowki-od-photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px}
+.sowki-od-photo figcaption{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.sowki-od-photo figcaption button{font-size:.8rem;border:1px solid #f3c4da;border-radius:7px;padding:7px;background:#fff7fb;color:#a00753;flex:1}
+.sowki-od-lightbox{position:fixed;z-index:9999999;inset:0;background:#08080be8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:18px}
+.sowki-od-lightbox img{max-width:98vw;max-height:80vh;object-fit:contain}
+.sowki-od-lightbox button{align-self:flex-end;padding:9px 18px;border:1px solid #fff;color:#fff;background:#333;border-radius:10px}
+@media(max-width:560px){.sowki-gallery-mod{padding:10px}.sowki-mod-file{align-items:stretch}.sowki-mod-file button{width:100%}.sowki-od-photos{grid-template-columns:repeat(2,minmax(0,1fr))}}

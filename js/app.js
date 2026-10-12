@@ -5305,6 +5305,8 @@ function renderProtectedGallery(rows){
   `).join("")||empty("Nie ma jeszcze albumów."));
 
   hydratePageImages("gallery");
+  // Nowa galeria OneDrive jest wczytywana wyłącznie po poprawnym odblokowaniu hasłem.
+  if(typeof window.sowkiOneDrivePublicMount === "function")void window.sowkiOneDrivePublicMount();
 }
 
 function unlockGalleryView(data){
@@ -6505,5 +6507,8 @@ async function sowkiOneDriveMount(){
     validateSelection();
   };
   await refreshAlbums();
+  if(owner && typeof window.sowkiOneDriveModerationMount === "function"){
+    void window.sowkiOneDriveModerationMount(box,select);
+  }
 }
 
