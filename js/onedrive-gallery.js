@@ -133,82 +133,182 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       const ctx=canvas.getContext('2d',{willReadFrequently:false});
       if(!ctx)throw new Error('Przeglądarka nie umożliwia edycji tego zdjęcia.');
       let masks=[];let drawMode=false;let pointerStart=null;let pendingRect=null;
-      const controls=elt('div','sowki-mod-file-actions');
-      const auto=elt('button','','🤖 Wykryj twarze');auto.type='button';
-      const manual=elt('button','','✏️ Dodaj obszar ręcznie');manual.type='button';
-      const reset=elt('button','','↩️ Usuń wszystkie zaznaczenia');reset.type='button';
-      controls.append(auto,manual,reset);
-      const helper=elt('p','sowki-onedrive-note','Czarne pola trwale zasłaniają wybrane obszary. Dotknij maski, by ją wyłączyć lub włączyć. Możesz ręcznie dorysować pominięte twarze.');
-      const accept=elt('label','sowki-mod-check');
-      const checkbox=elt('input');checkbox.type='checkbox';
-      accept.append(checkbox,document.createTextNode(' Obejrzałem zdjęcie i sprawdziłem WSZYSTKIE twarze oraz inne dane, które wymagają ukrycia.'));
-      const save=elt('button','primary','💾 Zapisz kopię do 02_ZATWIERDZONE');save.type='button';
-      const cancel=elt('button','','Zamknij podgląd');cancel.type='button';
-      const msg=elt('p','sowki-mod-status','');
-      editor.replaceChildren(elt('h4','','🔍 '+file.name),controls,helper,canvas,accept,save,cancel,msg);
-      function draw(){
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(image,0,0,canvas.width,canvas.height);
-        for(const [i,m] of masks.entries()){
-          const x=m.x*canvas.width,y=m.y*canvas.height,w=m.w*canvas.width,h=m.h*canvas.height;
-          if(m.active){ctx.fillStyle='#121212';ctx.fillRect(x,y,w,h);}
-          ctx.strokeStyle=m.active?'#f5005a':'#ffc400';ctx.lineWidth=Math.max(2,canvas.width/600);
-          ctx.strokeRect(x,y,w,h);ctx.fillStyle='#fff';ctx.font=`${Math.max(11,Math.round(canvas.width/75))}px sans-serif`;
-          ctx.fillText(String(i+1),x+5,y+Math.max(12,canvas.width/80));
+      let maskEffect='mosaic';let sending=false;
+      const step=(n,title,desc)=>{
+        const box=elt('section','sowki-mod-step');
+        const header=elt('div','sowki-mod-step-title');
+        header.append(elt('span','sowki-mod-step-n',String(n)),elt('strong','',title));
+        box.append(header,elt('p','sowki-mod-step-help',desc));return box;
+      };
+      const step1=step(1,'Wskaż twarze do ukrycia','Kliknij „Wykryj twarze”, a potem sprawdź każdą osobę na zdjęciu. Pominięte twarze zaznacz ręcznie.');
+      const controls=elt('div','sowki-mod-file-actions sowki-mod-edit-buttons');
+      const auto=elt('button','sowki-mod-auto','🤖 Wykryj twarze');auto.type='button';
+      const manual=elt('button','','✏️ Zaznacz ręcznie');manual.type='button';
+      manual.setAttribute('aria-pressed','false');
+      const reset=elt('button','','🗑️ Usuń wszystkie zaznaczenia');reset.type='button';
+      controls.append(auto,manual,reset);step1.append(controls);
+      const helper=elt('p','sowki-mod-inline-help','💡 Na telefonie: wybierz „Zaznacz ręcznie”, potem przeciągnij palcem po twarzy, obejmując też jej krawędzie.');
+      step1.append(helper);
+      const maskStatus=elt('p','sowki-mod-mask-status','');
+      const maskList=elt('div','sowki-mod-mask-list');
+      const step2=step(2,'Wybierz sposób ukrywania','Domyślnie stosujemy mocną mozaikę. Efekt zobaczysz bezpośrednio na zdjęciu.');
+      const methods=elt('fieldset','sowki-mod-methods');
+      const legend=elt('legend','','Efekt na wybranych obszarach');methods.append(legend);
+      const methodData=[
+        ['mosaic','🟪 Mozaika','Polecana • mocna pikselizacja'],
+        ['blur','🌫️ Rozmycie','Mocne rozmycie na nieodwracalnie spikselizowanym obszarze'],
+        ['solid','⬛ Czarny prostokąt','Całkowite zakrycie']
+      ];
+      for(const [value,title,desc] of methodData){
+        const label=elt('label','sowki-mod-method');
+        const input=elt('input');input.type='radio';input.name='sowki-mod-effect-'+(file.id||'photo');input.value=value;input.checked=value==='mosaic';
+        input.addEventListener('change',()=>{if(!input.checked)return;maskEffect=value;invalidateReview();draw();});
+        const copy=elt('span','');copy.append(elt('strong','',title),elt('small','',desc));
+        label.append(input,copy);methods.append(label);
+      }
+      step2.append(methods);
+      const step3=step(3,'Sprawdź gotowy podgląd','Dokładnie obejrzyj całe zdjęcie. Detektor może pominąć niektóre twarze, zwłaszcza małe lub z profilu.');
+      const review=elt('label','sowki-mod-review');
+      const checkbox=elt('input');checkbox.type='checkbox';checkbox.setAttribute('aria-label','Potwierdzam kontrolę całego zdjęcia przed zapisaniem');
+      const reviewText=elt('span','sowki-mod-review-copy');
+      reviewText.append(elt('strong','','✅ Sprawdziłem całe zdjęcie'),
+        elt('small','','Wszystkie twarze i inne dane wymagające ukrycia są skutecznie zasłonięte. Potwierdzam podgląd przed zapisaniem kopii.'));
+      review.append(checkbox,reviewText);step3.append(review);
+      const step4=step(4,'Zapisz prywatną kopię na OneDrive','Zapis nie oznacza publikacji. Dopiero osobne zatwierdzenie umożliwi zobaczenie zdjęcia rodzicom.');
+      const save=elt('button','primary sowki-mod-save','💾 Zapisz przygotowaną kopię na OneDrive');save.type='button';
+      save.disabled=true;
+      const saveInfo=elt('p','sowki-mod-save-info','🔒 Aby zapisać kopię, zaznacz potwierdzenie w kroku 3.');
+      step4.append(save,saveInfo);
+      const cancel=elt('button','sowki-mod-close','','');cancel.type='button';cancel.textContent='✕ Zamknij edytor';
+      const msg=elt('p','sowki-mod-status','');msg.setAttribute('aria-live','polite');
+      editor.replaceChildren(elt('h4','','🖼️ Edycja zdjęcia: '+file.name),step1,maskStatus,canvas,maskList,step2,step3,step4,cancel,msg);
+      function invalidateReview(){checkbox.checked=false;updateSaveState();}
+      function updateSaveState(){
+        save.disabled=sending||!checkbox.checked;
+        saveInfo.textContent=checkbox.checked?'✅ Potwierdzono kontrolę wzrokową. Możesz zapisać przygotowaną kopię.':
+          '🔒 Aby zapisać kopię, zaznacz potwierdzenie w kroku 3.';
+      }
+      checkbox.addEventListener('change',updateSaveState);
+      // Silne, nieodwracalne redagowanie pikseli. Nie nakładamy jedynie warstwy CSS.
+      // W trybie „rozmycie” najpierw wykonujemy pikselizację, więc nawet przeglądarka
+      // nieobsługująca canvas.filter zapisze zanonimizowaną kopię.
+      function redactRegion(target,m,effect){
+        const W=target.canvas.width,H=target.canvas.height;
+        const x=Math.max(0,Math.floor(m.x*W)),y=Math.max(0,Math.floor(m.y*H));
+        const right=Math.min(W,Math.ceil((m.x+m.w)*W)),bottom=Math.min(H,Math.ceil((m.y+m.h)*H));
+        const w=right-x,h=bottom-y;if(w<1||h<1)return;
+        target.save();target.beginPath();target.rect(x,y,w,h);target.clip();
+        if(effect==='solid'){target.fillStyle='#131313';target.fillRect(x,y,w,h);target.restore();return;}
+        const block=Math.max(10,Math.ceil(Math.min(w,h)/(effect==='blur'?9:6)),Math.ceil(Math.min(W,H)/140));
+        const tiny=document.createElement('canvas');
+        tiny.width=Math.max(1,Math.ceil(w/block));tiny.height=Math.max(1,Math.ceil(h/block));
+        const tinyCtx=tiny.getContext('2d');if(!tinyCtx)throw new Error('Przeglądarka nie obsługuje maskowania.');
+        tinyCtx.imageSmoothingEnabled=true;
+        tinyCtx.drawImage(image,x*image.naturalWidth/W,y*image.naturalHeight/H,
+          w*image.naturalWidth/W,h*image.naturalHeight/H,0,0,tiny.width,tiny.height);
+        target.imageSmoothingEnabled=false;
+        target.drawImage(tiny,x,y,w,h);
+        if(effect==='blur'){
+          const buffer=document.createElement('canvas');buffer.width=w;buffer.height=h;
+          const bctx=buffer.getContext('2d');if(!bctx)throw new Error('Błąd rozmycia.');
+          bctx.imageSmoothingEnabled=false;bctx.drawImage(tiny,0,0,w,h);
+          const radius=Math.max(14,Math.ceil(Math.min(w,h)/4));
+          // Filtr nakładamy dodatkowo NA MOZAIKĘ, nigdy bezpośrednio na oryginalną twarz.
+          if('filter' in target){target.save();target.filter=`blur(${radius}px)`;target.drawImage(buffer,x,y);target.restore();}
         }
-        if(pendingRect){ctx.strokeStyle='#29c9a2';ctx.lineWidth=Math.max(2,canvas.width/500);
-          ctx.strokeRect(pendingRect.x*canvas.width,pendingRect.y*canvas.height,pendingRect.w*canvas.width,pendingRect.h*canvas.height);}
+        target.restore();
+      }
+      function paint(target,includeGuides){
+        const W=target.canvas.width,H=target.canvas.height;
+        target.clearRect(0,0,W,H);target.imageSmoothingEnabled=true;
+        target.drawImage(image,0,0,W,H);
+        for(const [i,m] of masks.entries()){
+          if(!m.active)continue;
+          redactRegion(target,m,maskEffect);
+          if(includeGuides){
+            const x=m.x*W,y=m.y*H,w=m.w*W,h=m.h*H;
+            target.save();target.strokeStyle='#ff2773';target.lineWidth=Math.max(2,W/550);
+            target.setLineDash([Math.max(6,W/150),Math.max(4,W/270)]);
+            target.strokeRect(x,y,w,h);target.setLineDash([]);
+            target.fillStyle='#bf0550';target.fillRect(x,y,Math.max(19,W/55),Math.max(19,W/55));
+            target.fillStyle='#fff';target.font=`bold ${Math.max(12,Math.round(W/80))}px sans-serif`;
+            target.fillText(String(i+1),x+5,y+Math.max(14,W/90));target.restore();
+          }
+        }
+        if(includeGuides&&pendingRect){target.save();target.strokeStyle='#02bb9e';target.lineWidth=Math.max(2,W/500);
+          target.strokeRect(pendingRect.x*W,pendingRect.y*H,pendingRect.w*W,pendingRect.h*H);target.restore();}
+      }
+      function draw(){paint(ctx,true);updateMasks();}
+      function updateMasks(){
+        const active=masks.filter(m=>m.active).length;
+        maskStatus.textContent=active?`🙈 Ukryte obszary: ${active}. Wybrany efekt: ${maskEffect==='mosaic'?'mozaika':maskEffect==='blur'?'rozmycie':'czarne pole'}.`:
+          'ℹ️ Nie zaznaczono żadnej twarzy. Jeśli ktoś wymaga anonimizacji, zaznacz jego twarz przed zapisaniem.';
+        maskList.replaceChildren();
+        if(!masks.length)return;
+        const title=elt('strong','', 'Zaznaczone obszary (możesz usunąć wybrany):');maskList.append(title);
+        masks.forEach((m,i)=>{
+          const item=elt('span','sowki-mod-mask-chip');
+          item.append(elt('span','',`Obszar ${i+1}${m.source==='auto'?' • wykryty':' • ręczny'}`));
+          const remove=elt('button','','✕ Usuń');remove.type='button';
+          remove.setAttribute('aria-label',`Usuń obszar ${i+1}`);
+          remove.addEventListener('click',()=>{masks.splice(i,1);invalidateReview();draw();});
+          item.append(remove);maskList.append(item);
+        });
       }
       const at=(e)=>{const r=canvas.getBoundingClientRect();return {
         x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),
         y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))};};
-      canvas.addEventListener('pointerdown',e=>{if(!drawMode)return;
+      canvas.addEventListener('pointerdown',e=>{if(!drawMode||sending)return;
         e.preventDefault();pointerStart=at(e);canvas.setPointerCapture(e.pointerId);});
-      canvas.addEventListener('pointermove',e=>{if(!drawMode||!pointerStart)return;
+      canvas.addEventListener('pointermove',e=>{if(!drawMode||!pointerStart||sending)return;
         const p=at(e);pendingRect={x:Math.min(p.x,pointerStart.x),y:Math.min(p.y,pointerStart.y),
-          w:Math.abs(p.x-pointerStart.x),h:Math.abs(p.y-pointerStart.y)};draw();});
-      canvas.addEventListener('pointerup',e=>{if(!drawMode||!pointerStart)return;
+          w:Math.abs(p.x-pointerStart.x),h:Math.abs(p.y-pointerStart.y)};paint(ctx,true);});
+      canvas.addEventListener('pointerup',e=>{if(!drawMode||!pointerStart||sending)return;
         const p=at(e);const r={x:Math.min(p.x,pointerStart.x),y:Math.min(p.y,pointerStart.y),
-          w:Math.abs(p.x-pointerStart.x),h:Math.abs(p.y-pointerStart.y),active:true};
-        if(r.w>.01&&r.h>.01)masks.push(r);
+          w:Math.abs(p.x-pointerStart.x),h:Math.abs(p.y-pointerStart.y),active:true,source:'manual'};
+        if(r.w>.007&&r.h>.007){masks.push(r);invalidateReview();}
         pointerStart=null;pendingRect=null;draw();});
-      canvas.addEventListener('click',e=>{if(drawMode)return;
-        const p=at(e);const hit=[...masks].reverse().find(m=>p.x>=m.x&&p.y>=m.y&&p.x<=m.x+m.w&&p.y<=m.y+m.h);
-        if(hit){hit.active=!hit.active;draw();}});
-      manual.onclick=()=>{drawMode=!drawMode;manual.textContent=drawMode?'✅ Zakończ rysowanie':'✏️ Dodaj obszar ręcznie';
-        canvas.classList.toggle('sowki-mod-draw',drawMode);};
-      reset.onclick=()=>{if(!confirm('Usunąć wszystkie maski?'))return;masks=[];draw();checkbox.checked=false;};
-      auto.onclick=async()=>{auto.disabled=true;msg.textContent='🤖 Trwa wykrywanie twarzy lokalnie w Twojej przeglądarce…';
+      canvas.addEventListener('pointercancel',()=>{pointerStart=null;pendingRect=null;draw();});
+      function setDrawMode(value){drawMode=value;manual.textContent=value?'✅ Zakończ zaznaczanie':'✏️ Zaznacz ręcznie';
+        manual.setAttribute('aria-pressed',value?'true':'false');
+        canvas.classList.toggle('sowki-mod-draw',value);
+        helper.textContent=value?'✏️ TRYB ZAZNACZANIA: dotknij zdjęcia i przeciągnij palcem po twarzy. Po zakończeniu kliknij „Zakończ zaznaczanie”.':
+          '💡 Aby dodać maskę, kliknij „Zaznacz ręcznie”. Zaznaczone obszary usuniesz przyciskami pod zdjęciem.';
+      }
+      manual.onclick=()=>setDrawMode(!drawMode);
+      reset.onclick=()=>{if(!masks.length)return;if(!confirm('Usunąć wszystkie zaznaczone obszary?'))return;
+        masks=[];invalidateReview();draw();};
+      auto.onclick=async()=>{
+        if(sending)return;auto.disabled=true;msg.textContent='🤖 Wykrywam twarze na tym urządzeniu…';
         try{
           const detector=await faceDetector();const detections=detector.detect(image).detections||[];
+          // Ponowne wykrycie nie powinno nakładać powielonych masek; ręczne pozostają.
+          masks=masks.filter(m=>m.source!=='auto');
           for(const det of detections){
             const b=det.boundingBox;if(!b)continue;
             const padX=b.width*.22,padY=b.height*.35;
             const x=Math.max(0,(b.originX-padX)/image.naturalWidth),y=Math.max(0,(b.originY-padY)/image.naturalHeight);
             const right=Math.min(1,(b.originX+b.width+padX)/image.naturalWidth),bottom=Math.min(1,(b.originY+b.height+padY)/image.naturalHeight);
-            if(right>x&&bottom>y)masks.push({x,y,w:right-x,h:bottom-y,active:true});
+            if(right>x&&bottom>y)masks.push({x,y,w:right-x,h:bottom-y,active:true,source:'auto'});
           }
-          draw();msg.textContent=`Wykryto ${detections.length} twarzy. Koniecznie sprawdź także pominięte twarze!`;
+          setDrawMode(false);invalidateReview();draw();
+          msg.textContent=`✅ Automatycznie wykryto ${detections.length} twarzy. Sprawdź całe zdjęcie, w tym małe twarze z boku.`;
         }catch(e){msg.textContent='⚠️ Automatyczne wykrywanie jest niedostępne ('+errText(e)+'). Zaznacz twarze ręcznie.';}
         finally{auto.disabled=false;}
       };
-      // Działamy prywatnie na lokalnej kopii; oczekuje na potwierdzenie właściciela.
+      // Kopię zapisujemy dopiero po wyraźnej, osobnej kontroli właściciela.
       save.onclick=async()=>{
-        if(!checkbox.checked){msg.textContent='Zaznacz potwierdzenie kontroli wzrokowej.';return;}
-        if(!confirm('Zapisać NOWĄ wersję zdjęcia na Twoim prywatnym OneDrive? Oryginał pozostanie bez zmian.'))return;
-        save.disabled=true;msg.textContent='Przygotowuję zdjęcie JPG…';
+        if(!checkbox.checked||sending){msg.textContent='Najpierw sprawdź zdjęcie i potwierdź kontrolę w kroku 3.';return;}
+        if(!confirm('Zapisać PRYWATNĄ kopię z trwałą '+(maskEffect==='mosaic'?'mozaiką':maskEffect==='blur'?'mozaiką i rozmyciem':'czarną maską')+' na OneDrive? Oryginał pozostanie bez zmian. Nie opublikujemy jej automatycznie.'))return;
+        sending=true;updateSaveState();msg.textContent='Przygotowuję zdjęcie JPG…';
         try{
-          // Zdjęcie wynikowe NIE zawiera obrysów i numerów masek; tylko trwałe czarne wypełnienia.
           const output=document.createElement('canvas');output.width=canvas.width;output.height=canvas.height;
           const g=output.getContext('2d');if(!g)throw new Error('Błąd eksportu zdjęcia.');
-          g.drawImage(image,0,0,output.width,output.height);
-          const active=masks.filter(m=>m.active);
-          for(const m of active){g.fillStyle='#101010';g.fillRect(m.x*output.width,m.y*output.height,m.w*output.width,m.h*output.height);}
+          paint(g,false); // te same piksele w podglądzie i kopii; bez ramek i numerów
           const prepared=await new Promise((res,rej)=>output.toBlob(b=>b?res(b):rej(new Error('Nie udało się zapisać JPG.')),'image/jpeg',.91));
-          msg.textContent='Przesyłam zatwierdzoną kopię bezpośrednio do OneDrive…';
+          msg.textContent='Przesyłam prywatną kopię bezpośrednio do OneDrive…';
           const session=await invoke('moderation_prepare_session',{album_id:albumId,item_id:file.id,size:prepared.size});
-          let last;
-          const step=Number(session.chunk_size||5*1024*1024);
+          let last;const step=Number(session.chunk_size||5*1024*1024);
           for(let from=0;from<prepared.size;from+=step){
             const end=Math.min(prepared.size,from+step);
             last=await sowkiOneDriveUploadChunk(session.upload_url,prepared.slice(from,end),from,prepared.size,
@@ -218,13 +318,15 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
           const approvedId=String(last?.data?.id||'');
           if(!approvedId||![200,201].includes(last?.status))throw new Error('OneDrive nie potwierdził zapisu kopii.');
           await invoke('moderation_confirm_prepared',{album_id:albumId,source_item_id:file.id,
-            approved_item_id:approvedId,masked_regions_count:active.length,visually_reviewed:true});
-          msg.textContent='✅ Gotowa kopia zapisana wyłącznie na OneDrive! Aby ją pokazać rodzicom, obejrzyj zapisany plik i osobno zatwierdź publikację poniżej.';
+            approved_item_id:approvedId,masked_regions_count:masks.filter(m=>m.active).length,visually_reviewed:true});
+          msg.textContent='✅ Kopia zapisana wyłącznie na OneDrive! Obejrzyj ją osobno przed ewentualną publikacją rodzicom.';
+          URL.revokeObjectURL(tempUrl);tempUrl='';
           await load();
-        }catch(e){msg.textContent='❌ '+errText(e);save.disabled=false;}
+        }catch(e){msg.textContent='❌ '+errText(e);}
+        finally{sending=false;updateSaveState();}
       };
-      cancel.onclick=()=>{editor.hidden=true;editor.replaceChildren();URL.revokeObjectURL(tempUrl);};
-      draw();msg.textContent='Sprawdź fotografię. Spróbuj wykrywania automatycznego, a pominięte twarze zasłoń ręcznie.';
+      cancel.onclick=()=>{if(sending)return;editor.hidden=true;editor.replaceChildren();if(tempUrl)URL.revokeObjectURL(tempUrl);};
+      draw();msg.textContent='Najpierw wykryj twarze, sprawdź zdjęcie i wybierz sposób ukrycia. Mozaika jest domyślna.';
     }catch(e){status.textContent='⚠️ '+errText(e);if(tempUrl)URL.revokeObjectURL(tempUrl);}
   }
 };

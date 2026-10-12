@@ -6511,3 +6511,52 @@ nav > .home .nav-new-dot{
 .sowki-od-lightbox img{max-width:98vw;max-height:80vh;object-fit:contain}
 .sowki-od-lightbox button{align-self:flex-end;padding:9px 18px;border:1px solid #fff;color:#fff;background:#333;border-radius:10px}
 @media(max-width:560px){.sowki-gallery-mod{padding:10px}.sowki-mod-file{align-items:stretch}.sowki-mod-file button{width:100%}.sowki-od-photos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* === Sówki Gallery 2.0 v0.8.28.2: intuicyjna anonimizacja (mozaika / blur / czarne) === */
+#panel .sowki-mod-editor{border-color:#f4bed4;background:#fffdfd;padding:16px}
+#panel .sowki-mod-editor>h4{font-size:1rem;overflow-wrap:anywhere;line-height:1.35}
+#panel .sowki-mod-step{margin:15px 0;padding:13px 14px 15px;border-radius:14px;border:1px solid #e9dfea;background:#fff9fc}
+#panel .sowki-mod-step-title{display:flex;align-items:center;gap:9px;margin-bottom:7px;color:#6b1641;line-height:1.35}
+#panel .sowki-mod-step-title strong{font-size:1.03rem}
+#panel .sowki-mod-step-n{display:inline-flex;justify-content:center;align-items:center;flex:none;border-radius:50%;width:29px;height:29px;background:#d81b60;color:#fff;font-weight:800}
+#panel .sowki-mod-step-help{font-size:.87rem;color:#554854;margin:4px 0 12px}
+#panel .sowki-mod-edit-buttons{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+#panel .sowki-mod-edit-buttons button{min-height:44px;font-size:.85rem}
+#panel .sowki-mod-edit-buttons .sowki-mod-auto{background:#d81b60;color:#fff;border-color:#d81b60}
+#panel .sowki-mod-edit-buttons button[aria-pressed="true"]{background:#107b70;color:#fff;border-color:#107b70}
+#panel .sowki-mod-inline-help{padding:10px 11px;background:#effaf7;color:#165f57;border:1px solid #b9e5db;border-radius:9px;font-size:.84rem;margin:10px 0 0}
+#panel .sowki-mod-mask-status{border:1px solid #c7d7eb;border-radius:9px;background:#eff6ff;padding:9px 11px;font-size:.85rem;color:#1a3f74;margin:12px 0 10px}
+#panel .sowki-mod-mask-list{margin-top:10px;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+#panel .sowki-mod-mask-list>strong{width:100%;font-size:.84rem;color:#483641}
+#panel .sowki-mod-mask-chip{display:inline-flex;align-items:center;gap:6px;background:#fff2f7;border:1px solid #e9bfd1;border-radius:999px;padding:4px 5px 4px 11px;font-size:.8rem;font-weight:650}
+#panel .sowki-mod-mask-chip button{border:0;border-radius:999px;background:#fff;color:#ad134e;min-height:30px;padding:4px 9px;font:inherit;font-weight:800;cursor:pointer}
+#panel .sowki-mod-methods{padding:0;margin:0;border:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:8px;min-width:0}
+#panel .sowki-mod-methods legend{width:100%;font-size:.82rem;font-weight:700;color:#524451;margin:0 0 8px;padding:0}
+#panel .sowki-mod-method{display:flex;align-items:flex-start;gap:9px;padding:11px;cursor:pointer;border:1.5px solid #e7ceda;border-radius:12px;background:#fff;margin:0;font-size:.87rem;min-width:0}
+#panel .sowki-mod-method:has(input:checked){border-color:#d81b60;background:#fff0f6;box-shadow:0 0 0 1px #d81b6036}
+#panel .sowki-mod-method strong{display:block;line-height:1.3;color:#86204b}
+#panel .sowki-mod-method small{display:block;font-weight:400;font-size:.78rem;line-height:1.4;color:#6c626c;margin-top:4px}
+#panel .sowki-mod-method input[type="radio"],
+#panel .sowki-onedrive-beta .sowki-mod-method input[type="radio"]{appearance:auto;width:20px;min-width:20px;max-width:20px;height:20px;min-height:20px;flex:0 0 20px;padding:0;margin:1px 0 0;border:0;accent-color:#d81b60;background:transparent;border-radius:50%}
+#panel .sowki-mod-review,
+#panel .sowki-onedrive-beta .sowki-mod-review{display:flex;flex-direction:row;align-items:flex-start;gap:13px;margin:0;padding:16px;border:2px solid #df9bb8;border-radius:13px;background:#fff;color:#352a31;cursor:pointer;text-align:left}
+#panel .sowki-mod-review:has(input:checked){border-color:#178968;background:#ecfbf5}
+#panel .sowki-mod-review input[type="checkbox"],
+#panel .sowki-onedrive-beta .sowki-mod-review input[type="checkbox"]{appearance:auto!important;position:static!important;display:block!important;width:26px!important;min-width:26px!important;max-width:26px!important;height:26px!important;min-height:26px!important;max-height:26px!important;flex:0 0 26px!important;padding:0!important;margin:1px 0 0!important;border:1px solid #ab6c89!important;border-radius:5px!important;accent-color:#11825c;background:#fff!important;box-shadow:none!important}
+#panel .sowki-mod-review-copy{display:block;min-width:0;font-size:.91rem;line-height:1.45;overflow-wrap:anywhere}
+#panel .sowki-mod-review-copy strong{display:block;color:#7c1844;font-size:1.02rem}
+#panel .sowki-mod-review:has(input:checked) strong{color:#0f6749}
+#panel .sowki-mod-review-copy small{display:block;margin-top:4px;font-weight:450;color:#514550;font-size:.85rem}
+#panel .sowki-mod-editor .sowki-mod-save{display:block;width:100%;min-height:52px;font-size:.95rem;margin:12px 0 6px}
+#panel .sowki-mod-editor .sowki-mod-save:disabled{background:#d8c8d0!important;color:#625960!important;cursor:not-allowed;opacity:1}
+#panel .sowki-mod-save-info{font-size:.84rem;color:#6d5662;margin:7px 0 0}
+#panel .sowki-mod-editor .sowki-mod-close{margin-top:7px;padding:10px 12px;border:1px solid #e4d3de;border-radius:9px;background:white;color:#a21851;cursor:pointer}
+#panel .sowki-mod-editor canvas.sowki-mod-draw{outline:3px solid #00a48a;outline-offset:1px}
+#panel .sowki-mod-status{font-size:.88rem;overflow-wrap:anywhere}
+@media(max-width:540px){
+  #panel .sowki-mod-editor{padding:10px}
+  #panel .sowki-mod-step{padding:11px;margin:12px 0}
+  #panel .sowki-mod-methods{grid-template-columns:1fr}
+  #panel .sowki-mod-edit-buttons button{flex:1 1 100%}
+  #panel .sowki-mod-review{padding:13px;gap:11px}
+}
