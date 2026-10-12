@@ -20,10 +20,37 @@ function richSanitize(html){
  });
  return t.innerHTML;
 }
+function richLinkifyText(html){
+ // Dotyczy tylko adresów w zwykłym tekście. Istniejących hiperłączy nie ruszamy.
+ const tpl=document.createElement("template");tpl.innerHTML=html;
+ const walker=document.createTreeWalker(tpl.content,NodeFilter.SHOW_TEXT);
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ const re=/https?:\/\/[^\s<>"']+/gi;
+ for(const node of nodes){
+   if(node.parentElement?.closest("a"))continue;
+   const value=node.textContent||"";
+   if(!re.test(value)){re.lastIndex=0;continue}
+   re.lastIndex=0;
+   const frag=document.createDocumentFragment();let cursor=0;let m;
+   while((m=re.exec(value))){
+     const full=m[0];const url=full.replace(/[.,;)]+$/g,"");
+     if(!url)continue;
+     frag.appendChild(document.createTextNode(value.slice(cursor,m.index)));
+     const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener noreferrer";
+     a.textContent=url.length>55?"🔗 Otwórz link":url;
+     frag.appendChild(a);
+     frag.appendChild(document.createTextNode(full.slice(url.length)));
+     cursor=m.index+full.length;
+   }
+   frag.appendChild(document.createTextNode(value.slice(cursor)));
+   node.replaceWith(frag);
+ }
+ return tpl.innerHTML;
+}
 function richDisplay(v){
  if(!v)return "";
- if(/<\/?(?:b|strong|i|em|u|br|p|div|ul|ol|li|a|span)\b/i.test(v)) return richSanitize(v);
- return esc(v).replace(/\n/g,"<br>");
+ if(/<\/?(?:b|strong|i|em|u|br|p|div|ul|ol|li|a|span)\b/i.test(v)) return richLinkifyText(richSanitize(v));
+ return richLinkifyText(esc(v).replace(/\n/g,"<br>"));
 }
 
 function notificationPlainText(v){
@@ -55,8 +82,16 @@ function richEditor(name,label,value){
  <button type="button" data-cmd="insertUnorderedList" title="Lista punktowana">• Lista</button>
  <button type="button" data-cmd="insertOrderedList" title="Lista numerowana">1. Lista</button>
  <label class="colorpick" title="Kolor tekstu">🎨<input type="color" value="#d81b60"></label>
- <button type="button" data-link title="Dodaj link">🔗</button>
+ <button type="button" data-link title="Dodaj lub edytuj hiperłącze">🔗 Link</button>
  <button type="button" data-clear title="Usuń formatowanie">Tx</button>
+ </div>
+ <div class="rich-link-panel" hidden role="group" aria-label="Hiperłącze">
+   <div class="rich-link-panel-title">🔗 Dodaj / edytuj link</div>
+   <label>Tekst widoczny w ogłoszeniu<input type="text" class="rich-link-label" maxlength="180" placeholder="np. 📖 Otwórz poradnik"></label>
+   <label>Adres strony<input type="url" class="rich-link-url" inputmode="url" placeholder="https://1drv.ms/..."></label>
+   <p class="rich-link-tip">Rodzic zobaczy tylko tekst, a po dotknięciu otworzy link.</p>
+   <div class="rich-link-actions"><button type="button" class="rich-link-save primary">✓ Wstaw link</button><button type="button" class="rich-link-remove" hidden>Usuń link</button><button type="button" class="rich-link-cancel">Anuluj</button></div>
+   <div class="rich-link-error" role="alert" hidden></div>
  </div>
  <div id="${id}" class="rich-editor" contenteditable="true">${safe}</div>
  <textarea name="${name}" class="rich-hidden" hidden></textarea></div>`;
@@ -110,19 +145,98 @@ function bindRichEditors(){
      };
    }
 
+   // Edycja linku bez prompt() i bez execCommand(createLink): działa też na iOS.
    const link=w.querySelector("[data-link]");
+   const panel=w.querySelector(".rich-link-panel");
+   const labelInput=w.querySelector(".rich-link-label");
+   const urlInput=w.querySelector(".rich-link-url");
+   const removeLink=w.querySelector(".rich-link-remove");
+   const linkError=w.querySelector(".rich-link-error");
+   let editingAnchor=null;
+
+   const anchorAtRange=(range)=>{
+     if(!range)return null;
+     const node=range.startContainer;
+     const el=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+     const a=el?.closest?.("a");
+     return a&&ed.contains(a)?a:null;
+   };
+   const closeLinkPanel=()=>{panel.hidden=true;editingAnchor=null;linkError.hidden=true};
+   const openLinkPanel=(suggestedUrl="")=>{
+     const sel=window.getSelection();
+     if(sel?.rangeCount&&ed.contains(sel.getRangeAt(0).commonAncestorContainer)){
+       savedRange=sel.getRangeAt(0).cloneRange();
+     }
+     editingAnchor=anchorAtRange(savedRange);
+     const selected=editingAnchor?.textContent||savedRange?.toString()?.trim()||"";
+     const selectedLooksUrl=/^(https?:\/\/|www\.)\S+$/i.test(selected);
+     labelInput.value=selectedLooksUrl?"🔗 Otwórz link":selected;
+     urlInput.value=suggestedUrl||editingAnchor?.getAttribute("href")||(selectedLooksUrl?selected:"");
+     removeLink.hidden=!editingAnchor;
+     panel.hidden=false;
+     linkError.hidden=true;
+     link.textContent=editingAnchor?"✏️ Link":"🔗 Link";
+     // Jeśli wybrano tylko tekst, przechodzimy od razu do adresu.
+     (urlInput.value?labelInput:urlInput).focus();
+   };
+   const normalizeLinkUrl=(value)=>{
+     let url=String(value||"").trim();
+     if(/^www\./i.test(url))url="https://"+url;
+     try{
+       const parsed=new URL(url);
+       return /^(https?:)$/.test(parsed.protocol)?parsed.href:null;
+     }catch{return null}
+   };
+   const insertHyperlink=(label,url)=>{
+     const a=document.createElement("a");
+     a.href=url;a.target="_blank";a.rel="noopener noreferrer";
+     a.textContent=label;
+     if(editingAnchor&&ed.contains(editingAnchor)){
+       editingAnchor.replaceWith(a);
+     }else if(savedRange&&ed.contains(savedRange.commonAncestorContainer)){
+       const range=savedRange.cloneRange();
+       range.deleteContents();range.insertNode(a);
+     }else{
+       // Brak zaznaczenia: dołączamy link na końcu opisu.
+       if(ed.lastChild)ed.appendChild(document.createTextNode(" "));
+       ed.appendChild(a);
+     }
+     const range=document.createRange();range.setStartAfter(a);range.collapse(true);
+     const sel=window.getSelection();sel?.removeAllRanges();sel?.addRange(range);
+     savedRange=range.cloneRange();
+     sync();closeLinkPanel();ed.focus();
+   };
    if(link){
+     link.addEventListener("pointerdown",saveSelection);
      link.onmousedown=e=>e.preventDefault();
-     link.onclick=()=>{
-       const u=prompt("Wklej adres linku (https://...)");
-       if(u&&/^https?:\/\//i.test(u)){
-         restoreSelection();
-         document.execCommand("createLink",false,u);
-         sync();
-         saveSelection();
-       }
-     };
+     link.onclick=()=>openLinkPanel();
    }
+   panel.querySelector(".rich-link-save").onclick=()=>{
+     const url=normalizeLinkUrl(urlInput.value);
+     if(!url){linkError.textContent="Wpisz poprawny adres zaczynający się od https://";linkError.hidden=false;urlInput.focus();return}
+     const label=(labelInput.value||"").trim()||"🔗 Otwórz link";
+     insertHyperlink(label,url);
+   };
+   panel.querySelector(".rich-link-cancel").onclick=()=>closeLinkPanel();
+   removeLink.onclick=()=>{
+     if(editingAnchor&&ed.contains(editingAnchor)){
+       editingAnchor.replaceWith(document.createTextNode(editingAnchor.textContent||""));sync();
+     }
+     closeLinkPanel();ed.focus();
+   };
+   // Wklejenie samego URL w treść od razu tworzy czytelny hiperlink.
+   ed.addEventListener("paste",ev=>{
+     const raw=ev.clipboardData?.getData("text/plain")?.trim()||"";
+     if(!/^(https?:\/\/|www\.)\S+$/i.test(raw))return;
+     const url=normalizeLinkUrl(raw);
+     if(!url)return;
+     ev.preventDefault();
+     const sel=window.getSelection();
+     if(sel?.rangeCount&&ed.contains(sel.getRangeAt(0).commonAncestorContainer))savedRange=sel.getRangeAt(0).cloneRange();
+     editingAnchor=anchorAtRange(savedRange);
+     const label=editingAnchor?.textContent||savedRange?.toString()?.trim()||"🔗 Otwórz link";
+     insertHyperlink(label,url);
+   });
 
    const clear=w.querySelector("[data-clear]");
    if(clear){
@@ -1720,6 +1834,7 @@ async function renderStats(options={}){
         <button type="button" data-stats-tab="summary" ${statsDashboardState.tab==="summary"?'class="active"':""}>📊 Podsumowanie</button>
         <button type="button" data-stats-tab="traffic" ${statsDashboardState.tab==="traffic"?'class="active"':""}>👁️ Oglądalność</button>
         <button type="button" data-stats-tab="sowki" ${statsDashboardState.tab==="sowki"?'class="active"':""}>${sowkiAppOwlIcon("sowki-app-owl-stat-tab")} Sówki</button>
+        <button type="button" data-stats-tab="push" ${statsDashboardState.tab==="push"?'class="active"':""}>🔔 PUSH</button>
       </div>
 
       <div id="statsContent"><div class="stats-loading">Ładowanie statystyk…</div></div>
@@ -1742,11 +1857,12 @@ async function renderStats(options={}){
   };
 
   const args={p_from:range.from,p_to:range.to};
-  const [kpiRes,pageRes,dailyRes,sowkaRes]=await Promise.all([
+  const [kpiRes,pageRes,dailyRes,sowkaRes,pushRes]=await Promise.all([
     sb.rpc("get_stats_kpis_v2",args),
     sb.rpc("get_page_view_stats_v2",args),
     sb.rpc("get_device_activity_daily_v2",args),
-    sb.rpc("get_sowka_dashboard_v2",args)
+    sb.rpc("get_sowka_dashboard_v2",args),
+    sb.rpc("get_push_device_stats_v1")
   ]);
 
   const errors=[kpiRes,pageRes,dailyRes,sowkaRes].map(x=>x.error).filter(Boolean);
@@ -1763,6 +1879,12 @@ async function renderStats(options={}){
   const activeDevices=Number(kpi.active_devices)||0;
   const knownDevices=Number(kpi.known_devices)||0;
   const sowkaActions=Number(kpi.sowka_actions)||0;
+  // Status PUSH to ostatni stan POTWIERDZONY przez przeglądarkę, nie gwarancja dostarczenia.
+  const pushInfo=pushRes?.error?null:pushRes?.data;
+  const pushEnabled=Number(pushInfo?.enabled||0);
+  const pushChecked=Number(pushInfo?.recent||0);
+  const pushUnconfirmed=Math.max(0,knownDevices-pushChecked);
+  const pushRate=knownDevices?Math.min(100,Math.round(100*pushEnabled/knownDevices)):0;
 
   const pageMap=new Map(pageRows.map(x=>[String(x.page),x]));
   const orderedPages=STATS_PAGES.map(([page,label,icon])=>({page,label,icon,...(pageMap.get(page)||{views:0,unique_devices:0})}));
@@ -1775,6 +1897,7 @@ async function renderStats(options={}){
     ${statsKpi("📲","Znane urządzenia",knownDevices.toLocaleString("pl-PL"),"od uruchomienia identyfikacji")}
     ${statsKpi("👁️","Wejścia do działów",pageViews.toLocaleString("pl-PL"),"maks. 1× / dział / 24 h / urządzenie")}
     ${statsKpi(sowkiAppOwlIcon("sowki-app-owl-kpi"),"Sówki w okresie",sowkaActions.toLocaleString("pl-PL"),"oznaczenia „Przeczytane”")}
+    ${statsKpi("🔔","PUSH włączone",pushInfo?pushEnabled.toLocaleString("pl-PL"):"—",pushInfo?`${pushRate}% znanych urządzeń`:"wymaga konfiguracji SQL")}
   </div>`;
 
   if(statsDashboardState.tab==="summary"){
@@ -1807,6 +1930,28 @@ async function renderStats(options={}){
         <div class="stats-daily-scroll">${daily.slice().reverse().map(x=>`<div class="stats-daily-row"><time>${esc(statsDateLabel(x.day))}</time><span>📱 <b>${Number(x.active_devices||0).toLocaleString("pl-PL")}</b> urządzeń</span><span>👁️ <b>${Number(x.views||0).toLocaleString("pl-PL")}</b> wejść</span></div>`).join("")||`<div class="admin-empty">Brak danych.</div>`}</div>
       </section>
       <p class="stats-note">ℹ️ „Urządzenia” oznaczają anonimowe instalacje/przeglądarki. Ten sam rodzic używający telefonu i komputera będzie widoczny jako dwa urządzenia. Wyczyszczenie danych przeglądarki może utworzyć nowy anonimowy identyfikator.</p>`;
+  }else if(statsDashboardState.tab==="push"){
+    const platformRows=Array.isArray(pushInfo?.platforms)?pushInfo.platforms:[];
+    q("#statsContent").innerHTML=pushInfo?`
+      ${kpis}
+      <section class="stats-section stats-push-summary">
+        <div class="stats-section-title"><h4>🔔 Powiadomienia PUSH – znane urządzenia</h4><span>stan potwierdzony</span></div>
+        <div class="stats-push-meter" role="img" aria-label="${pushRate}% znanych urządzeń z potwierdzonym PUSH"><span style="width:${pushRate}%"></span></div>
+        <div class="stats-push-rate"><strong>${pushRate}%</strong><span>z ${knownDevices.toLocaleString("pl-PL")} znanych urządzeń</span></div>
+        <div class="stats-push-grid">
+          ${statsKpi("✅","PUSH włączone",pushEnabled.toLocaleString("pl-PL"),"potwierdzone w ostatnich 30 dniach")}
+          ${statsKpi("🔕","PUSH wyłączone",Number(pushInfo.disabled||0).toLocaleString("pl-PL"),"odmowa lub brak subskrypcji")}
+          ${statsKpi("📱","Bez instalacji PWA",Number(pushInfo.install_required||0).toLocaleString("pl-PL"),"np. iPhone w przeglądarce")}
+          ${statsKpi("⚠️","Brak obsługi",Number(pushInfo.unsupported||0).toLocaleString("pl-PL"),"przeglądarka bez PUSH")}
+          ${statsKpi("❔","Brak aktualnego potwierdzenia",pushUnconfirmed.toLocaleString("pl-PL"),"nie oznacza, że PUSH jest wyłączony")}
+        </div>
+      </section>
+      <section class="stats-section">
+        <div class="stats-section-title"><h4>Urządzenia z PUSH według systemu</h4><span>ostatnie 30 dni</span></div>
+        <div class="stats-push-platforms">${platformRows.map(x=>`<div class="stats-push-platform"><span>${x.platform==="ios"?"🍏 iOS":x.platform==="android"?"🤖 Android":"💻 Pozostałe"}</span><b>${Number(x.enabled||0).toLocaleString("pl-PL")} włączone</b><small>${Number(x.checked||0).toLocaleString("pl-PL")} sprawdzonych</small></div>`).join("")||`<div class="admin-empty">Urządzenia będą pojawiać się po otwarciu nowej wersji aplikacji.</div>`}</div>
+      </section>
+      <p class="stats-note">ℹ️ Dane dotyczą anonimowych instalacji/przeglądarek, a nie konkretnych rodziców. Status odczytujemy z uprawnień i subskrypcji telefonu podczas korzystania z Sówek (maksymalnie raz na dobę lub po zmianie). Urządzenia bez raportu oraz bez potwierdzenia przez 30 dni nie są uznawane za aktywne PUSH. Przy wyłączonych powiadomieniach i nieotwieranej aplikacji status może być nieaktualny. Aktualne zestawienie obejmuje wszystkie znane urządzenia – niezależnie od filtra dat powyżej.</p>
+    `:`<div class="admin-order-warning"><b>⚠️ Najpierw uruchom prywatny skrypt SQL v0.8.26.</b><br>${esc(pushRes?.error?.message||"Nie udało się pobrać statystyk PUSH.")}</div>`;
   }else{
     q("#statsContent").innerHTML=`
       ${kpis}
@@ -5360,17 +5505,51 @@ function setPushButtonState(state){
  btn.textContent="🔔 Włącz powiadomienia";
 }
 
+// ECO PUSH: raportujemy tylko stan własnego urządzenia, bez danych osobowych,
+// maks. 1 raz na dobę (lub niezwłocznie po zmianie). Nie zapisujemy endpointu PUSH.
+const SOWKI_PUSH_REPORT_KEY="sowki_push_state_report_v0826";
+let sowkiPushReportBusy=false;
+function sowkiPushPlatform(){
+  const ua=navigator.userAgent||"";
+  if(/iphone|ipad|ipod/i.test(ua)||(/Macintosh/i.test(ua)&&navigator.maxTouchPoints>1))return "ios";
+  if(/android/i.test(ua))return "android";
+  return "other";
+}
+async function sowkiReportPushStatus(status){
+  if(sowkiPushReportBusy||!navigator.onLine)return;
+  const deviceToken=sowkiDeviceToken();
+  if(!deviceToken)return;
+  const platform=sowkiPushPlatform();
+  const now=Date.now();
+  try{
+    const old=JSON.parse(localStorage.getItem(SOWKI_PUSH_REPORT_KEY)||"null");
+    if(old?.status===status&&old?.platform===platform&&now-Number(old.at||0)<24*60*60*1000)return;
+  }catch{}
+  sowkiPushReportBusy=true;
+  try{
+    const {error}=await sb.rpc("report_push_device_status",{
+      p_device_token:deviceToken,p_status:status,p_platform:platform
+    });
+    if(!error){
+      try{localStorage.setItem(SOWKI_PUSH_REPORT_KEY,JSON.stringify({status,platform,at:Date.now()}))}catch{}
+    }else console.debug("Statystyki PUSH: konfiguracja niedostępna",error.message);
+  }catch(error){console.debug("Statystyki PUSH: raport odłożony",error)}
+  finally{sowkiPushReportBusy=false}
+}
+
 async function refreshPushStatus(){
  const btn=q("#enablePush");
  if(!btn)return;
 
  if(!("Notification" in window)||!("PushManager" in window)){
    setPushButtonState("unsupported");
+   void sowkiReportPushStatus("unsupported");
    return;
  }
 
  if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!isStandalone()){
    setPushButtonState("install");
+   void sowkiReportPushStatus("install_required");
    return;
  }
 
@@ -5385,11 +5564,14 @@ async function refreshPushStatus(){
    // 2) istnieje aktywna subskrypcja PUSH
    if(Notification.permission==="granted"&&sub){
      setPushButtonState("enabled");
+     void sowkiReportPushStatus("enabled");
    }else{
      setPushButtonState("off");
+     void sowkiReportPushStatus("disabled");
    }
  }catch{
    setPushButtonState("off");
+   // Bez prawidłowego odczytu nie zgadujemy stanu PUSH.
  }
 }
 

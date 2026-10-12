@@ -1,19 +1,16 @@
-SÓWKI PWA v0.8.25 ECO Live + Backup Manager
-============================================
-Pliki w tym archiwum są przeznaczone na GitHub Pages.
+SÓWKI PWA v0.8.26 ECO Live + Hiperłącza + Statystyki PUSH
+======================================================
+Pliki w tym folderze są przeznaczone do GitHub Pages.
 
-Nowa zakładka w panelu administratora: 🛡️ Kopie zapasowe + Kosz.
-Wdrożenie WYMAGA dodatkowo prywatnego pakietu Supabase (osobny ZIP).
-Przed publikacją należy skonfigurować kopie, harmonogram SQL, hasło
-w Supabase Edge Function Secrets i funkcję serwerową sowki-backup.
+1. Najpierw uruchom na Supabase prywatny skrypt SQL
+   01_STATYSTYKI_PUSH_v0826.sql (osobny pakiet PRYWATNE).
+2. Dopiero potem opublikuj tę aplikację na GitHub.
+3. Na iOS/Android uruchom Sówki ponownie, żeby pobrać nową wersję.
+4. Administracja > Statystyki > zakładka PUSH.
+5. Administracja > treści opisowe > przycisk 🔗 Link.
 
-Dla 300 rodziców: ten moduł nie dodaje cyklicznych żądań do aplikacji
-rodziców. Działa w panelu administratora i w zaplanowanych zadaniach SQL.
+Bez zmian w istniejących ustawieniach Cloudflare, R2, backupach,
+wysyłaniu i odbiorze powiadomień PUSH, logowaniu i treści wpisów.
 
-Ważne: od tej wersji zdjęcia R2 i Supabase Storage nie są fizycznie kasowane
-przy usuwaniu wpisów czy podmianie zdjęć — pozwala to odzyskiwać stare
-referencje ze snapshotów. To nie jest oddzielna kopia binarna mediów.
-Monitoruj zużycie przestrzeni w Cloudflare R2 i Supabase Storage.
-
-Jeżeli panel pokazuje "System kopii nie jest jeszcze gotowy", sprawdź
-prywatny plik INSTRUKCJA_WDROZENIA.txt oraz dzienniki funkcji Supabase.
+UWAGA: statystyki PUSH zbierają się od momentu wdrożenia wersji v0.8.26.
+Nie można określić historycznych stanów urządzeń bez ich ponownego wejścia.

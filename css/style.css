@@ -6429,3 +6429,29 @@ nav > .home .nav-new-dot{
 .sowki-backup-trash-row>span{min-width:0;overflow-wrap:anywhere}
 .sowki-backup-trash-row small{display:block;margin-top:4px;color:#6c7184;font-size:.78rem}
 .sowki-backup-trash-row button{flex-shrink:0}
+
+
+/* v0.8.26 — czytelne linki w panelu i we wszystkich wpisach */
+.rich-link-panel[hidden],.rich-link-error[hidden],.rich-link-remove[hidden]{display:none!important}
+.rich-link-panel{padding:12px;background:#fff9fc;border-bottom:1px solid #eadde3;display:grid;gap:6px}
+.rich-link-panel-title{font-size:13px;font-weight:900;color:#b91852}
+.rich-link-panel label{margin:4px 0 0;font-size:12px}
+.rich-link-panel input{margin-top:4px;min-width:0;font-size:14px;background:#fff}
+.rich-link-tip{font-size:11px;color:#665d63;margin:3px 0 0}
+.rich-link-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.rich-link-actions button{padding:8px 11px;border:1px solid #ecd5df;border-radius:9px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;background:white}
+.rich-link-actions .rich-link-save{background:#d81b60;border-color:#d81b60;color:#fff}
+.rich-link-error{color:#a5192a;font-size:12px}
+.rich-editor,.rich-editor *,#notices .item,#events .item,#announcements .item,.rich-content,.rich-content *{overflow-wrap:anywhere;word-break:normal;min-width:0}
+.rich-editor a,.rich-content a,.item a,#notices a,#events a,#announcementsPage a{color:#b61452;text-decoration:underline;text-underline-offset:3px;font-weight:750;overflow-wrap:anywhere;word-break:break-word}
+.rich-editor a:hover,.item a:hover,.rich-content a:hover{color:#861039}
+/* Statystyki anonimowych zgód PUSH */
+.stats-push-meter{height:13px;background:#eee5ea;border-radius:999px;overflow:hidden;margin:12px 0 8px}
+.stats-push-meter>span{display:block;background:linear-gradient(90deg,#32a873,#17814d);height:100%;border-radius:999px}
+.stats-push-rate{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;color:#75646d}
+.stats-push-rate strong{font-size:29px;color:#17814d}
+.stats-push-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.stats-push-platforms{display:grid;gap:6px}
+.stats-push-platform{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border-radius:10px;background:#fff7fa;border:1px solid #f0e2e9;font-size:12px}
+.stats-push-platform b{margin-left:auto}.stats-push-platform small{color:#88767f}
+@media(max-width:460px){.stats-push-grid{grid-template-columns:1fr}.stats-push-platform{flex-wrap:wrap}}
