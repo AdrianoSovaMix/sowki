@@ -2485,6 +2485,9 @@ async function render(table,id){
   q("#f").onsubmit=save;
   bindRichEditors();
   bindNotificationScheduleFields();
+  // OneDrive: panel prywatnego przesyłania tylko w zakładce administratora Galeria.
+  // Na brak połączenia / uprawnień nie blokujemy dotychczasowego edytora.
+  if(table==="gallery_albums")void sowkiOneDriveMount();
 
   qa("[data-e]").forEach(b=>b.onclick=()=>render(table,b.dataset.e));
 
@@ -6302,3 +6305,205 @@ async function renderSowkiBackupAdmin(){
   };
 }
 /* ====================================================================== */
+
+
+/* SÓWKI v0.8.27 BETA – OneDrive Upload: właściciel łączy konto,
+   administratorzy z listy serwerowej wysyłają oryginały WYŁĄCZNIE do prywatnego
+   01_DO_WERYFIKACJI. Galeria rodziców i R2 pozostają bez zmian. */
+async function sowkiOneDriveInvoke(action, params={}){
+  const {data,error}=await sb.functions.invoke('sowki-onedrive',{body:{action,...params}});
+  if(error){
+    const detail=await error.context?.json?.().catch(()=>null);
+    throw new Error(detail?.error||error.message||'Nie udało się skontaktować z OneDrive.');
+  }
+  if(data?.error)throw new Error(data.error);
+  return data;
+}
+function sowkiOneDrivePrettySize(bytes){
+  const m=Number(bytes)/1048576;
+  return m>=1?m.toFixed(1).replace('.',',')+' MB':(Number(bytes)/1024).toFixed(0)+' KB';
+}
+function sowkiOneDriveUploadChunk(uploadUrl,blob,start,total,onProgress){
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open('PUT',uploadUrl,true);
+    xhr.timeout=120000;
+    xhr.setRequestHeader('Content-Range',`bytes ${start}-${start+blob.size-1}/${total}`);
+    xhr.setRequestHeader('Content-Type','application/octet-stream');
+    xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress?.(start+e.loaded);};
+    xhr.onerror=()=>reject(new Error('Nie udało się wysłać zdjęcia do Microsoft (połączenie sieciowe lub CORS).'));
+    xhr.ontimeout=()=>reject(new Error('Upłynął limit czasu przesyłania fragmentu zdjęcia.'));
+    xhr.onload=()=>{
+      if(![200,201,202].includes(xhr.status)){
+        let errorText=`Microsoft OneDrive odrzucił fragment (${xhr.status}).`;
+        try{const data=JSON.parse(xhr.responseText);if(data?.error?.message)errorText+=' '+String(data.error.message).slice(0,160);}catch{}
+        reject(new Error(errorText));return;
+      }
+      let answer={};try{answer=JSON.parse(xhr.responseText||'{}');}catch{}
+      resolve({status:xhr.status,data:answer});
+    };
+    // URL sesji jest preautoryzowany – NIE przesyłaj na niego tokenu Microsoft.
+    xhr.send(blob);
+  });
+}
+async function sowkiOneDriveSendFile(file,albumId,report){
+  const supported=/\.(jpe?g|png|webp|heic|heif)$/i;
+  if(!supported.test(file.name))throw new Error('Nieobsługiwany format: '+file.name);
+  if(!file.size||file.size>45*1024*1024)throw new Error('Limit zdjęcia to 45 MB: '+file.name);
+  const session=await sowkiOneDriveInvoke('create_upload_session',{
+    album_id:albumId,name:file.name,size:file.size
+  });
+  if(!session?.upload_url||!session.upload_url.startsWith('https://'))throw new Error('Brak sesji OneDrive.');
+  const step=Number(session.chunk_size||5*1024*1024);
+  let response;
+  for(let from=0;from<file.size;from+=step){
+    const end=Math.min(file.size,from+step);
+    response=await sowkiOneDriveUploadChunk(session.upload_url,file.slice(from,end),from,file.size,
+      sent=>report(sent,file.size));
+    if(end<file.size&&response.status!==202)throw new Error('OneDrive przedwcześnie zakończył wysyłkę.');
+    report(end,file.size);
+  }
+  if(!response||![200,201].includes(response.status))throw new Error('OneDrive nie potwierdził zapisu całego zdjęcia.');
+  const id=String(response.data?.id||'');
+  if(id){
+    const proof=await sowkiOneDriveInvoke('confirm_upload',{album_id:albumId,item_id:id});
+    if(!proof?.ok)throw new Error('Nie udało się potwierdzić zdjęcia na OneDrive.');
+  }
+  return {name:String(response.data?.name||session.file_name||file.name),verified:!!id};
+}
+async function sowkiOneDriveMount(){
+  const editor=q('#editor');
+  if(!editor||editor.dataset.table!=='gallery_albums')return;
+  let status;
+  try{status=await sowkiOneDriveInvoke('status');}catch{return;}
+  if(!editor.isConnected||editor.dataset.table!=='gallery_albums')return;
+  const box=document.createElement('section');
+  box.className='sowki-onedrive-beta';
+  const owner=!!status.is_owner;
+  box.innerHTML=`
+    <div class="sowki-onedrive-heading"><div><h3>☁️ Prześlij zdjęcia do OneDrive</h3>
+      <p>Oryginały trafią do prywatnego folderu. <strong>Nie będą widoczne dla rodziców</strong>, dopóki właściciel ich nie przygotuje i nie udostępni.</p></div>
+      <span class="sowki-onedrive-pill">BETA</span></div>
+    <p id="sowkiOneDriveInfo" class="sowki-onedrive-info" aria-live="polite"></p>
+    ${owner?`<details class="sowki-onedrive-account"><summary>🔐 Połączenie konta właściciela</summary>
+      <div class="sowki-onedrive-actions">
+        <button type="button" id="sowkiOneDriveConnect">${status.connected?'Połącz ponownie':'Połącz osobisty OneDrive'}</button>
+        <button type="button" id="sowkiOneDriveTest">🔄 Testuj połączenie</button>
+      </div></details>`:''}
+    <div id="sowkiOneDriveUploadArea" ${status.connected?'':'hidden'}>
+      <label for="sowkiOneDriveAlbum">📁 Wybierz folder zdjęć</label>
+      <div class="sowki-onedrive-folder-row"><select id="sowkiOneDriveAlbum" aria-label="Album do przesłania zdjęć"><option value="">Ładowanie albumów…</option></select>
+        <button type="button" id="sowkiOneDriveReload" title="Odśwież foldery">↻</button></div>
+      <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Nazwa nowego albumu, np. Dzień Chłopaka" aria-label="Nazwa nowego albumu">
+        <button type="button" id="sowkiOneDriveCreate">➕ Utwórz</button></div>
+      <label for="sowkiOneDriveFiles">📸 Wybierz gotowe zdjęcia z telefonu lub komputera</label>
+      <input type="file" id="sowkiOneDriveFiles" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif">
+      <p class="sowki-onedrive-note" id="sowkiOneDriveSelected">Możesz wybrać wiele zdjęć. Limit: 60 na raz, 45 MB na zdjęcie.</p>
+      <button type="button" id="sowkiOneDriveUpload" class="primary" disabled>☁️ Prześlij do OneDrive</button>
+      <div id="sowkiOneDriveProgressArea" class="sowki-onedrive-progress" hidden><p id="sowkiOneDriveProgressText" aria-live="polite"></p>
+        <progress id="sowkiOneDriveProgress" max="100" value="0"></progress></div>
+      <div id="sowkiOneDriveResult" role="status" class="sowki-onedrive-result" aria-live="polite"></div>
+    </div>
+    <p class="sowki-onedrive-note">Folder OneDrive: <b>Sówki / 01_DO_WERYFIKACJI</b>. Z panelu nie można usuwać plików ani publikować ich rodzicom. Podczas wysyłania nie zamykaj aplikacji.</p>`;
+  editor.prepend(box);
+  const info=box.querySelector('#sowkiOneDriveInfo');
+  const setInfo=t=>{info.textContent=t;};
+  setInfo(status.connected?`✅ Połączono z OneDrive${owner&&status.display_name?': '+status.display_name:''}.`:'🔐 OneDrive nie jest jeszcze połączony.');
+  if(owner){
+    const connect=box.querySelector('#sowkiOneDriveConnect');
+    connect.onclick=async()=>{
+      connect.disabled=true;setInfo('Rozpoczynam bezpieczne logowanie Microsoft…');
+      try{
+        const r=await sowkiOneDriveInvoke('start');
+        if(!r.url||!r.url.startsWith('https://login.microsoftonline.com/consumers/'))throw new Error('Nieprawidłowy adres logowania.');
+        location.assign(r.url);
+      }catch(e){setInfo('⚠️ '+e.message);connect.disabled=false;}
+    };
+    const test=box.querySelector('#sowkiOneDriveTest');
+    test.onclick=async()=>{
+      test.disabled=true;setInfo('Sprawdzam odnawianie OneDrive…');
+      try{const r=await sowkiOneDriveInvoke('test');setInfo('✅ Odnowienie połączenia działa: '+(r.drive_name||'OneDrive'));}
+      catch(e){setInfo('⚠️ '+e.message);}finally{test.disabled=false;}
+    };
+  }
+  if(!status.connected)return;
+  const select=box.querySelector('#sowkiOneDriveAlbum');
+  const fileInput=box.querySelector('#sowkiOneDriveFiles');
+  const selected=box.querySelector('#sowkiOneDriveSelected');
+  const upload=box.querySelector('#sowkiOneDriveUpload');
+  const reload=box.querySelector('#sowkiOneDriveReload');
+  const create=box.querySelector('#sowkiOneDriveCreate');
+  const folderName=box.querySelector('#sowkiOneDriveNewAlbum');
+  const result=box.querySelector('#sowkiOneDriveResult');
+  const progressArea=box.querySelector('#sowkiOneDriveProgressArea');
+  const progress=box.querySelector('#sowkiOneDriveProgress');
+  const progressText=box.querySelector('#sowkiOneDriveProgressText');
+  let busy=false;
+  function validateSelection(){
+    const files=[...fileInput.files];
+    const invalid=files.find(f=>!/(jpe?g|png|webp|heic|heif)$/i.test(f.name.split('.').pop()||'')||!f.size||f.size>45*1024*1024);
+    const total=files.reduce((n,f)=>n+f.size,0);
+    if(invalid)selected.textContent='⚠️ Nieobsługiwany plik lub przekracza 45 MB: '+invalid.name;
+    else selected.textContent=files.length?`${files.length} zdjęć • ${sowkiOneDrivePrettySize(total)} łącznie`:'Możesz wybrać wiele zdjęć. Limit: 60 na raz, 45 MB na zdjęcie.';
+    upload.disabled=busy||!select.value||!files.length||files.length>60||!!invalid;
+    if(files.length>60)selected.textContent='⚠️ W jednej partii można przesłać maksymalnie 60 zdjęć.';
+  }
+  select.onchange=validateSelection;
+  fileInput.onchange=validateSelection;
+  async function refreshAlbums(preferred=''){
+    reload.disabled=true;select.disabled=true;
+    try{
+      const data=await sowkiOneDriveInvoke('list_albums');
+      select.replaceChildren();
+      const empty=document.createElement('option');empty.value='';empty.textContent='— Wybierz album —';select.append(empty);
+      (data.albums||[]).forEach(a=>{const o=document.createElement('option');o.value=String(a.id);o.textContent=String(a.name);select.append(o);});
+      if(preferred&&[...select.options].some(x=>x.value===preferred))select.value=preferred;
+      else if(select.options.length===2)select.selectedIndex=1;
+      result.textContent=select.options.length<2?'Utwórz pierwszy album, aby dodawać zdjęcia.':'';
+    }catch(e){result.textContent='⚠️ '+e.message;}
+    finally{reload.disabled=false;select.disabled=false;validateSelection();}
+  }
+  reload.onclick=()=>refreshAlbums(select.value);
+  create.onclick=async()=>{
+    if(busy)return;
+    const name=folderName.value.trim();
+    if(name.length<3){result.textContent='Wpisz nazwę albumu (co najmniej 3 znaki).';return;}
+    create.disabled=true;result.textContent='Tworzenie folderu na OneDrive…';
+    try{const r=await sowkiOneDriveInvoke('create_album',{name});folderName.value='';await refreshAlbums(String(r.album.id));result.textContent='✅ Album jest gotowy.';}
+    catch(e){result.textContent='⚠️ '+e.message;}
+    finally{create.disabled=false;}
+  };
+  upload.onclick=async()=>{
+    validateSelection();if(upload.disabled||busy)return;
+    const files=[...fileInput.files];const albumId=select.value;
+    if(!albumId||!files.length)return;
+    busy=true;[select,fileInput,upload,reload,create,folderName].forEach(e=>e.disabled=true);
+    progressArea.hidden=false;result.textContent='';progress.value=0;
+    let success=0;const failures=[];
+    const total=files.reduce((n,f)=>n+f.size,0);let committed=0;
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
+      const update=(sent)=>{
+        const percent=Math.min(100,Math.floor((committed+sent)/Math.max(1,total)*100));
+        progress.value=percent;
+        progressText.textContent=`Zdjęcie ${i+1} z ${files.length}: ${file.name} • ${percent}%`;
+      };
+      try{
+        update(0);
+        const response=await sowkiOneDriveSendFile(file,albumId,update);
+        if(!response.verified)failures.push(`${file.name}: przesłano, ale brak pełnego potwierdzenia – sprawdź folder w OneDrive.`);
+        else success++;
+      }catch(e){failures.push(`${file.name}: ${e.message}`);}
+      committed+=file.size;progress.value=Math.floor(committed/Math.max(1,total)*100);
+    }
+    progressText.textContent='Zakończono wysyłanie.';
+    result.replaceChildren();
+    const first=document.createElement('p');first.textContent=`✅ Potwierdzono: ${success}/${files.length} zdjęć. ${failures.length?'Wymagają uwagi: '+failures.length+'.':'Wszystkie w prywatnym OneDrive.'}`;result.append(first);
+    if(failures.length){const ul=document.createElement('ul');failures.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.append(li);});result.append(ul);}
+    busy=false;[select,fileInput,reload,create,folderName].forEach(e=>e.disabled=false);
+    if(!failures.length)fileInput.value='';
+    validateSelection();
+  };
+  await refreshAlbums();
+}
+
