@@ -1,4 +1,4 @@
-const C="sowki-v08284-faces-multiscale";const A=["./","index.html","css/style.css?v=08282mosaic","js/config.js?v=0826","js/app.js?v=0828gallery","js/onedrive-gallery.js?v=08284multiscale","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v08285-manual-mosaic";const A=["./","index.html","css/style.css?v=08285manual","js/config.js?v=0826","js/app.js?v=0828gallery","js/onedrive-gallery.js?v=08285manual","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>{
   e.waitUntil((async()=>{
     const c=await caches.open(C);

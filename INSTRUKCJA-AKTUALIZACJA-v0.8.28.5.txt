@@ -1,0 +1,34 @@
+SÓWKI v0.8.28.5 – tylko ręczne zaznaczanie + mocna mozaika
+===========================================================
+
+WERSJA AKTUALIZACYJNA GITHUB (bez zmian Supabase):
+1. Zapisz kopię dotychczasowej aplikacji (Code → Download ZIP na GitHub).
+2. Rozpakuj ZIP i wgraj do głównego katalogu repozytorium,
+   NADPISUJĄC dokładnie cztery pliki z zachowaniem ścieżek:
+   - index.html
+   - sw.js
+   - js/onedrive-gallery.js
+   - css/style.css
+3. Poczekaj, aż GitHub Actions pomyślnie zakończy publikację.
+4. Zamknij i ponownie uruchom Sówki na telefonie.
+5. Administrator → Galeria → Sprawdź i przygotuj.
+
+EDYTOR:
+- Wykrywanie twarzy/MediaPipe całkowicie usunięte z frontendu.
+- Zaznaczanie jest włączone automatycznie po otwarciu fotografii.
+- Przeciągaj palcem (lub myszą) po twarzy – od jednego rogu do przeciwnego.
+- Jedyny efekt: silna, trwale zapisywana w JPG mozaika.
+- Można cofnąć ostatnią mozaikę, usunąć pojedynczą lub wszystkie.
+- Następnie zaznacz wyraźne potwierdzenie w kroku 2 i zapisz kopię
+  w kroku 3. Zapisywanie na OneDrive nie oznacza publikacji.
+- Kopię trzeba osobno obejrzeć i zatwierdzić przed pokazaniem rodzicom.
+
+NIE ZMIENIAMY: Supabase SQL/Edge Functions, Microsoft Entra,
+OneDrive, Backupu, Cloudflare R2 i starej galerii rodziców.
+Wszystkie nowe zdjęcia pozostają WYŁĄCZNIE na OneDrive.
+
+UWAGA: To BETA. Przed opublikowaniem zdjęć dzieci sprawdź dokładnie
+każdą twarz, w tym osoby w tle i z profilu. Mozaika wymaga pełnego
+objęcia twarzy, aby ograniczyć możliwość identyfikacji. Nie można
+przywrócić anonimowości starym zatwierdzonym plikom automatycznie:
+trzeba przygotować nową kopię i sprawdzić status opublikowania starej.
