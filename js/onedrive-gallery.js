@@ -10,13 +10,31 @@ const invoke=async(action,p={})=>await sowkiOneDriveInvoke(action,p);
 let detectorPromise=null;
 async function faceDetector(){
   if(!detectorPromise)detectorPromise=(async()=>{
-    const version='0.10.22';
-    const lib=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${version}/+esm`);
-    const resolver=await lib.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${version}/wasm`);
-    return await lib.FaceDetector.createFromOptions(resolver,{
-      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},
-      runningMode:'IMAGE',minDetectionConfidence:.4
-    });
+    // v0.8.28.3: "0.10.22" bez sufiksu -rc nie jest prawidłowym wydaniem.
+    // Wczytuj prawdziwy plik ESM (bez generowanego +esm) i zachowaj zapasowe CDN.
+    // Zdjęcia przetwarzane są lokalnie w przeglądarce; do CDN idzie wyłącznie kod/WASM.
+    const version='0.10.32';
+    const roots=[
+      `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${version}`,
+      `https://unpkg.com/@mediapipe/tasks-vision@${version}`
+    ];
+    const failures=[];
+    for(const root of roots){
+      try{
+        const imported=await import(/* webpackIgnore: true */ `${root}/vision_bundle.mjs`);
+        const lib=imported.FaceDetector?imported:imported.default;
+        if(!lib?.FaceDetector||!lib?.FilesetResolver)throw new Error('MediaPipe nie udostępnia FaceDetector i FilesetResolver.');
+        const resolver=await lib.FilesetResolver.forVisionTasks(`${root}/wasm`);
+        return await lib.FaceDetector.createFromOptions(resolver,{
+          baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},
+          runningMode:'IMAGE',minDetectionConfidence:.4
+        });
+      }catch(e){
+        // Po błędzie pobrania z jednego CDN spróbuj kolejnego.
+        failures.push(`${new URL(root).hostname}: ${String(e?.message||e).slice(0,140)}`);
+      }
+    }
+    throw new Error('Nie udało się pobrać MediaPipe (jsDelivr / UNPKG). Sprawdź połączenie z Internetem lub blokowanie CDN. '+failures.join(' | '));
   })().catch(e=>{detectorPromise=null;throw e;});
   return await detectorPromise;
 }

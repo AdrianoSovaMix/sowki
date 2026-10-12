@@ -1,0 +1,37 @@
+SÓWKI v0.8.28.3 – WYKRYWANIE TWARZY (MEDIA PIPE FIX)
+
+PROBLEM:
+Po kliknięciu „Wykryj twarze” wyświetlał się błąd:
+Failed to fetch dynamically imported module: https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm
+
+PRZYCZYNA:
+W kodzie wskazano nieprawidłową wersję 0.10.22 (w rejestrze jest wersja 0.10.22-rc.20250304, nie 0.10.22) oraz kruchy adres +esm.
+
+POPRAWKA:
+- Użycie znanej wersji 0.10.32 i modułu vision_bundle.mjs.
+- Rezerwowe CDN unpkg.com na wypadek błędu jsDelivr.
+- Wskazanie ścieżki WASM zgodnej z CDN.
+- Zwiększenie wersji SW i adresu skryptu dla odświeżenia cache iOS/PWA.
+- Błąd pobrania CDN pozostawi możliwość ręcznego zaznaczania twarzy.
+
+WDROŻENIE – TYLKO GITHUB:
+1. Zrób kopię repozytorium.
+2. Wgraj ZAWARTOŚĆ ZIP, zachowując ścieżki:
+    index.html
+    sw.js
+    js/onedrive-gallery.js
+   plik instrukcji nie jest wymagany.
+3. Commit -> sprawdź zielone GitHub Actions/deploy.
+4. Zamknij i ponownie otwórz aplikację PWA; na iPhonie czasem potrzebne
+   jest drugie uruchomienie po aktualizacji Service Workera.
+5. Administrator > Galeria > Sprawdź i przygotuj > Wykryj twarze.
+6. Przetestuj neutralne zdjęcie z wyraźnie widocznymi twarzami osób dorosłych,
+   skontroluj wszystkie wykryte i niewykryte twarze przed zapisaniem kopii.
+
+NIC NIE ZMIENIAMY w Supabase SQL, Edge Functions, Microsoft Entra, OneDrive i R2.
+Nie wgrywamy prywatnych sekretów na GitHub.
+
+UWAGA: Tutaj przeprowadzono kontrole statyczne kodu. Z uwagi na brak dostępu
+do CDN w środowisku testowym nie można było przetestować uruchomienia
+modelu i wykrywania twarzy na Twoim urządzeniu. Gdy nadal jest błąd,
+podeślij nowy komunikat – wskaże czy problem dotyczy CDN, WASM lub modelu.
