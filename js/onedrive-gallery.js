@@ -26,16 +26,17 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     <div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh">🔍 Pokaż zdjęcia z wybranego albumu</button>
     <span class="sowki-mod-summary" aria-live="polite"></span></div>
     <div class="sowki-mod-list"></div><div class="sowki-mod-editor" hidden></div>
-    <div class="sowki-mod-ready"></div>`;
+    <div class="sowki-mod-ready"></div><div class="sowki-mod-album-settings"></div>`;
   box.append(section);
   const summary=section.querySelector('.sowki-mod-summary');
   const photos=section.querySelector('.sowki-mod-list');
   const editor=section.querySelector('.sowki-mod-editor');
   const ready=section.querySelector('.sowki-mod-ready');
+  const settings=section.querySelector('.sowki-mod-album-settings');
   const refresh=section.querySelector('.sowki-mod-refresh');
   let chosenAlbum='';let busy=false;
   const setMsg=(txt)=>{summary.textContent=txt;};
-  function clear(){photos.replaceChildren();ready.replaceChildren();editor.replaceChildren();editor.hidden=true;}
+  function clear(){photos.replaceChildren();ready.replaceChildren();settings.replaceChildren();editor.replaceChildren();editor.hidden=true;}
   async function load(){
     if(busy)return;
     const id=albumSelect.value;clear();chosenAlbum=id;
@@ -51,7 +52,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       for(const file of pending.files){
         const row=elt('article','sowki-mod-file');
         const main=elt('div');main.append(elt('b','',file.name));
-        main.append(elt('small','',file.published?'🟢 Opublikowane':file.has_prepared?'🟡 Przygotowane – nieopublikowane':'⚪ Oczekuje na przygotowanie'));
+        main.append(elt('small','',file.published?'🟢 Zatwierdzone do albumu':file.has_prepared?'🟡 Przygotowane – nieopublikowane':'⚪ Oczekuje na przygotowanie'));
         const button=elt('button','','🙈 Sprawdź i przygotuj');button.type='button';
         button.onclick=()=>startEditing(file,id);
         row.append(main,button);photos.append(row);
@@ -61,7 +62,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
         for(const p of prepared.photos){
           const row=elt('article','sowki-mod-file');
           const main=elt('div');main.append(elt('b','',p.approved_name));
-          main.append(elt('small','',p.published?'🟢 W galerii rodziców':'🔒 Tylko właściciel • liczba masek: '+p.masked_regions_count));
+          main.append(elt('small','',p.published?'🟢 Zatwierdzone do albumu • widoczność zależy od publikacji albumu':'🔒 Tylko właściciel • liczba masek: '+p.masked_regions_count));
           const actions=elt('div','sowki-mod-file-actions');
           const preview=elt('button','','👀 Podgląd kopii');preview.type='button';
           let inspected=false;
@@ -79,7 +80,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
             }catch(e){alert('Nie można otworzyć gotowej kopii: '+errText(e));}
             finally{preview.disabled=false;}
           };
-          const publish=elt('button','',p.published?'🔒 Ukryj rodzicom':'🌍 Zatwierdź publikację');publish.type='button';
+          const publish=elt('button','',p.published?'🔒 Cofnij zatwierdzenie zdjęcia':'🌍 Zatwierdź zdjęcie');publish.type='button';
           publish.onclick=async()=>{
             if(!p.published&&!inspected){alert('Najpierw kliknij „Podgląd kopii” i dokładnie obejrzyj gotowe zdjęcie.');return;}
             if(!confirm(p.published?'Ukryć to zdjęcie w galerii rodziców?':
@@ -93,11 +94,76 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
           actions.append(preview,publish);row.append(main,actions);ready.append(row);
         }
       }
+      const details=await invoke('moderation_album_get',{album_id:id});
+      if(chosenAlbum===id)renderAlbumSettings(details,id);
     }catch(e){setMsg('⚠️ '+errText(e));}
     finally{busy=false;refresh.disabled=false;}
   }
   refresh.onclick=load;
   albumSelect.addEventListener('change',()=>{chosenAlbum='';clear();setMsg('Wybrano inny album. Kliknij „Pokaż zdjęcia”.');});
+
+  function renderAlbumSettings(info,albumId){
+    settings.replaceChildren();
+    const data=info.album||{},covers=info.covers||[];
+    const card=elt('section','sowki-mod-album-card');
+    card.append(elt('h4','','🖼️ Karta albumu widoczna dla rodziców'));
+    card.append(elt('p','sowki-mod-album-intro','Tytuł, opis, data i okładka będą wyglądały tak samo jak w pozostałych albumach galerii. Zapisanie nie udostępnia zdjęć.'));
+    const field=(label,control)=>{const lbl=elt('label','sowki-album-label',label);lbl.append(control);card.append(lbl);};
+    const title=elt('input');title.type='text';title.maxLength=140;title.value=data.title||'';
+    field('Tytuł albumu',title);
+    const description=elt('textarea');description.maxLength=3000;description.rows=3;description.value=data.description||'';
+    description.placeholder='Co działo się podczas wydarzenia?';field('Opis albumu',description);
+    const eventDate=elt('input');eventDate.type='date';eventDate.value=data.event_date||'';
+    field('Data wydarzenia (opcjonalnie)',eventDate);
+    const cover=elt('select');cover.append(new Option('— Wybierz zatwierdzone zdjęcie na okładkę —',''));
+    for(const entry of covers)cover.append(new Option(entry.name,String(entry.id)));
+    if(covers.some(e=>String(e.id)===String(data.cover_approved_item_id)))cover.value=String(data.cover_approved_item_id);
+    field('Zdjęcie okładkowe — spośród zdjęć już zatwierdzonych',cover);
+    const coverPreview=elt('img','sowki-album-cover-preview');coverPreview.hidden=true;
+    coverPreview.alt='Podgląd okładki';coverPreview.referrerPolicy='no-referrer';
+    const viewCover=elt('button','sowki-album-cover-button','👀 Pokaż wybraną okładkę');viewCover.type='button';
+    const previewStatus=elt('small','sowki-album-preview-status');
+    viewCover.onclick=async()=>{
+      const selected=covers.find(e=>String(e.id)===cover.value);
+      if(!selected){previewStatus.textContent='Najpierw wybierz zdjęcie okładkowe.';return;}
+      viewCover.disabled=true;previewStatus.textContent='Wczytuję podgląd…';
+      try{
+        const res=await invoke('moderation_approved_preview',{source_item_id:selected.source_item_id});
+        const url=goodUrl(res.url);if(!url)throw Error('Brak adresu okładki.');
+        coverPreview.src=url;await coverPreview.decode();coverPreview.hidden=false;
+        previewStatus.textContent='Podgląd zatwierdzonej kopii.';
+      }catch(e){previewStatus.textContent='⚠️ '+errText(e);}
+      finally{viewCover.disabled=false;}
+    };
+    cover.onchange=()=>{coverPreview.hidden=true;previewStatus.textContent='';};
+    card.append(viewCover,coverPreview,previewStatus);
+    const current=!!data.published;
+    const state=elt('p','sowki-album-visibility',current?'✅ Album jest widoczny dla rodziców.':'🔒 Album jest ukryty przed rodzicami.');card.append(state);
+    const buttons=elt('div','sowki-album-buttons');
+    const save=elt('button','','💾 Zapisz tytuł, opis i okładkę');save.type='button';
+    const publish=elt('button','primary',current?'🔒 Ukryj cały album':'🌍 Opublikuj cały album');publish.type='button';
+    buttons.append(save,publish);card.append(buttons);
+    const notice=elt('p','sowki-album-feedback');notice.setAttribute('role','status');card.append(notice);
+    async function saveCard(makePublic){
+      if(makePublic&&!covers.length){notice.textContent='Najpierw opublikuj przynajmniej jedno przygotowane zdjęcie.';return;}
+      if(makePublic&&!cover.value){notice.textContent='Wybierz zdjęcie okładkowe.';return;}
+      if(makePublic!==current){
+        const text=makePublic?'Opublikować cały album w galerii rodziców?':'Ukryć cały album przed rodzicami?';
+        if(!confirm(text))return;
+      }
+      save.disabled=true;publish.disabled=true;notice.textContent='Zapisuję kartę albumu…';
+      try{
+        await invoke('moderation_album_save',{album_id:albumId,title:title.value,
+          description:description.value,event_date:eventDate.value,cover_approved_item_id:cover.value,
+          published:makePublic});
+        notice.textContent='✅ Zapisano kartę albumu.';
+        await load();
+      }catch(e){notice.textContent='⚠️ '+errText(e);save.disabled=false;publish.disabled=false;}
+    }
+    save.onclick=()=>saveCard(current);
+    publish.onclick=()=>saveCard(!current);
+    settings.append(card);
+  }
 
   async function startEditing(file,albumId){
     if(busy)return;
@@ -279,77 +345,182 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
 };
 
 window.sowkiOneDrivePublicMount=async function(){
-  const mount=document.querySelector('#galleryAlbums');if(!mount||mount.hidden)return;
+  const mount=document.querySelector('#galleryAlbums');
+  if(!mount||mount.hidden)return;
   const session=readPrivateAccessSession('gallery');
   if(!session?.token)return;
-  let section=mount.querySelector('.sowki-od-public');
-  if(!section){section=elt('section','sowki-od-public');mount.append(section);}
-  section.replaceChildren(elt('h2','','☁️ Nowa galeria zdjęć – OneDrive'));
-  const hint=elt('p','sowki-onedrive-note','Wyłącznie fotografie zatwierdzone przez właściciela. Oryginały są prywatne.');section.append(hint);
-  const status=elt('p','','Wczytuję zatwierdzone albumy…');section.append(status);
-  const groups=elt('div','sowki-od-albums');section.append(groups);
+  // Wszystkie albumy (również zatwierdzone kopie OneDrive) tworzą JEDNĄ galerię.
+  // Nie dodajemy rodzicom etykiet ani technicznych nagłówków OneDrive.
+  const generation=String(1+Number(mount.dataset.sowkiGalleryGeneration||0));
+  mount.dataset.sowkiGalleryGeneration=generation;
+  mount.querySelectorAll('.sowki-od-album,.sowki-od-error').forEach(x=>x.remove());
   const action=async(type,extras={})=>{
     const s=readPrivateAccessSession('gallery');
     if(!s?.token)throw new Error('Sesja wygasła. Odblokuj galerię hasłem ponownie.');
     const response=await invoke(type,{gallery_token:s.token,device_id:privateAccessDeviceId(),...extras});
-    // private-access może wydać nową wersję sesji przy walidacji tokenu.
     if(response?.token&&response?.expires_at)savePrivateAccessSession('gallery',response);
     return response;
   };
+  const formatDate=iso=>{
+    if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(String(iso)))return '';
+    const [year,month,day]=String(iso).split('-');return `${day}.${month}.${year}`;
+  };
   try{
     const result=await action('public_albums');
-    if(!mount.isConnected||mount.hidden)return;
-    status.textContent=result.albums.length?`Dostępne albumy OneDrive: ${result.albums.length}`:'Nie ma jeszcze zatwierdzonych zdjęć w nowej galerii.';
-    for(const album of result.albums){
+    if(!mount.isConnected||mount.hidden||mount.dataset.sowkiGalleryGeneration!==generation)return;
+    for(const album of result.albums||[]){
       const article=elt('article','item sowki-od-album');
-      const heading=elt('h3','',`📁 ${album.name} (${album.count})`);
-      const btn=elt('button','primary','📸 Zobacz zdjęcia');btn.type='button';
-      const grid=elt('div','sowki-od-photos');grid.hidden=true;
-      article.append(heading,btn,grid);groups.append(article);
-      btn.onclick=async()=>{
-        if(!grid.hidden){grid.hidden=true;btn.textContent='📸 Zobacz zdjęcia';return;}
-        grid.hidden=false;btn.disabled=true;btn.textContent='Wczytuję…';grid.replaceChildren();
-        try{
-          let offset=0,total=0;
-          do{
-            const page=await action('public_photos',{album_id:album.id,offset});
-            total=Number(page.count||0);
-            for(const photo of page.photos){
-              const figure=elt('figure','sowki-od-photo');
-              const img=elt('img');img.alt=photo.name||'Zdjęcie z przedszkola';img.loading='lazy';img.referrerPolicy='no-referrer';
-              img.src=goodUrl(photo.thumbnail_url||photo.url);img.decoding='async';
-              const caption=elt('figcaption');
-              const open=elt('button','','🔍 Powiększ');open.type='button';
-              open.onclick=()=>{
-                const light=elt('div','sowki-od-lightbox');light.setAttribute('role','dialog');light.setAttribute('aria-label','Podgląd zdjęcia');
-                const photoCopy=elt('img');photoCopy.src=goodUrl(photo.url);photoCopy.alt=img.alt;photoCopy.referrerPolicy='no-referrer';
-                const close=elt('button','','✕ Zamknij');close.type='button';close.onclick=()=>light.remove();
-                light.addEventListener('click',e=>{if(e.target===light)light.remove();});
-                light.append(close,photoCopy);document.body.append(light);
-              };
-              const download=elt('button','','📥 Pobierz');download.type='button';
-              download.onclick=async()=>{
-                download.disabled=true;
-                try{
-                  // Pobieranie przez CORS bez pośredniczenia serwera Supabase.
-                  const content=await imgBlob(photo.url);
-                  const local=URL.createObjectURL(content),a=document.createElement('a');
-                  a.href=local;a.download=photo.name||'zdjecie.jpg';document.body.append(a);a.click();a.remove();
-                  setTimeout(()=>URL.revokeObjectURL(local),60000);
-                }catch(e){alert('Nie udało się pobrać zdjęcia. Spróbuj ponownie otworzyć album. '+errText(e));}
-                finally{download.disabled=false;}
-              };
-              caption.append(open,download);figure.append(img,caption);grid.append(figure);
-            }
-            offset+=24;
-            if(!page.has_more)break;
-          }while(offset<Math.min(240,total));
-          if(!grid.childElementCount)grid.append(elt('p','','Brak dostępnych fotografii.'));
-          btn.textContent='🔼 Ukryj zdjęcia';
-        }catch(e){grid.replaceChildren(elt('p','err','⚠️ '+errText(e)));btn.textContent='Spróbuj ponownie';}
-        finally{btn.disabled=false;}
-      };
+      const url=goodUrl(album.cover_url);
+      if(url){
+        const cover=elt('img','album-cover');cover.alt='Okładka albumu '+album.title;
+        cover.loading='lazy';cover.decoding='async';cover.referrerPolicy='no-referrer';cover.src=url;
+        article.append(cover);
+      }else{
+        const cover=elt('div','album-cover sowki-od-no-cover');
+        cover.setAttribute('aria-label','Okładka chwilowo niedostępna');
+        article.append(cover);
+      }
+      if(album.event_date)article.append(elt('div','date',formatDate(album.event_date)));
+      article.append(elt('h3','',album.title||'Album zdjęć'));
+      if(album.description)article.append(elt('p','sowki-od-description',album.description));
+      const button=elt('button','primary sowki-od-show-all','📸 Zobacz wszystkie zdjęcia tego albumu');
+      button.type='button';article.append(button);
+      button.onclick=()=>openAlbum(album,action);
+      mount.append(article);
     }
-  }catch(e){status.textContent='⚠️ Nie udało się wczytać albumów OneDrive: '+errText(e);}
+  }catch(e){
+    if(!mount.isConnected||mount.hidden||mount.dataset.sowkiGalleryGeneration!==generation)return;
+    // Opis błędu nie ujawnia rodzicom architektury ani magazynu danych.
+    const error=elt('p','sowki-od-error','Nie udało się wczytać części albumów. Spróbuj ponownie otworzyć galerię.');
+    mount.append(error);
+    console.warn('Sówki: problem z galerią',errText(e));
+  }
 };
+
+async function openAlbum(album,action){
+  const modal=elt('div','sowki-od-album-modal');
+  modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
+  modal.setAttribute('aria-label','Album: '+album.title);
+  const header=elt('header','sowki-od-album-bar');
+  const back=elt('button','sowki-od-back','← Wróć do albumów');back.type='button';
+  const heading=elt('h2','',album.title||'Galeria zdjęć');
+  const close=elt('button','sowki-od-close','✕');close.type='button';close.setAttribute('aria-label','Zamknij album');
+  header.append(back,heading,close);
+  const content=elt('div','sowki-od-album-content');
+  const help=elt('p','sowki-od-count','Ładowanie zdjęć…');
+  const grid=elt('div','sowki-od-phone-grid');
+  const more=elt('button','sowki-od-more','Pokaż więcej zdjęć');more.type='button';more.hidden=true;
+  const note=elt('p','sowki-od-help','Dotknij zdjęcia, aby powiększyć. Przesuwaj palcem w lewo lub w prawo.');
+  content.append(help,note,grid,more);modal.append(header,content);
+  const oldFocus=document.activeElement;
+  document.body.append(modal);document.body.classList.add('sowki-od-lock');
+  let photos=[],offset=0,total=0,hasMore=true,loading=false,viewer=null,closeViewerFn=null,closed=false;
+  function cleanup(){
+    if(closed)return;
+    closed=true;if(closeViewerFn)closeViewerFn();
+    modal.remove();document.body.classList.remove('sowki-od-lock');
+    document.removeEventListener('keydown',onKey);
+    if(oldFocus?.isConnected&&typeof oldFocus.focus==='function')oldFocus.focus();
+  }
+  function onKey(ev){
+    if(ev.key==='Escape'){
+      ev.preventDefault();
+      if(closeViewerFn)closeViewerFn();else cleanup();
+    }
+  }
+  document.addEventListener('keydown',onKey);
+  back.onclick=close.onclick=cleanup;
+  more.onclick=loadMore;
+  modal.addEventListener('click',e=>{if(e.target===modal)cleanup();});
+  close.focus();
+  async function loadMore(){
+    if(loading||!hasMore||closed)return;
+    loading=true;more.disabled=true;more.hidden=true;help.textContent='Wczytuję fotografie…';
+    try{
+      const page=await action('public_photos',{album_id:album.id,offset});
+      if(closed)return;
+      total=Number(page.count||0);
+      for(const item of page.photos||[]){
+        const i=photos.push(item)-1;
+        const tile=elt('button','sowki-od-tile');tile.type='button';
+        tile.setAttribute('aria-label','Powiększ zdjęcie '+(i+1));
+        const img=elt('img');img.loading='lazy';img.decoding='async';
+        img.referrerPolicy='no-referrer';img.alt=item.name||'Zdjęcie z albumu';
+        img.src=goodUrl(item.thumbnail_url||item.url);
+        img.onerror=()=>{if(img.src!==goodUrl(item.url))img.src=goodUrl(item.url);};
+        tile.append(img);tile.onclick=()=>openViewer(i);
+        grid.append(tile);
+      }
+      offset+=24;hasMore=!!page.has_more;
+      help.textContent=total?`${photos.length} z ${total} zdjęć`:'Brak zdjęć w albumie.';
+      more.hidden=!hasMore;
+    }catch(e){
+      help.textContent='Nie można pobrać zdjęć. Spróbuj ponownie.';
+      more.hidden=false;more.textContent='↻ Spróbuj ponownie';
+    }finally{loading=false;more.disabled=false;}
+  }
+  await loadMore();
+
+  function openViewer(start){
+    if(closeViewerFn)closeViewerFn();
+    let current=start,touchStart=null;
+    const box=elt('div','sowki-od-viewer');viewer=box;
+    box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');
+    box.setAttribute('aria-label','Podgląd zdjęcia');
+    const top=elt('div','sowki-od-viewer-bar');
+    const counter=elt('span','sowki-od-counter');
+    const download=elt('button','sowki-od-download','⬇ Pobierz');download.type='button';
+    const end=elt('button','sowki-od-viewer-close','✕');end.type='button';end.setAttribute('aria-label','Zamknij zdjęcie');
+    const image=elt('img','sowki-od-full-photo');image.referrerPolicy='no-referrer';
+    const prev=elt('button','sowki-od-prev','‹');prev.type='button';prev.setAttribute('aria-label','Poprzednie zdjęcie');
+    const next=elt('button','sowki-od-next','›');next.type='button';next.setAttribute('aria-label','Następne zdjęcie');
+    top.append(counter,download,end);box.append(top,prev,image,next);modal.append(box);
+    const closeViewer=()=>{box.remove();viewer=null;closeViewerFn=null;document.removeEventListener('keydown',onViewerKey);};
+    closeViewerFn=closeViewer;
+    end.onclick=closeViewer;
+    box.onclick=e=>{if(e.target===box)closeViewer();};
+    async function show(delta){
+      const i=current+delta;
+      if(i<0||i>=photos.length)return;
+      current=i;
+      const data=photos[i];image.alt=data.name||'Zdjęcie z albumu';
+      image.src=goodUrl(data.url);counter.textContent=`${i+1} / ${total||photos.length}`;
+      prev.disabled=i===0;next.disabled=i===photos.length-1&&!hasMore;
+      if(i>=photos.length-3&&hasMore)void loadMore();
+    }
+    prev.onclick=()=>void show(-1);
+    next.onclick=async()=>{if(current===photos.length-1&&hasMore)await loadMore();void show(1);};
+    function onViewerKey(e){
+      if(e.key==='ArrowLeft'){e.preventDefault();void show(-1);}
+      if(e.key==='ArrowRight'){e.preventDefault();next.click();}
+      if(e.key==='Escape'){document.removeEventListener('keydown',onViewerKey);}
+    }
+    document.addEventListener('keydown',onViewerKey);
+    box.addEventListener('touchstart',e=>{if(e.touches.length===1){touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};}},{passive:true});
+    box.addEventListener('touchend',e=>{
+      if(!touchStart||e.changedTouches.length!==1)return;
+      const dx=e.changedTouches[0].clientX-touchStart.x;
+      const dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;
+      if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.4){if(dx<0)next.click();else prev.click();}
+    },{passive:true});
+    download.onclick=async()=>{
+      download.disabled=true;download.textContent='Pobieram…';
+      try{
+        const item=photos[current],blob=await imgBlob(item.url);
+        const local=URL.createObjectURL(blob),a=document.createElement('a');
+        a.href=local;a.download=item.name||'zdjecie.jpg';
+        document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(local),60000);
+      }catch(e){
+        // Nie każdy wariant OneDrive dopuszcza fetch CORS w Safari.
+        // Otwórz tymczasowy odnośnik, by użytkownik mógł zapisać zdjęcie ręcznie.
+        const u=goodUrl(photos[current]?.url);
+        if(u&&confirm('Nie udało się automatycznie pobrać pliku. Otworzyć zdjęcie w nowej karcie, aby je zapisać?'))
+          window.open(u,'_blank','noopener,noreferrer');
+      }finally{download.disabled=false;download.textContent='⬇ Pobierz';}
+    };
+    void show(0);
+    end.focus();
+  }
+}
+
 })();

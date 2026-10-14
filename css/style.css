@@ -6552,3 +6552,61 @@ nav > .home .nav-new-dot{
 
 /* Aktywne od razu zaznaczanie ręczne; pomaga na iOS, Androidzie i desktopie. */
 #panel .sowki-mod-editor canvas.sowki-mod-draw{touch-action:none;cursor:crosshair;outline:3px solid #00a48a;outline-offset:1px;user-select:none;-webkit-user-select:none}
+
+/* Sówki Gallery 2.0 v0.8.29 – jedna galeria dla rodziców, bez etykiet magazynu. */
+#panel .sowki-mod-album-settings{margin:18px 0 7px}
+#panel .sowki-mod-album-card{padding:15px;background:#fff;border:1px solid #efc8db;border-radius:16px;display:grid;gap:10px}
+#panel .sowki-mod-album-card h4{margin:0;color:#9b1852;font-size:17px}
+#panel .sowki-mod-album-intro{color:#635563;font-size:13px;margin:0}
+#panel .sowki-album-label{display:grid;gap:5px;font-size:13px;color:#4a3242;font-weight:750}
+#panel .sowki-album-label input,#panel .sowki-album-label select,#panel .sowki-album-label textarea{width:100%;min-width:0;border:1px solid #e7c7d9;border-radius:10px;padding:10px;font:inherit;background:#fff;color:#342b32}
+#panel .sowki-album-label textarea{min-height:92px;resize:vertical}
+#panel .sowki-album-cover-button{background:#fff7fb;color:#a51655;border:1px solid #e4c6d4;border-radius:10px;padding:10px;cursor:pointer;font-weight:650}
+#panel .sowki-album-cover-preview{width:100%;max-width:460px;max-height:310px;object-fit:contain;background:#f8f0f5;border-radius:13px}
+#panel .sowki-album-cover-preview[hidden]{display:none!important}
+#panel .sowki-album-preview-status{display:block;color:#67576a}
+#panel .sowki-album-visibility{padding:11px;background:#f5f6ff;border-radius:11px;font-size:13px;margin:0}
+#panel .sowki-album-buttons{display:flex;flex-wrap:wrap;gap:8px}
+#panel .sowki-album-buttons button{flex:1 1 200px;min-height:45px;border:1px solid #e3c6d8;border-radius:10px;background:#fff6fa;color:#a00852;font-weight:750;cursor:pointer}
+#panel .sowki-album-buttons button.primary{background:var(--p,#d81b60);color:#fff}
+#panel .sowki-album-buttons button:disabled{opacity:.5}
+#panel .sowki-album-feedback{min-height:18px;font-size:13px;margin:0}
+
+/* Karty nowych albumów: IDENTYCZNE ramki .item, okładka, data i opis. */
+#galleryAlbums .sowki-od-album{overflow:hidden}
+#galleryAlbums .sowki-od-album .album-cover{display:block;width:100%;height:auto;max-height:430px;aspect-ratio:16/10;object-fit:cover;border-radius:14px;margin-bottom:12px;background:#fae6ef}
+#galleryAlbums .sowki-od-album .sowki-od-no-cover{height:130px;background:linear-gradient(135deg,#fde4f0,#fff4f9)}
+#galleryAlbums .sowki-od-description{white-space:pre-line;line-height:1.55}
+#galleryAlbums .sowki-od-show-all{display:block;cursor:pointer;margin-top:11px;width:100%;font-size:14px;min-height:44px}
+#galleryAlbums .sowki-od-error{font-size:12px;color:#856574}
+body.sowki-od-lock{overflow:hidden!important}
+.sowki-od-album-modal{position:fixed;inset:0;z-index:100005;background:#fff9fc;display:flex;flex-direction:column;overflow:hidden;color:#2a2430}
+.sowki-od-album-bar{position:static!important;display:flex;align-items:center;gap:9px;min-height:67px;background:#fff;border-bottom:1px solid #edcddd;padding:11px max(12px,env(safe-area-inset-right)) 11px max(12px,env(safe-area-inset-left));z-index:2}
+.sowki-od-album-bar h2{font-size:clamp(15px,4vw,20px);margin:0;flex:1;line-height:1.3;min-width:0;overflow-wrap:anywhere}
+.sowki-od-album-bar button{border:1px solid #f0c7db;border-radius:10px;color:#a51455;background:#fff5fa;padding:10px;min-height:42px;font-weight:750;flex:none}
+.sowki-od-album-bar .sowki-od-close{font-size:20px;min-width:44px}
+.sowki-od-album-content{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0 12px calc(20px + env(safe-area-inset-bottom));max-width:1150px;width:100%;margin:0 auto}
+.sowki-od-count{margin:14px 0 4px;font-weight:700;color:#b41456;font-size:13px}
+.sowki-od-help{font-size:12px;color:#685b66;margin:3px 0 13px}
+.sowki-od-phone-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.sowki-od-tile{border:0;border-radius:8px;overflow:hidden;padding:0;background:#f5e8ef;aspect-ratio:1/1;display:block;width:100%;min-width:0;cursor:pointer}
+.sowki-od-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.sowki-od-tile:focus-visible{outline:3px solid #cc1264;outline-offset:2px}
+.sowki-od-more{display:block;width:100%;margin:18px auto;padding:13px;background:#d81b60;color:white;border:0;border-radius:12px;font-weight:750;max-width:360px;cursor:pointer}
+.sowki-od-more[hidden]{display:none!important}
+.sowki-od-viewer{position:fixed;inset:0;z-index:100010;background:#08070b;display:flex;align-items:center;justify-content:center;color:white;touch-action:pan-y}
+.sowki-od-viewer-bar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:calc(12px + env(safe-area-inset-top)) 12px 10px;background:linear-gradient(#000a,#0000);z-index:3}
+.sowki-od-counter{margin-right:auto;font-size:14px;font-weight:700}
+.sowki-od-viewer-bar button{padding:9px 13px;border-radius:9px;border:1px solid #ffffff65;background:#282730;color:white;min-height:40px;font-size:14px;font-weight:700;cursor:pointer}
+.sowki-od-full-photo{display:block;max-width:100vw;max-height:calc(100vh - 112px);width:auto;height:auto;object-fit:contain;user-select:none;-webkit-user-select:none}
+.sowki-od-prev,.sowki-od-next{position:absolute;top:50%;transform:translateY(-50%);border:0;background:#0009;color:white;border-radius:13px;padding:5px 10px;font-size:42px;cursor:pointer;z-index:2}
+.sowki-od-prev{left:8px}.sowki-od-next{right:8px}
+.sowki-od-prev:disabled,.sowki-od-next:disabled{opacity:.15}
+@media(max-width:700px){
+ .sowki-od-phone-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+ .sowki-od-album-content{padding:0 5px calc(16px + env(safe-area-inset-bottom))}
+ .sowki-od-count,.sowki-od-help{margin-left:8px}
+ .sowki-od-album-bar .sowki-od-back{font-size:12px;padding:9px}
+ .sowki-od-prev,.sowki-od-next{font-size:30px;padding:5px 7px;background:#0008}
+}
+@media(max-width:380px){.sowki-od-album-bar h2{font-size:14px}.sowki-od-album-bar button{padding:8px}}

@@ -1,0 +1,14 @@
+SÓWKI v0.8.29 – GITHUB AKTUALIZACJA
+==================================
+Najpierw wdroż SQL i index.ts z PRYWATNE.
+W GitHub GITHUB-AKTUALIZACJA wgraj tylko:
+  index.html
+  sw.js
+  css/style.css
+  js/onedrive-gallery.js
+
+Zastąp istniejące pliki, nie dodawaj ich w podfolderze.
+Pozostałe pliki aplikacji (w tym app.js i konfiguracja) bez zmian.
+Na produkcji rodzic nie zobaczy napisu OneDrive ani odrębnej galerii.
+Zdjęcia do nowej galerii są wyłącznie w prywatnym OneDrive.
+Po publikacji GitHub Pages zamknij/otwórz PWA dla odświeżenia cache.
