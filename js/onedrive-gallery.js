@@ -18,6 +18,30 @@ function elt(tag,cls='',content=''){
 }
 function errText(e){return String(e?.message||e||'Nieznany błąd.').slice(0,300);}
 
+// Okładka nie jest częścią albumu zdjęć. Lokalne pomniejszenie i konwersja do JPG
+// usuwa EXIF, ogranicza transfer i umożliwia zdjęcia HEIC na zgodnych urządzeniach.
+async function prepareAlbumCover(file){
+  if(!file||!file.size||file.size>25*1024*1024)throw Error('Zdjęcie okładki może mieć maksymalnie 25 MB.');
+  if(!/\.(?:jpe?g|png|webp|heic|heif)$/i.test(file.name))throw Error('Wybierz plik JPG, PNG, WebP lub HEIC.');
+  const url=URL.createObjectURL(file),image=new Image();
+  try{
+    image.src=url;
+    try{await image.decode();}catch{throw Error('Przeglądarka nie potrafi otworzyć tego pliku. Wybierz JPG lub PNG.');}
+    const w=image.naturalWidth,h=image.naturalHeight;
+    if(!w||!h||w*h>90_000_000)throw Error('Zbyt duże zdjęcie okładki.');
+    const scale=Math.min(1,1800/Math.max(w,h));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));
+    const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('Brak możliwości przetwarzania zdjęcia.');
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    ctx.drawImage(image,0,0,canvas.width,canvas.height);
+    const jpeg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+    if(!jpeg||!jpeg.size||jpeg.size>8*1024*1024)throw Error('Nie udało się przygotować okładki. Wybierz mniejszy plik JPG.');
+    return jpeg;
+  }finally{URL.revokeObjectURL(url);}
+}
+
 window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   if(!box?.isConnected)return;
   const section=elt('section','sowki-gallery-mod');
@@ -104,49 +128,95 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
 
   function renderAlbumSettings(info,albumId){
     settings.replaceChildren();
-    const data=info.album||{},covers=info.covers||[];
+    const data=info.album||{};
     const card=elt('section','sowki-mod-album-card');
-    card.append(elt('h4','','🖼️ Karta albumu widoczna dla rodziców'));
-    card.append(elt('p','sowki-mod-album-intro','Tytuł, opis, data i okładka będą wyglądały tak samo jak w pozostałych albumach galerii. Zapisanie nie udostępnia zdjęć.'));
+    card.append(elt('h4','','🖼️ Karta wydarzenia w galerii'));
+    card.append(elt('p','sowki-mod-album-intro','Tytuł, data i opis będą widoczne tak jak w pozostałych albumach. Okładka jest opcjonalna: bez niej aplikacja wyświetli estetyczną planszę wydarzenia.'));
     const field=(label,control)=>{const lbl=elt('label','sowki-album-label',label);lbl.append(control);card.append(lbl);};
     const title=elt('input');title.type='text';title.maxLength=140;title.value=data.title||'';
-    field('Tytuł albumu',title);
+    field('Tytuł wydarzenia',title);
     const description=elt('textarea');description.maxLength=3000;description.rows=3;description.value=data.description||'';
-    description.placeholder='Co działo się podczas wydarzenia?';field('Opis albumu',description);
+    description.placeholder='Co działo się podczas wydarzenia?';field('Opis wydarzenia',description);
     const eventDate=elt('input');eventDate.type='date';eventDate.value=data.event_date||'';
     field('Data wydarzenia (opcjonalnie)',eventDate);
-    const cover=elt('select');cover.append(new Option('— Wybierz zatwierdzone zdjęcie na okładkę —',''));
-    for(const entry of covers)cover.append(new Option(entry.name,String(entry.id)));
-    if(covers.some(e=>String(e.id)===String(data.cover_approved_item_id)))cover.value=String(data.cover_approved_item_id);
-    field('Zdjęcie okładkowe — spośród zdjęć już zatwierdzonych',cover);
+    const coverArea=elt('section','sowki-cover-upload-area');
+    coverArea.append(elt('h5','','🖼️ Okładka z telefonu (opcjonalnie)'));
+    coverArea.append(elt('p','sowki-cover-hint','Wybierz osobną grafikę lub zdjęcie z telefonu. Nie wybieramy okładki ze zdjęć albumu. Możesz też zostawić wydarzenie bez okładki.'));
+    const fileInput=elt('input');fileInput.type='file';fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif';
+    fileInput.setAttribute('aria-label','Wybierz zdjęcie okładki z telefonu');
+    fieldCover('Wybierz plik na okładkę',fileInput);
+    function fieldCover(label,control){const lbl=elt('label','sowki-album-label',label);lbl.append(control);coverArea.append(lbl);}
     const coverPreview=elt('img','sowki-album-cover-preview');coverPreview.hidden=true;
-    coverPreview.alt='Podgląd okładki';coverPreview.referrerPolicy='no-referrer';
-    const viewCover=elt('button','sowki-album-cover-button','👀 Pokaż wybraną okładkę');viewCover.type='button';
-    const previewStatus=elt('small','sowki-album-preview-status');
-    viewCover.onclick=async()=>{
-      const selected=covers.find(e=>String(e.id)===cover.value);
-      if(!selected){previewStatus.textContent='Najpierw wybierz zdjęcie okładkowe.';return;}
-      viewCover.disabled=true;previewStatus.textContent='Wczytuję podgląd…';
+    coverPreview.alt='Podgląd wybranej okładki wydarzenia';coverPreview.referrerPolicy='no-referrer';
+    const coverFallback=elt('div','sowki-cover-empty','🦉 Bez własnego zdjęcia pojawi się automatyczna plansza z tytułem wydarzenia.');
+    const coverNote=elt('small','sowki-album-preview-status');coverNote.setAttribute('role','status');
+    const coverButtons=elt('div','sowki-cover-actions');
+    const uploadCover=elt('button','','☁️ Prześlij okładkę');uploadCover.type='button';uploadCover.disabled=true;
+    const clearCover=elt('button','','✕ Bez okładki');clearCover.type='button';
+    const consentLabel=elt('label','sowki-cover-review');
+    const consent=elt('input');consent.type='checkbox';
+    consentLabel.append(consent,elt('span','','Sprawdziłem, że okładka może być pokazana rodzicom (wizerunki i zgody).'));
+    consentLabel.hidden=true;
+    coverButtons.append(uploadCover,clearCover);
+    coverArea.append(coverPreview,coverFallback,consentLabel,coverButtons,coverNote);
+    card.append(coverArea);
+    let uploadedCoverId=String(data.cover_item_id||'');
+    let blob=null,previewLocalUrl=null,coverBusy=false;
+    const existingCover=goodUrl(data.cover_url);
+    if(existingCover){coverPreview.src=existingCover;coverPreview.hidden=false;coverFallback.hidden=true;
+      coverNote.textContent='✅ Obecna okładka jest przechowywana na OneDrive.';}
+    function forgetLocal(){if(previewLocalUrl){URL.revokeObjectURL(previewLocalUrl);previewLocalUrl=null;}}
+    fileInput.onchange=async()=>{
+      blob=null;uploadCover.disabled=true;consent.checked=false;consentLabel.hidden=true;
+      const file=fileInput.files?.[0];if(!file)return;
+      coverNote.textContent='Przygotowuję okładkę z telefonu…';
       try{
-        const res=await invoke('moderation_approved_preview',{source_item_id:selected.source_item_id});
-        const url=goodUrl(res.url);if(!url)throw Error('Brak adresu okładki.');
-        coverPreview.src=url;await coverPreview.decode();coverPreview.hidden=false;
-        previewStatus.textContent='Podgląd zatwierdzonej kopii.';
-      }catch(e){previewStatus.textContent='⚠️ '+errText(e);}
-      finally{viewCover.disabled=false;}
+        blob=await prepareAlbumCover(file);
+        forgetLocal();previewLocalUrl=URL.createObjectURL(blob);
+        coverPreview.src=previewLocalUrl;coverPreview.hidden=false;coverFallback.hidden=true;
+        consentLabel.hidden=false;uploadCover.disabled=true;
+        coverNote.textContent='Podgląd przygotowanej grafiki. Zaznacz potwierdzenie, a następnie kliknij „Prześlij okładkę”.';
+      }catch(e){coverNote.textContent='⚠️ '+errText(e);}
     };
-    cover.onchange=()=>{coverPreview.hidden=true;previewStatus.textContent='';};
-    card.append(viewCover,coverPreview,previewStatus);
+    consent.onchange=()=>{uploadCover.disabled=coverBusy||!blob||!consent.checked;};
+    uploadCover.onclick=async()=>{
+      if(!blob||!consent.checked||coverBusy)return;
+      coverBusy=true;uploadCover.disabled=true;clearCover.disabled=true;
+      coverNote.textContent='Przesyłam prywatną okładkę na OneDrive…';
+      try{
+        const session=await invoke('album_cover_prepare',{album_id:albumId,size:blob.size});
+        if(!goodUrl(session.upload_url))throw Error('Brak poprawnej sesji zapisu okładki.');
+        const step=Number(session.chunk_size)||5*1024*1024;
+        let last=null;
+        for(let from=0;from<blob.size;from+=step){
+          const end=Math.min(blob.size,from+step);
+          last=await sowkiOneDriveUploadChunk(session.upload_url,blob.slice(from,end),from,blob.size,
+            sent=>{coverNote.textContent=`Przesyłam okładkę: ${Math.min(100,Math.round(sent/blob.size*100))}%`;});
+          if(end<blob.size&&last.status!==202)throw Error('OneDrive przerwał wysyłanie okładki.');
+        }
+        if(!last||![200,201].includes(last.status)||!last.data?.id)throw Error('OneDrive nie potwierdził zapisu okładki.');
+        const receipt=await invoke('album_cover_confirm',{album_id:albumId,item_id:last.data.id});
+        if(!receipt?.ok||!receipt?.cover_item_id)throw Error('Nie potwierdzono okładki w prywatnym folderze.');
+        uploadedCoverId=String(receipt.cover_item_id);
+        fileInput.value='';blob=null;consentLabel.hidden=true;
+        coverNote.textContent='✅ Okładka przesłana. Kliknij „Zapisz kartę wydarzenia”, aby ją przypisać.';
+      }catch(e){coverNote.textContent='⚠️ '+errText(e);uploadCover.disabled=!blob||!consent.checked;}
+      finally{coverBusy=false;clearCover.disabled=false;}
+    };
+    clearCover.onclick=()=>{
+      uploadedCoverId='';blob=null;fileInput.value='';consent.checked=false;consentLabel.hidden=true;uploadCover.disabled=true;
+      forgetLocal();coverPreview.removeAttribute('src');coverPreview.hidden=true;coverFallback.hidden=false;
+      coverNote.textContent='Bez okładki: po publikacji pojawi się automatyczna plansza wydarzenia. Zapisz kartę, aby zachować zmianę.';
+    };
     const current=!!data.published;
     const state=elt('p','sowki-album-visibility',current?'✅ Album jest widoczny dla rodziców.':'🔒 Album jest ukryty przed rodzicami.');card.append(state);
     const buttons=elt('div','sowki-album-buttons');
-    const save=elt('button','','💾 Zapisz tytuł, opis i okładkę');save.type='button';
+    const save=elt('button','','💾 Zapisz kartę wydarzenia');save.type='button';
     const publish=elt('button','primary',current?'🔒 Ukryj cały album':'🌍 Opublikuj cały album');publish.type='button';
     buttons.append(save,publish);card.append(buttons);
     const notice=elt('p','sowki-album-feedback');notice.setAttribute('role','status');card.append(notice);
     async function saveCard(makePublic){
-      if(makePublic&&!covers.length){notice.textContent='Najpierw opublikuj przynajmniej jedno przygotowane zdjęcie.';return;}
-      if(makePublic&&!cover.value){notice.textContent='Wybierz zdjęcie okładkowe.';return;}
+      if(coverBusy||blob){notice.textContent='Zakończ wybieranie i wysyłanie okładki albo kliknij „Bez okładki”.';return;}
       if(makePublic!==current){
         const text=makePublic?'Opublikować cały album w galerii rodziców?':'Ukryć cały album przed rodzicami?';
         if(!confirm(text))return;
@@ -154,10 +224,10 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       save.disabled=true;publish.disabled=true;notice.textContent='Zapisuję kartę albumu…';
       try{
         await invoke('moderation_album_save',{album_id:albumId,title:title.value,
-          description:description.value,event_date:eventDate.value,cover_approved_item_id:cover.value,
+          description:description.value,event_date:eventDate.value,cover_item_id:uploadedCoverId,
           published:makePublic});
-        notice.textContent='✅ Zapisano kartę albumu.';
-        await load();
+        notice.textContent='✅ Zapisano kartę wydarzenia.';
+        forgetLocal();await load();
       }catch(e){notice.textContent='⚠️ '+errText(e);save.disabled=false;publish.disabled=false;}
     }
     save.onclick=()=>saveCard(current);
@@ -344,6 +414,15 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   }
 };
 
+function autoEventCover(album){
+  const cover=elt('div','album-cover sowki-od-no-cover sowki-od-event-cover');
+  cover.setAttribute('role','img');cover.setAttribute('aria-label','Grafika wydarzenia: '+String(album.title||'Wydarzenie'));
+  cover.append(elt('span','sowki-od-event-icon','🦉'));
+  cover.append(elt('span','sowki-od-event-caption','Nasze przedszkolne wydarzenie'));
+  cover.append(elt('strong','sowki-od-event-title',album.title||'Wydarzenie Sówek'));
+  return cover;
+}
+
 window.sowkiOneDrivePublicMount=async function(){
   const mount=document.querySelector('#galleryAlbums');
   if(!mount||mount.hidden)return;
@@ -374,18 +453,18 @@ window.sowkiOneDrivePublicMount=async function(){
       if(url){
         const cover=elt('img','album-cover');cover.alt='Okładka albumu '+album.title;
         cover.loading='lazy';cover.decoding='async';cover.referrerPolicy='no-referrer';cover.src=url;
+        cover.onerror=()=>cover.replaceWith(autoEventCover(album));
         article.append(cover);
       }else{
-        const cover=elt('div','album-cover sowki-od-no-cover');
-        cover.setAttribute('aria-label','Okładka chwilowo niedostępna');
-        article.append(cover);
+        article.append(autoEventCover(album));
       }
       if(album.event_date)article.append(elt('div','date',formatDate(album.event_date)));
       article.append(elt('h3','',album.title||'Album zdjęć'));
       if(album.description)article.append(elt('p','sowki-od-description',album.description));
-      const button=elt('button','primary sowki-od-show-all','📸 Zobacz wszystkie zdjęcia tego albumu');
-      button.type='button';article.append(button);
-      button.onclick=()=>openAlbum(album,action);
+      if(Number(album.count)>0){
+        const button=elt('button','primary sowki-od-show-all','📸 Zobacz wszystkie zdjęcia tego albumu');
+        button.type='button';article.append(button);button.onclick=()=>openAlbum(album,action);
+      }else{article.append(elt('p','sowki-od-empty-event','📸 Zdjęcia z tego wydarzenia pojawią się tutaj po zatwierdzeniu.'));}
       mount.append(article);
     }
   }catch(e){

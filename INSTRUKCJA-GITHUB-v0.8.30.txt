@@ -1,0 +1,16 @@
+SÓWKI v0.8.30 – AKTUALIZACJA OKŁADEK Z TELEFONU
+================================================
+Repozytorium: AdrianoSovaMix/sowki
+Najpierw uruchom SQL i zaktualizuj funkcję prywatną z paczki PRYWATNE.
+Potem wgraj TYLKO te 4 pliki (rozpakuj, zachowaj ścieżki):
+- index.html
+- sw.js
+- css/style.css
+- js/onedrive-gallery.js
+Nic nie zmieniaj w js/app.js ani w backendzie wysyłania oryginałów.
+Po wdrożeniu GitHub Pages zamknij PWA i otwórz ponownie.
+Test: Administrator → Galeria → wybierz Test → Pokaż zdjęcia.
+Własna okładka: wybierz plik z telefonu, potwierdź sprawdzenie,
+kliknij „Prześlij okładkę”, potem „Zapisz kartę wydarzenia”.
+Bez okładki: „Bez okładki” → „Zapisz kartę wydarzenia”.
+Rodzic nie widzi wzmianki o OneDrive. Galeria starszych albumów bez zmian.

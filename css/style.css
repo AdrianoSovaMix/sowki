@@ -6610,3 +6610,25 @@ body.sowki-od-lock{overflow:hidden!important}
  .sowki-od-prev,.sowki-od-next{font-size:30px;padding:5px 7px;background:#0008}
 }
 @media(max-width:380px){.sowki-od-album-bar h2{font-size:14px}.sowki-od-album-bar button{padding:8px}}
+
+/* Sówki v0.8.30 – okładka niezależna od zdjęć, własny plik z telefonu lub plansza. */
+#panel .sowki-cover-upload-area{display:grid;gap:10px;padding:14px;border:1px solid #e9c9dc;border-radius:14px;background:#fffafd}
+#panel .sowki-cover-upload-area h5{margin:0;font-size:15px;color:#9b1852}
+#panel .sowki-cover-hint{font-size:13px;color:#645765;line-height:1.5;margin:0}
+#panel .sowki-cover-upload-area input[type=file]{font-size:14px;max-width:100%;min-height:48px;cursor:pointer}
+#panel .sowki-cover-upload-area .sowki-album-cover-preview{width:100%;max-width:560px;max-height:290px;object-fit:contain;background:#f5f1f5;border-radius:12px}
+#panel .sowki-cover-empty{padding:16px;border-radius:12px;border:1px dashed #ecc0d7;background:#fff;color:#766474;font-size:13px;line-height:1.5}
+#panel .sowki-cover-empty[hidden]{display:none!important}
+#panel .sowki-cover-review{display:flex;gap:11px;align-items:flex-start;padding:12px;background:#f3faf7;border-radius:11px;color:#214838;font-size:14px;line-height:1.35}
+#panel .sowki-cover-review[hidden]{display:none!important}
+#panel .sowki-cover-review input{flex:0 0 23px;height:23px;width:23px;accent-color:#00836a;margin:0}
+#panel .sowki-cover-actions{display:flex;flex-wrap:wrap;gap:8px}
+#panel .sowki-cover-actions button{min-height:46px;flex:1 1 150px;padding:11px;background:#fff;border:1px solid #e4c5d6;border-radius:10px;color:#ad1857;font-weight:700;cursor:pointer}
+#panel .sowki-cover-actions button:first-child{background:#d81b60;color:white;border-color:#d81b60}
+#panel .sowki-cover-actions button:disabled{opacity:.45;cursor:not-allowed}
+#galleryAlbums .sowki-od-album .sowki-od-event-cover{height:auto;min-height:175px;aspect-ratio:16/8.8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:15px 18px;text-align:center;color:#862050;overflow:hidden;background:radial-gradient(circle at 10% 20%,#fff4ba 0,transparent 36%),radial-gradient(circle at 95% 85%,#fbc4de 0,transparent 40%),linear-gradient(115deg,#ffedf5 5%,#fff9ed 60%,#f8dceb 100%)}
+#galleryAlbums .sowki-od-event-icon{font-size:30px;line-height:1}
+#galleryAlbums .sowki-od-event-caption{font-size:12px;font-weight:700;letter-spacing:.02em;color:#b45883}
+#galleryAlbums .sowki-od-event-title{font-size:clamp(17px,3.7vw,27px);line-height:1.18;overflow-wrap:anywhere;max-width:100%}
+#galleryAlbums .sowki-od-empty-event{font-size:13px;color:#675a64;border-top:1px solid #f1d4e3;margin:13px 0 2px;padding-top:12px}
+@media(max-width:540px){#panel .sowki-cover-upload-area{padding:11px}#galleryAlbums .sowki-od-album .sowki-od-event-cover{min-height:155px}}
