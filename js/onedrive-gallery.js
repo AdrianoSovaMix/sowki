@@ -62,6 +62,15 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   const settings=section.querySelector('.sowki-mod-album-settings');
   const refresh=section.querySelector('.sowki-mod-refresh');
   let chosenAlbum='';let busy=false;let queued=false;
+  async function refreshAlbumPicker(preferred=''){
+    if(typeof box.sowkiRefreshAlbums==='function')await box.sowkiRefreshAlbums(preferred);
+  }
+  function confirmTyped(name,text){
+    if(!confirm(text))return false;
+    const typed=prompt(`Aby potwierdzić, wpisz dokładną nazwę albumu:\n${name}`);
+    return typed===name;
+  }
+
   // Po zmianie albumu od razu pokaż metadane — bez szukania przycisku pod zdjęciami.
   let metadataRequest=0;
   async function loadDetails(){
@@ -91,15 +100,25 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
         invoke('moderation_list',{album_id:id}),invoke('moderation_prepared_list',{album_id:id})]);
       if(chosenAlbum!==id)return;
       setMsg(`${pending.files.length} zdjęć w albumie • ${prepared.photos.length} przygotowanych`+
-        (pending.more?' • widoczne pierwsze 120 plików':'')+'.');
+        (pending.more?' • więcej niż 900 plików; podziel album na mniejsze części':'')+'.');
       if(!pending.files.length)photos.append(elt('p','', 'Brak zdjęć do weryfikacji.'));
       for(const file of pending.files){
         const row=elt('article','sowki-mod-file');
         const main=elt('div');main.append(elt('b','',file.name));
         main.append(elt('small','',file.published?'🟢 Zatwierdzone do albumu':file.has_prepared?'🟡 Przygotowane – nieopublikowane':'⚪ Oczekuje na przygotowanie'));
-        const button=elt('button','','🙈 Sprawdź i przygotuj');button.type='button';
+        const actions=elt('div','sowki-mod-file-actions');
+        const button=elt('button','','🟪 Przygotuj zdjęcie');button.type='button';
         button.onclick=()=>startEditing(file,id);
-        row.append(main,button);photos.append(row);
+        const removeOriginal=elt('button','sowki-danger-action','🗑️ Usuń zdjęcie');removeOriginal.type='button';
+        removeOriginal.title='Przenieś oryginał i przygotowaną kopię (jeśli istnieje) do kosza OneDrive';
+        removeOriginal.onclick=async()=>{
+          if(!confirm(`Przenieść „${file.name}” do kosza OneDrive?\nUsunie to oryginał i jego zatwierdzoną kopię, a rodzice stracą dostęp do zdjęcia.`))return;
+          removeOriginal.disabled=true;
+          try{await invoke('moderation_photo_trash',{album_id:id,source_item_id:file.id,mode:'everything'});
+            setMsg('✅ Zdjęcie przeniesiono do kosza OneDrive.');await load();}
+          catch(e){setMsg('⚠️ '+errText(e));removeOriginal.disabled=false;}
+        };
+        actions.append(button,removeOriginal);row.append(main,actions);photos.append(row);
       }
       if(prepared.photos.length){
         ready.append(elt('h4','','✅ Zapisane kopie – publikuj dopiero po sprawdzeniu'));
@@ -135,7 +154,16 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
               await load();
             }catch(e){alert('Nie udało się zmienić publikacji: '+errText(e));publish.disabled=false;}
           };
-          actions.append(preview,publish);row.append(main,actions);ready.append(row);
+          const trashCopy=elt('button','sowki-danger-action','🗑️ Usuń przygotowaną kopię');trashCopy.type='button';
+          trashCopy.title='Oryginał pozostanie w prywatnym folderze';
+          trashCopy.onclick=async()=>{
+            if(!confirm('Usunąć wyłącznie przygotowaną kopię z OneDrive?\nOryginał zdjęcia pozostanie prywatny i będzie można przygotować go ponownie.'))return;
+            trashCopy.disabled=true;
+            try{await invoke('moderation_photo_trash',{album_id:id,source_item_id:p.source_item_id,mode:'approved_only'});
+              setMsg('✅ Kopia przeniesiona do kosza.');await load();}
+            catch(e){setMsg('⚠️ '+errText(e));trashCopy.disabled=false;}
+          };
+          actions.append(preview,publish,trashCopy);row.append(main,actions);ready.append(row);
         }
       }
       await loadDetails();
@@ -159,7 +187,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     settings.replaceChildren();
     const data=info.album||{};
     const card=elt('section','sowki-mod-album-card');
-    card.append(elt('h4','',data.published?'🟢 Edytujesz opublikowany album':'📝 Edytujesz album ukryty'));
+    card.append(elt('h4','',data.archived?'📦 Album w archiwum':(data.published?'🟢 Edytujesz opublikowany album':'📝 Edytujesz album ukryty')));
     card.append(elt('p','sowki-mod-album-intro','Tytuł, data i opis będą widoczne tak jak w pozostałych albumach. Okładka jest opcjonalna: bez niej aplikacja wyświetli estetyczną planszę wydarzenia.'));
     const field=(label,control)=>{const lbl=elt('label','sowki-album-label',label);lbl.append(control);card.append(lbl);};
     const title=elt('input');title.type='text';title.maxLength=140;title.value=data.title||'';
@@ -238,13 +266,52 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       coverNote.textContent='Bez okładki: po publikacji pojawi się automatyczna plansza wydarzenia. Zapisz kartę, aby zachować zmianę.';
     };
     const current=!!data.published;
+    const archived=!!data.archived;
     const state=elt('p','sowki-album-visibility',current?'✅ Album jest widoczny dla rodziców.':'🔒 Album jest ukryty przed rodzicami.');card.append(state);
     const buttons=elt('div','sowki-album-buttons');
     const save=elt('button','','💾 Zapisz kartę wydarzenia');save.type='button';
     const publish=elt('button','primary',current?'🔒 Ukryj cały album':'🌍 Opublikuj cały album');publish.type='button';
+    save.disabled=archived;publish.disabled=archived;
     buttons.append(save,publish);card.append(buttons);
+    const management=elt('section','sowki-od-danger-zone');
+    management.append(elt('h5','','🧰 Porządkowanie albumu'));
+    const sync=elt('button','','🔄 Synchronizuj zdjęcia');sync.type='button';
+    const archive=elt('button','',archived?'↩ Przywróć album':'📦 Usuń z aplikacji (archiwizuj)');archive.type='button';
+    const deleteAll=elt('button','sowki-danger-action','🗑️ Usuń album i pliki z OneDrive');deleteAll.type='button';
+    const toolFeedback=elt('p','sowki-album-feedback');toolFeedback.setAttribute('role','status');
+    management.append(elt('p','','Archiwizacja chowa album przed rodzicami i z listy aktywnych albumów, ale zachowuje zdjęcia. Usunięcie z OneDrive przenosi oryginały i przygotowane kopie do kosza Microsoft.'));
+    const actionRow=elt('div','sowki-od-danger-buttons');actionRow.append(sync,archive,deleteAll);
+    management.append(actionRow,toolFeedback);card.append(management);
+    const pending=(val)=>{sync.disabled=archive.disabled=deleteAll.disabled=val;};
+    sync.onclick=async()=>{
+      pending(true);toolFeedback.textContent='Porównuję zdjęcia z OneDrive…';
+      try{const r=await invoke('moderation_album_sync',{album_id:albumId});
+        toolFeedback.textContent=`✅ Oryginały: ${r.originals}, przygotowane: ${r.prepared}. Ukryte niedostępne kopie: ${r.stale_hidden}.`;
+        if(section.querySelector('.sowki-mod-photo-details')?.open)await load();}
+      catch(e){toolFeedback.textContent='⚠️ '+errText(e);}finally{pending(false);}
+    };
+    archive.onclick=async()=>{
+      if(!archived&&!confirm('Przenieść album do archiwum? Rodzice natychmiast przestaną go widzieć. Zdjęcia pozostaną na OneDrive.'))return;
+      pending(true);toolFeedback.textContent='Zapisuję zmianę…';
+      try{await invoke('moderation_album_archive',{album_id:albumId,archived:!archived});
+        await refreshAlbumPicker(archived?albumId:'');}
+      catch(e){toolFeedback.textContent='⚠️ '+errText(e);pending(false);}
+    };
+    deleteAll.onclick=async()=>{
+      const name=albumSelect.selectedOptions?.[0]?.dataset.albumName||'';
+      if(!confirmTyped(name,'UWAGA: usunięcie przeniesie WSZYSTKIE pliki z albumu (oryginały i przygotowane kopie) do kosza OneDrive. Tego nie można cofnąć w aplikacji. Kontynuować?')){
+        toolFeedback.textContent='Usuwanie anulowane lub nazwa albumu niezgodna.';return;
+      }
+      pending(true);toolFeedback.textContent='Przenoszę foldery do kosza OneDrive…';
+      try{const deleted=await invoke('moderation_album_trash',{album_id:albumId,confirm_name:name});
+        await refreshAlbumPicker();
+        const note=box.querySelector('#sowkiOneDriveResult');
+        if(note)note.textContent='✅ Album przeniesiono do kosza OneDrive.'+(deleted.cover_retained?' Uwaga: niektóre pliki okładek pozostawiono w 03_OKLADKI.':'');}
+      catch(e){toolFeedback.textContent='⚠️ '+errText(e)+' Album pozostaje ukryty do wyjaśnienia.';pending(false);}
+    };
     const notice=elt('p','sowki-album-feedback');notice.setAttribute('role','status');card.append(notice);
     async function saveCard(makePublic){
+      if(archived){notice.textContent='Najpierw przywróć album z archiwum.';return;}
       if(coverBusy||blob){notice.textContent='Zakończ wybieranie i wysyłanie okładki albo kliknij „Bez okładki”.';return;}
       if(makePublic!==current){
         const text=makePublic?'Opublikować cały album w galerii rodziców?':'Ukryć cały album przed rodzicami?';
@@ -461,7 +528,7 @@ window.sowkiOneDrivePublicMount=async function(){
   // Nie dodajemy rodzicom etykiet ani technicznych nagłówków OneDrive.
   const generation=String(1+Number(mount.dataset.sowkiGalleryGeneration||0));
   mount.dataset.sowkiGalleryGeneration=generation;
-  mount.querySelectorAll('.sowki-od-album,.sowki-od-error').forEach(x=>x.remove());
+  mount.querySelectorAll('.sowki-od-album,.sowki-od-error,.sowki-od-loading').forEach(x=>x.remove());
   const action=async(type,extras={})=>{
     const s=readPrivateAccessSession('gallery');
     if(!s?.token)throw new Error('Sesja wygasła. Odblokuj galerię hasłem ponownie.');
@@ -476,6 +543,7 @@ window.sowkiOneDrivePublicMount=async function(){
   try{
     const result=await action('public_albums');
     if(!mount.isConnected||mount.hidden||mount.dataset.sowkiGalleryGeneration!==generation)return;
+    if(!result.albums?.length)mount.append(elt('p','sowki-od-empty-event','📸 Nie ma jeszcze opublikowanych wydarzeń.'));
     for(const album of result.albums||[]){
       const article=elt('article','item sowki-od-album');
       const url=goodUrl(album.cover_url);

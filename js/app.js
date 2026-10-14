@@ -2404,6 +2404,18 @@ async function optimizeExistingAdminImage(table,id,path,button){
 
 async function render(table,id){
   setActiveAdminTab(table);
+  // v0.8.32: WYŁĄCZNIE jeden panel galerii OneDrive.
+  // Stare rekordy gallery_albums nadal istnieją jako kopia, lecz nie są
+  // pobierane ani udostępniane w interfejsie administratora.
+  if(table==="gallery_albums"){
+    const ed=q("#editor");
+    ed.dataset.table="gallery_albums";
+    ed.innerHTML='<p class="sowki-od-loading">📸 Otwieram panel galerii…</p>';
+    await sowkiOneDriveMount();
+    if(!ed.querySelector('.sowki-onedrive-beta'))
+      ed.innerHTML='<p class="err">Nie udało się otworzyć galerii. Sprawdź uprawnienia administratora i połączenie z OneDrive.</p>';
+    return;
+  }
   const d=D[table];
   const {data,error}=await sb.from(table).select("*").order("sort_order",{ascending:true}).order("id",{ascending:false});
   if(error){
@@ -5302,23 +5314,9 @@ function privateAccessErrorText(result){
 function renderProtectedGallery(rows){
   const albums=q("#galleryAlbums");
   if(!albums)return;
-
-  setNewContentTokens("gallery",(rows||[]).map(x=>`gallery:${x.id}`));
-
-  updatePublicHtml("#galleryAlbums",(rows||[]).map(x=>`
-    <article class="item">
-      ${storageImg(x.image_url,{className:"album-cover",alt:x.title||"Album zdjęć",title:"Dotknij, aby powiększyć",preview:true})}
-      <div class="date">${date(x.event_date)}</div>
-      <h3>${esc(x.title)}</h3>
-      <p>${richDisplay(x.description||"")}</p>
-      ${x.download_url
-        ?`<a class="primary album-download" target="_blank" rel="noopener" href="${esc(x.download_url)}">📥 Pobierz wszystkie zdjęcia</a>`
-        :""}
-    </article>
-  `).join("")||empty("Nie ma jeszcze albumów."));
-
-  hydratePageImages("gallery");
-  // Nowa galeria OneDrive jest wczytywana wyłącznie po poprawnym odblokowaniu hasłem.
+  // Stary system kart gallery_albums jest wyłączony w UI.
+  // Nowa galeria jest jedynym źródłem wydarzeń i zdjęć.
+  updatePublicHtml("#galleryAlbums",'<p class="sowki-od-loading">📸 Wczytuję galerię…</p>');
   if(typeof window.sowkiOneDrivePublicMount === "function")void window.sowkiOneDrivePublicMount();
 }
 
@@ -6413,8 +6411,9 @@ async function sowkiOneDriveMount(){
       </div></details>`:''}
     <div id="sowkiOneDriveUploadArea" ${status.connected?'':'hidden'}>
       <label for="sowkiOneDriveAlbum">📁 Wybierz album</label>
-      <div class="sowki-onedrive-folder-row"><select id="sowkiOneDriveAlbum" aria-label="Album do przesłania zdjęć"><option value="">Ładowanie albumów…</option></select>
-        <button type="button" id="sowkiOneDriveReload" title="Odśwież foldery">↻</button></div>
+      <div class="sowki-onedrive-folder-row"><select id="sowkiOneDriveAlbum" aria-label="Wybierz album"><option value="">Ładowanie albumów…</option></select>
+        <button type="button" id="sowkiOneDriveReload" title="Odśwież albumy">↻</button></div>
+      ${owner?'<div class="sowki-od-manage-row"><label class="sowki-od-archived-switch"><input type="checkbox" id="sowkiOneDriveShowArchived"> 📦 Pokaż archiwalne</label><button type="button" id="sowkiOneDriveSyncAll">🔄 Sprawdź zgodność z OneDrive</button></div>':''}
       <details class="sowki-od-create"><summary>➕ Utwórz nowy album</summary>
         <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Nazwa nowego albumu, np. Dzień Chłopaka" aria-label="Nazwa nowego albumu">
           <button type="button" id="sowkiOneDriveCreate">➕ Utwórz</button></div></details>
@@ -6463,6 +6462,8 @@ async function sowkiOneDriveMount(){
   const create=box.querySelector('#sowkiOneDriveCreate');
   const folderName=box.querySelector('#sowkiOneDriveNewAlbum');
   const result=box.querySelector('#sowkiOneDriveResult');
+  const archivedSwitch=box.querySelector('#sowkiOneDriveShowArchived');
+  const syncAll=box.querySelector('#sowkiOneDriveSyncAll');
   const progressArea=box.querySelector('#sowkiOneDriveProgressArea');
   const progress=box.querySelector('#sowkiOneDriveProgress');
   const progressText=box.querySelector('#sowkiOneDriveProgressText');
@@ -6473,7 +6474,7 @@ async function sowkiOneDriveMount(){
     const total=files.reduce((n,f)=>n+f.size,0);
     if(invalid)selected.textContent='⚠️ Nieobsługiwany plik lub przekracza 45 MB: '+invalid.name;
     else selected.textContent=files.length?`${files.length} zdjęć • ${sowkiOneDrivePrettySize(total)} łącznie`:'Możesz wybrać wiele zdjęć. Limit: 60 na raz, 45 MB na zdjęcie.';
-    upload.disabled=busy||!select.value||!files.length||files.length>60||!!invalid;
+    upload.disabled=busy||!select.value||select.selectedOptions?.[0]?.dataset.archived==='true'||!files.length||files.length>60||!!invalid;
     if(files.length>60)selected.textContent='⚠️ W jednej partii można przesłać maksymalnie 60 zdjęć.';
   }
   select.onchange=validateSelection;
@@ -6481,17 +6482,28 @@ async function sowkiOneDriveMount(){
   async function refreshAlbums(preferred=''){
     reload.disabled=true;select.disabled=true;
     try{
-      const data=await sowkiOneDriveInvoke('list_albums');
+      const data=await sowkiOneDriveInvoke('list_albums',{include_archived:!!archivedSwitch?.checked});
       select.replaceChildren();
       const empty=document.createElement('option');empty.value='';empty.textContent='— Wybierz album —';select.append(empty);
-      (data.albums||[]).forEach(a=>{const o=document.createElement('option');o.value=String(a.id);o.textContent=String(a.name);select.append(o);});
+      (data.albums||[]).forEach(a=>{const o=document.createElement('option');o.value=String(a.id);o.textContent=String(a.name)+(a.archived?' 📦 ARCHIWUM':'');o.dataset.albumName=String(a.name);o.dataset.archived=String(!!a.archived);select.append(o);});
       if(preferred&&[...select.options].some(x=>x.value===preferred))select.value=preferred;
       else if(select.options.length===2)select.selectedIndex=1;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
       result.textContent=select.options.length<2?'Utwórz pierwszy album, aby dodawać zdjęcia.':'';
     }catch(e){result.textContent='⚠️ '+e.message;}
     finally{reload.disabled=false;select.disabled=false;validateSelection();}
   }
+  box.sowkiRefreshAlbums=refreshAlbums;
   reload.onclick=()=>refreshAlbums(select.value);
+  if(archivedSwitch)archivedSwitch.onchange=()=>refreshAlbums(select.value);
+  if(syncAll)syncAll.onclick=async()=>{
+    syncAll.disabled=true;result.textContent='Porównuję listę albumów z OneDrive…';
+    try{const r=await sowkiOneDriveInvoke('moderation_sync_all');
+      await refreshAlbums(select.value);
+      result.textContent=`✅ Sprawdzono foldery: ${r.found_on_drive}. Ukryte brakujące albumy: ${r.missing_hidden}.`;}
+    catch(e){result.textContent='⚠️ '+e.message;}
+    finally{syncAll.disabled=false;}
+  };
   create.onclick=async()=>{
     if(busy)return;
     const name=folderName.value.trim();

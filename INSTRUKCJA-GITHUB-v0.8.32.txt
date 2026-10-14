@@ -1,0 +1,53 @@
+SÓWKI v0.8.32 — JEDNA GALERIA / EDYCJA / ARCHIWUM / KOSZ ONEDRIVE
+==================================================================
+
+Kolejność wdrożenia:
+1. ZRÓB KOPIĘ aktualnego repozytorium GitHub i funkcji Supabase `sowki-onedrive`.
+2. PACZKA PRYWATNE: uruchom `05_JEDNA_GALERIA_ARCHIWUM.sql` w Supabase SQL Editor.
+   Kolumna `archived` musi zwrócić boolean/default false i RLS true.
+3. PACZKA PRYWATNE: w Edge Functions -> `sowki-onedrive` -> Code zastąp
+   `index.ts` i wybierz Deploy. Pozostaw Verify JWT with legacy secret OFF.
+   POZOSTAŁE FUNKCJE SUPABASE ZOSTAW BEZ ZMIAN.
+4. Sprawdź na `onedrive-test.html` Status i test odnowienia połączenia.
+5. Po udanym teście Supabase rozpakuj paczkę GITHUB AKTUALIZACJA.
+   Wgraj do repozytorium dokładnie pięć plików, z zachowaniem ścieżek:
+     index.html
+     sw.js
+     css/style.css
+     js/app.js
+     js/onedrive-gallery.js
+   Zaczekaj na zakończenie Github Pages deploy, zamknij i otwórz PWA.
+
+Co się zmienia:
+• Panel administratora Galeria wyświetla JEDEN system OneDrive, bez starego
+  formularza gallery_albums i bez dublujących się paneli przesyłania.
+• Dla rodzica jest WYŁĄCZNIE jedna galeria z kartami wydarzeń OneDrive.
+• Edytuj tytuł, opis, datę i osobną okładkę z telefonu również po publikacji.
+• Ukryj / opublikuj album bez usuwania zdjęć.
+• Archiwizuj (usuń z aplikacji): znika z rodziców i listy aktywnych albumów,
+  zdjęcia nadal są na OneDrive. Włącz "Pokaż archiwalne", aby przywrócić.
+• Usuń album i zdjęcia z OneDrive: wymaga dwóch potwierdzeń, usuwa dwa foldery
+  albumu, oryginały i kopie trafiają do KOSZA OneDrive (możliwe odzyskanie).
+  Osobne okładki z 03_OKLADKI również trafiają do kosza, jeśli nie są użyte gdzie indziej;
+  nieudane usuwanie okładki nie blokuje usunięcia albumu (pokaże komunikat).
+• Usuń pojedynczy oryginał + kopię lub tylko przygotowaną kopię.
+• Synchronizacja sprawdza pliki OneDrive i wyłącza publikację brakujących kopii;
+  globalne sprawdzenie archiwizuje rekordy albumów pozbawionych folderów.
+• Poprawianie mozaiki zapisuje nową kopię, ukrywa poprzednią i przenosi ją do kosza.
+
+UWAGA NA PRODUKCJĘ
+• Nie testuj fizycznego usuwania na prawdziwych zdjęciach dzieci.
+  Załóż nowy, neutralny album "TEST KOSZ", prześlij zwykłe zdjęcie,
+  zatwierdź, ukryj/przywróć, usuń pojedynczy plik, a potem cały album.
+• Nie uruchamiaj starych skryptów masowego DELETE starych albumów.
+  Rekordy `gallery_albums` zostają w Supabase jako archiwum do czasu
+  ODDZIELNEJ decyzji o ich bezpiecznym usunięciu; nie pojawiają się w aplikacji.
+• Fizyczne zdjęcia legacy w R2 nie są usuwane w tej aktualizacji.
+• Nowa funkcja archiwizowania wymaga SQL v0.8.32 i nowego backendu, zatem
+  NIGDY nie wdrażaj frontendu na GitHub przed aktualizacją Supabase.
+• Galeria rodziców nadal jest chroniona sesją private-access i hasłem.
+• Nie udostępniaj ZIP PRYWATNE ani jego plików w publicznym repozytorium.
+
+Nie była wykonywana integracja LIVE z Twoim produkcyjnym OneDrive.
+Sprawdzono składnię JS i TS, ZIP oraz logikę ścieżek. Wdrożenie i funkcje usuwania
+wymagają testu end-to-end na albumie testowym.

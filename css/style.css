@@ -6648,3 +6648,25 @@ body.sowki-od-lock{overflow:hidden!important}
 #panel .sowki-mod-photo-details[open]>summary{margin-bottom:12px}
 #panel .sowki-onedrive-beta [hidden],#panel .sowki-gallery-mod[hidden]{display:none!important}
 @media(max-width:540px){#panel .sowki-od-nav{grid-template-columns:1fr}}
+
+/* v0.8.32 – tylko jeden panel galerii, bez starych formularzy. */
+#panel .sowki-od-loading{background:#fff7fb;border:1px solid #efd8e4;border-radius:12px;padding:14px;color:#815071}
+#panel .sowki-od-archived-switch{display:flex;align-items:center;gap:10px;padding:9px 10px;margin:8px 0;border:1px solid #e8d4df;border-radius:10px;background:#fffcfe;font-size:13px;color:#624f60;cursor:pointer}
+#panel .sowki-od-archived-switch input{flex:0 0 20px!important;appearance:auto!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;margin:0!important;accent-color:#be1c63}
+#panel .sowki-od-danger-zone{margin:15px 0 0;padding:14px;border:1px solid #ecd6e1;border-radius:13px;background:#fffafa;display:grid;gap:9px}
+#panel .sowki-od-danger-zone>h5{font-size:15px;margin:0;color:#7d3757}
+#panel .sowki-od-danger-zone>p{font-size:13px;color:#655766;line-height:1.5;margin:0}
+#panel .sowki-od-danger-buttons{display:flex;gap:9px;flex-wrap:wrap}
+#panel .sowki-od-danger-buttons button{flex:1 1 205px;min-height:46px;border-radius:10px;border:1px solid #dfc2d2;background:#fff;color:#852856;padding:10px 12px;cursor:pointer;font-weight:750}
+#panel .sowki-od-danger-buttons .sowki-danger-action,
+#panel .sowki-mod-file-actions .sowki-danger-action{color:#a52a36!important;border-color:#efb8c0!important;background:#fff3f5!important}
+#panel .sowki-od-danger-buttons .sowki-danger-action:hover,#panel .sowki-mod-file-actions .sowki-danger-action:hover{background:#ffe4e8!important}
+#panel .sowki-od-danger-buttons button:disabled{opacity:.5;cursor:wait}
+#panel .sowki-onedrive-beta{max-width:100%;box-sizing:border-box}
+#panel .sowki-onedrive-beta h3{line-height:1.3}
+#galleryAlbums>.sowki-od-loading{color:#7d3757;padding:12px}
+@media(max-width:540px){#panel .sowki-od-danger-zone{padding:11px}#panel .sowki-od-danger-buttons button{flex:1 1 100%}}
+#panel .sowki-od-manage-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin:7px 0}
+#panel .sowki-od-manage-row .sowki-od-archived-switch{margin:0;flex:1 1 185px}
+#panel .sowki-od-manage-row>button{flex:1 1 185px;min-height:44px;padding:9px 12px;background:#fff;border:1px solid #ead0df;border-radius:10px;color:#a91759;font-weight:750;cursor:pointer}
+#panel .sowki-od-manage-row>button:disabled{opacity:.5}
