@@ -50,10 +50,10 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   stage3.innerHTML='<div class="sowki-gallery-intro"><h3>🟪 Zaznacz twarze do ukrycia</h3><p>Wybierz folder, kliknij miniaturę i zaznacz twarze mozaiką. Po zapisaniu zdjęcie zniknie stąd i trafi do etapu 4.</p></div><div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh-3">↻ Odśwież zdjęcia</button><span class="sowki-mod-summary-3" role="status"></span></div><div class="sowki-mod-list sowki-gallery-image-grid"></div>';
   stage4.innerHTML='<div class="sowki-gallery-intro"><h3>✅ Ostatnia kontrola przed publikacją</h3><p>Obejrzyj przygotowaną wersję i potwierdź, że wszystkie potrzebne twarze są ukryte. Możesz wrócić do mozaiki.</p></div><div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh-4">↻ Odśwież zdjęcia</button><span class="sowki-mod-summary-4" role="status"></span></div><div class="sowki-mod-ready sowki-gallery-image-grid"></div><details class="sowki-gallery-published"><summary>🟢 Zdjęcia już zatwierdzone (zarządzanie)</summary><div class="sowki-gallery-published-list sowki-gallery-image-grid"></div></details>';
   const sourceVideos=elt('section','sowki-gallery-video-section');
-  sourceVideos.innerHTML='<h3>🎬 Filmy do profesjonalnego montażu</h3><p>Oryginały są prywatne. Pobierz je na komputer, przygotuj gotowe MP4 (H.264 + AAC) i umieść w 02_ZATWIERDZONE pod nazwą tego samego folderu. Nie publikujemy automatycznie.</p><div class="sowki-gallery-video-pending" role="status"></div>';
+  sourceVideos.innerHTML='<h3>🎬 Filmy do profesjonalnego montażu</h3><div class="sowki-gallery-video-pending" role="status"></div>';
   stage3.append(sourceVideos);
   const finalVideos=elt('section','sowki-gallery-video-section');
-  finalVideos.innerHTML='<h3>🎞️ Gotowe filmy do sprawdzenia</h3><p>Gotowe filmy MP4 wrzuć do folderu <b>Sówki / 02_ZATWIERDZONE / [nazwa albumu]</b> bezpośrednio przez OneDrive. Następnie odśwież listę i zatwierdź każdy film osobno.</p><button type="button" class="sowki-gallery-video-refresh">↻ Wczytaj gotowe filmy</button><div class="sowki-gallery-video-final" role="status"></div>';
+  finalVideos.innerHTML='<h3>🎞️ Gotowe filmy do sprawdzenia</h3><button type="button" class="sowki-gallery-video-refresh">↻ Wczytaj gotowe filmy</button><div class="sowki-gallery-video-final" role="status"></div>';
   stage4.append(finalVideos);
   const videoPending=sourceVideos.querySelector('.sowki-gallery-video-pending');
   const videoFinal=finalVideos.querySelector('.sowki-gallery-video-final');
@@ -350,8 +350,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     const eventDate=elt('input');eventDate.type='date';eventDate.value=data.event_date||'';
     field('Data wydarzenia (opcjonalnie)',eventDate);
     const coverArea=elt('section','sowki-cover-upload-area');
-    coverArea.append(elt('h5','','🖼️ Okładka z telefonu (opcjonalnie)'));
-    coverArea.append(elt('p','sowki-cover-hint','Wybierz osobną grafikę lub zdjęcie z telefonu. Nie wybieramy okładki ze zdjęć albumu. Możesz też zostawić wydarzenie bez okładki.'));
+    coverArea.append(elt('h5','','🖼️ Dodaj zdjęcie okładki tego albumu/galerii'));
     const fileInput=elt('input');fileInput.type='file';fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif';
     fileInput.setAttribute('aria-label','Wybierz zdjęcie okładki z telefonu');
     fieldCover('Wybierz plik na okładkę',fileInput);
@@ -361,68 +360,75 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     const coverFallback=elt('div','sowki-cover-empty','🦉 Bez własnego zdjęcia pojawi się automatyczna plansza z tytułem wydarzenia.');
     const coverNote=elt('small','sowki-album-preview-status');coverNote.setAttribute('role','status');
     const coverButtons=elt('div','sowki-cover-actions');
-    const uploadCover=elt('button','','☁️ Prześlij okładkę');uploadCover.type='button';uploadCover.disabled=true;
-    const clearCover=elt('button','','✕ Bez okładki');clearCover.type='button';
-    const consentLabel=elt('label','sowki-cover-review');
-    const consent=elt('input');consent.type='checkbox';
-    consentLabel.append(consent,elt('span','','Sprawdziłem, że okładka może być pokazana rodzicom (wizerunki i zgody).'));
-    consentLabel.hidden=true;
-    coverButtons.append(uploadCover,clearCover);
-    coverArea.append(coverPreview,coverFallback,consentLabel,coverButtons,coverNote);
+    const clearCover=elt('button','','✕ Usuń okładkę');clearCover.type='button';
+    coverButtons.append(clearCover);
+    coverArea.append(coverPreview,coverFallback,coverButtons,coverNote);
     card.append(coverArea);
     let uploadedCoverId=String(data.cover_item_id||'');
-    let blob=null,previewLocalUrl=null,coverBusy=false;
+    let previewLocalUrl=null,coverBusy=false;
     const existingCover=goodUrl(data.cover_url);
-    if(existingCover){coverPreview.src=existingCover;coverPreview.hidden=false;coverFallback.hidden=true;
-      coverNote.textContent='✅ Obecna okładka jest przechowywana na OneDrive.';}
+    if(existingCover){coverPreview.src=existingCover;coverPreview.hidden=false;coverFallback.hidden=true;}
     function forgetLocal(){if(previewLocalUrl){URL.revokeObjectURL(previewLocalUrl);previewLocalUrl=null;}}
+    // Okładka wgrywa się automatycznie po wybraniu pliku. Dopiero przycisk
+    // „Zapisz” wiąże nową okładkę z kartą albumu; nie publikuje niczego sam.
     fileInput.onchange=async()=>{
-      blob=null;uploadCover.disabled=true;consent.checked=false;consentLabel.hidden=true;
+      if(coverBusy)return;
       const file=fileInput.files?.[0];if(!file)return;
-      coverNote.textContent='Przygotowuję okładkę z telefonu…';
+      coverBusy=true;dialog.dataset.coverBusy='1';
+      fileInput.disabled=true;clearCover.disabled=true;albumSelect.disabled=true;
+      const albumReload=dialog.querySelector('#sowkiOneDriveReload');
+      if(albumReload)albumReload.disabled=true;
+      save.disabled=true;publish.disabled=true;
+      coverNote.textContent='⏳ Przygotowuję okładkę…';
+      let newPreviewUrl=null;
       try{
-        blob=await prepareAlbumCover(file);
-        forgetLocal();previewLocalUrl=URL.createObjectURL(blob);
-        coverPreview.src=previewLocalUrl;coverPreview.hidden=false;coverFallback.hidden=true;
-        consentLabel.hidden=false;uploadCover.disabled=true;
-        coverNote.textContent='Podgląd przygotowanej grafiki. Zaznacz potwierdzenie, a następnie kliknij „Prześlij okładkę”.';
-      }catch(e){coverNote.textContent='⚠️ '+errText(e);}
-    };
-    consent.onchange=()=>{uploadCover.disabled=coverBusy||!blob||!consent.checked;};
-    uploadCover.onclick=async()=>{
-      if(!blob||!consent.checked||coverBusy)return;
-      coverBusy=true;uploadCover.disabled=true;clearCover.disabled=true;
-      coverNote.textContent='Przesyłam prywatną okładkę na OneDrive…';
-      try{
-        const session=await invoke('album_cover_prepare',{album_id:albumId,size:blob.size});
+        const jpeg=await prepareAlbumCover(file);
+        newPreviewUrl=URL.createObjectURL(jpeg);
+        coverPreview.src=newPreviewUrl;coverPreview.hidden=false;coverFallback.hidden=true;
+        coverNote.textContent='⏳ Przesyłam okładkę…';
+        const session=await invoke('album_cover_prepare',{album_id:albumId,size:jpeg.size});
         if(!goodUrl(session.upload_url))throw Error('Brak poprawnej sesji zapisu okładki.');
-        const step=Number(session.chunk_size)||5*1024*1024;
+        const chunkSize=Number(session.chunk_size)||5*1024*1024;
         let last=null;
-        for(let from=0;from<blob.size;from+=step){
-          const end=Math.min(blob.size,from+step);
-          last=await sowkiOneDriveUploadChunk(session.upload_url,blob.slice(from,end),from,blob.size,
-            sent=>{coverNote.textContent=`Przesyłam okładkę: ${Math.min(100,Math.round(sent/blob.size*100))}%`;});
-          if(end<blob.size&&last.status!==202)throw Error('OneDrive przerwał wysyłanie okładki.');
+        for(let from=0;from<jpeg.size;from+=chunkSize){
+          const end=Math.min(jpeg.size,from+chunkSize);
+          last=await sowkiOneDriveUploadChunk(session.upload_url,jpeg.slice(from,end),from,jpeg.size,
+            sent=>{coverNote.textContent=`⏳ Przesyłam okładkę: ${Math.min(100,Math.round(sent/jpeg.size*100))}%`;});
+          if(end<jpeg.size&&last.status!==202)throw Error('OneDrive przerwał wysyłanie okładki.');
         }
         if(!last||![200,201].includes(last.status)||!last.data?.id)throw Error('OneDrive nie potwierdził zapisu okładki.');
         const receipt=await invoke('album_cover_confirm',{album_id:albumId,item_id:last.data.id});
         if(!receipt?.ok||!receipt?.cover_item_id)throw Error('Nie potwierdzono okładki w prywatnym folderze.');
         uploadedCoverId=String(receipt.cover_item_id);
-        fileInput.value='';blob=null;consentLabel.hidden=true;
-        coverNote.textContent='✅ Okładka przesłana. Kliknij „Zapisz kartę wydarzenia”, aby ją przypisać.';
-      }catch(e){coverNote.textContent='⚠️ '+errText(e);uploadCover.disabled=!blob||!consent.checked;}
-      finally{coverBusy=false;clearCover.disabled=false;}
+        forgetLocal();previewLocalUrl=newPreviewUrl;newPreviewUrl=null;
+        coverNote.textContent='✅ Okładka przesłana. Kliknij „Zapisz”, aby zapisać zmianę.';
+      }catch(e){
+        coverNote.textContent='⚠️ Nie udało się przesłać okładki: '+errText(e)+' Wybierz plik ponownie.';
+        // Nie pokazuj niezapisanego obrazu jako nowej okładki.
+        if(previewLocalUrl){coverPreview.src=previewLocalUrl;coverPreview.hidden=false;coverFallback.hidden=true;}
+        else if(existingCover&&uploadedCoverId===String(data.cover_item_id||'')){coverPreview.src=existingCover;coverPreview.hidden=false;coverFallback.hidden=true;}
+        else{coverPreview.removeAttribute('src');coverPreview.hidden=true;coverFallback.hidden=false;}
+      }finally{
+        if(newPreviewUrl)URL.revokeObjectURL(newPreviewUrl);
+        fileInput.value='';fileInput.disabled=false;clearCover.disabled=false;
+        albumSelect.disabled=false;
+        const albumReload=dialog.querySelector('#sowkiOneDriveReload');
+        if(albumReload)albumReload.disabled=false;
+        coverBusy=false;delete dialog.dataset.coverBusy;
+        save.disabled=archived;publish.disabled=archived;
+      }
     };
     clearCover.onclick=()=>{
-      uploadedCoverId='';blob=null;fileInput.value='';consent.checked=false;consentLabel.hidden=true;uploadCover.disabled=true;
+      if(coverBusy)return;
+      uploadedCoverId='';fileInput.value='';
       forgetLocal();coverPreview.removeAttribute('src');coverPreview.hidden=true;coverFallback.hidden=false;
-      coverNote.textContent='Bez okładki: po publikacji pojawi się automatyczna plansza wydarzenia. Zapisz kartę, aby zachować zmianę.';
+      coverNote.textContent='Bez okładki — kliknij „Zapisz”, aby zachować zmianę.';
     };
     const current=!!data.published;
     const archived=!!data.archived;
     const state=elt('p','sowki-album-visibility',current?'✅ Album jest widoczny dla rodziców.':'🔒 Album jest ukryty przed rodzicami.');card.append(state);
     const buttons=elt('div','sowki-album-buttons');
-    const save=elt('button','','💾 Zapisz kartę wydarzenia');save.type='button';
+    const save=elt('button','','💾 Zapisz');save.type='button';
     const publish=elt('button','primary',current?'🔒 Ukryj cały album':'🌍 Opublikuj cały album');publish.type='button';
     save.disabled=archived;publish.disabled=archived;
     buttons.append(save,publish);card.append(buttons);
@@ -466,9 +472,9 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     const notice=elt('p','sowki-album-feedback');notice.setAttribute('role','status');card.append(notice);
     async function saveCard(makePublic){
       if(archived){notice.textContent='Najpierw przywróć album z archiwum.';return;}
-      if(coverBusy||blob){notice.textContent='Zakończ wybieranie i wysyłanie okładki albo kliknij „Bez okładki”.';return;}
+      if(coverBusy){notice.textContent='Poczekaj na zakończenie przesyłania okładki.';return;}
       if(makePublic!==current){
-        const text=makePublic?'Opublikować cały album w galerii rodziców?':'Ukryć cały album przed rodzicami?';
+        const text=makePublic?'Opublikować album? Upewnij się, że okładka nie ujawnia wizerunku osób bez odpowiednich zgód.':'Ukryć cały album przed rodzicami?';
         if(!confirm(text))return;
       }
       save.disabled=true;publish.disabled=true;notice.textContent='Zapisuję kartę albumu…';

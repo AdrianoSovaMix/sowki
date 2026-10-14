@@ -6697,7 +6697,7 @@ body.sowki-od-lock{overflow:hidden!important}
 .sowki-gallery-stage-label{font-size:11px;color:#876778;font-weight:800;letter-spacing:.09em}
 .sowki-gallery-dialog-head .sowki-gallery-close,.sowki-gallery-dialog-head .sowki-photo-dialog-close,.sowki-gallery-review-exit{flex:none;font-size:19px;width:44px;height:44px;cursor:pointer;background:#fff3f8;color:#a91657;border:1px solid #efc4d8;border-radius:13px}
 .sowki-gallery-dialog-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px max(15px,env(safe-area-inset-left));scrollbar-gutter:stable}
-.sowki-gallery-dialog-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;background:white;border-top:1px solid #f0d4e2;padding:10px 15px;color:#725765;font-size:12px}
+.sowki-gallery-dialog-foot{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:14px;background:white;border-top:1px solid #f0d4e2;padding:10px 15px;color:#725765;font-size:12px}
 .sowki-gallery-dialog-foot button,.sowki-gallery-dialog-content button:not(.sowki-gallery-thumb){cursor:pointer;min-height:40px;border-radius:10px;border:1px solid #e7c5d5;background:white;color:#a31653;padding:9px 12px;font-weight:700;max-width:100%}
 .sowki-gallery-dialog-content button.primary{background:#d81b60!important;color:white!important;border-color:#d81b60!important}
 .sowki-gallery-dialog-content button:disabled{opacity:.52;cursor:not-allowed}

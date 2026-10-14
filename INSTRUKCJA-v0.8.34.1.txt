@@ -1,0 +1,35 @@
+SÓWKI – v0.8.34.1 (KOSMETYKA ETAPÓW + AUTOMATYCZNA OKŁADKA)
+
+Zmiany:
+- Etapy 1-4: uproszczone etykiety i opisy folderów zdjęć i filmów.
+- Usunięto powtarzającą się informację o OneDrive z dolnej belki.
+- Etap 3 i 4: usunięto rozwlekłe instrukcje filmów.
+- Etap 2: „Dodaj zdjęcie okładki tego albumu/galerii”.
+- Po wybraniu pliku okładka przesyła się automatycznie na OneDrive.
+  Nie ma osobnego przycisku „Prześlij okładkę” ani potwierdzenia przesyłki.
+- Po pomyślnym przesłaniu kliknij „Zapisz”, aby przypisać okładkę
+  do albumu. Wybór okładki SAM W SOBIE nie publikuje albumu.
+- Gdy nie wybierzesz okładki, działa automatyczna plansza wydarzenia.
+- Aby usunąć dotychczasową okładkę, wybierz „Usuń okładkę” i „Zapisz”.
+- W trakcie wysyłania okładki przyciski zapisu i zamknięcia dialogu są zablokowane.
+- Publikacja albumu nadal wymaga świadomego potwierdzenia.
+
+INSTALACJA – TYLKO GITHUB (NIE RUSZAĆ SUPABASE ANI ONEDRIVE)
+1. Zapisz kopię repozytorium przed aktualizacją.
+2. Rozpakuj archiwum GITHUB-AKTUALIZACJA.
+3. Prześlij następujące pliki do tych samych ścieżek w repozytorium:
+   - index.html
+   - sw.js
+   - css/style.css
+   - js/app.js
+   - js/onedrive-gallery.js
+4. Poczekaj na GitHub Actions / Pages: sukces publikacji.
+5. Zamknij i ponownie otwórz zainstalowaną PWA albo odśwież stronę.
+6. W adminie przetestuj etap 2 na niepublicznym albumie testowym:
+   a) wybierz zwykły obrazek bez twarzy dzieci;
+   b) poczekaj na status „Okładka przesłana”;
+   c) kliknij „Zapisz”;
+   d) sprawdź nową okładkę po odświeżeniu panelu.
+
+Nie testowano połączenia z rzeczywistym, produkcyjnym kontem OneDrive.
+Nowych zdjęć nie zapisujemy w Cloudflare R2 ani Supabase Storage.

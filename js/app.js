@@ -6486,17 +6486,17 @@ async function sowkiOneDriveMount(){
       <button type="button" class="sowki-gallery-close" aria-label="Zamknij okno">✕</button></header>
     <div class="sowki-gallery-dialog-content">
       <div class="sowki-gallery-folder-picker">
-      <label for="sowkiOneDriveAlbum">📁 Folder zdjęć na OneDrive</label>
+      <label for="sowkiOneDriveAlbum" id="sowkiOneDriveFolderLabel">📁 Folder zdjęć i filmów</label>
       <div class="sowki-onedrive-folder-row"><select id="sowkiOneDriveAlbum" aria-label="Wybierz folder"><option value="">Ładowanie folderów…</option></select>
       <button type="button" id="sowkiOneDriveReload" aria-label="Odśwież listę folderów">↻</button></div>
       ${owner?'<label class="sowki-od-archived-switch"><input type="checkbox" id="sowkiOneDriveShowArchived"> Pokaż zarchiwizowane foldery</label>':''}
       </div>
       <div id="sowkiGalleryStage1" class="sowki-gallery-stage">
-        <div class="sowki-gallery-stage-callout"><b>Nowy folder?</b> Nadaj mu nazwę, a następnie prześlij zdjęcia lub nagrania. Jeśli folder istnieje, po prostu wybierz go powyżej.</div>
-        <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Np. Dzień Przedszkolaka" aria-label="Nazwa nowego folderu">
+        <div class="sowki-gallery-stage-callout">Sprawdź, czy powyżej istnieje już folder z danego wydarzenia. Jeśli nie, <b>utwórz nowy folder</b>. Nadaj mu datę i nazwę (np. <b>30.09.2026 - Dzień Chłopaka</b>), a następnie prześlij zdjęcia lub nagrania.</div>
+        <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Np. 30.09.2026 - Dzień Chłopaka" aria-label="Nazwa nowego folderu">
           <button type="button" id="sowkiOneDriveCreate">➕ Utwórz folder</button></div>
         <div id="sowkiOneDriveUploadControls">
-        <label for="sowkiOneDriveFiles">📸🎬 Wybierz zdjęcia lub oryginalne filmy z telefonu</label>
+        <label for="sowkiOneDriveFiles">📸🎬 Wybierz zdjęcia lub filmy do dodania</label>
         <input type="file" id="sowkiOneDriveFiles" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.m4v,.webm,image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm">
         <p class="sowki-onedrive-note" id="sowkiOneDriveSelected">Do 60 zdjęć (45 MB/szt.) i 10 filmów (16 GiB/szt.). Filmy dodaj najlepiej przez Wi‑Fi; nie zamykaj aplikacji.</p>
         <button type="button" id="sowkiOneDriveUpload" class="primary" disabled>☁️ Prześlij pliki</button>
@@ -6508,8 +6508,7 @@ async function sowkiOneDriveMount(){
       <div id="sowkiGalleryStage3" class="sowki-gallery-stage" hidden></div>
       <div id="sowkiGalleryStage4" class="sowki-gallery-stage" hidden></div>
     </div>
-    <footer class="sowki-gallery-dialog-foot"><span>☁️ Zdjęcia, nagrania i okładki pozostają tylko na OneDrive.</span>
-      <button type="button" class="sowki-gallery-close">Zamknij</button></footer></div>`;
+    <footer class="sowki-gallery-dialog-foot"><button type="button" class="sowki-gallery-close">Zamknij</button></footer></div>`;
   document.body.append(dialog);box.sowkiGalleryDialog=dialog;
   const select=dialog.querySelector('#sowkiOneDriveAlbum');
   const reload=dialog.querySelector('#sowkiOneDriveReload');
@@ -6525,6 +6524,7 @@ async function sowkiOneDriveMount(){
   const progressText=dialog.querySelector('#sowkiOneDriveProgressText');
   let busy=false;let currentStep=1;let albumLoaded=false;
   const stageTitles={1:'📤 Dodaj zdjęcia i filmy',2:'🖼️ Utwórz / edytuj album',3:'🟪 Przygotuj materiały',4:'✅ Zatwierdź zdjęcia i filmy'};
+  const folderLabels={1:'📁 Folder zdjęć i filmów',2:'Wybierz folder zdjęć i filmów, z którego chcesz utworzyć lub edytować album/galerię:',3:'📁 Wybierz folder ze zdjęciami i filmami',4:'📁 Wybierz folder ze zdjęciami i filmami'};
   function validateSelection(){
     const files=[...fileInput.files];
     const isVideo=f=>/\.(mp4|mov|m4v|webm)$/i.test(f.name);
@@ -6591,6 +6591,7 @@ async function sowkiOneDriveMount(){
     if(busy)return;const n=Number(stage);
     if(!status.connected||(!owner&&n!==1)||!stageTitles[n])return;
     currentStep=n;dialog.querySelector('#sowkiGalleryDialogTitle').textContent=stageTitles[n];
+    dialog.querySelector('#sowkiOneDriveFolderLabel').textContent=folderLabels[n];
     dialog.querySelector('.sowki-gallery-stage-label').textContent=`ETAP ${n} / 4`;
     for(let i=1;i<=4;i++)dialog.querySelector('#sowkiGalleryStage'+i).hidden=i!==n;
     if(!dialog.open)dialog.showModal();dialog.querySelector('.sowki-gallery-dialog-content').scrollTop=0;
@@ -6599,8 +6600,8 @@ async function sowkiOneDriveMount(){
   }
   box.sowkiGalleryOpenStep=openStep;
   box.querySelectorAll('[data-gallery-step]').forEach(b=>b.addEventListener('click',()=>openStep(b.dataset.galleryStep)));
-  dialog.querySelectorAll('.sowki-gallery-close').forEach(b=>b.addEventListener('click',()=>{if(busy){alert('Poczekaj na zakończenie wysyłania.');return;}dialog.close();}));
-  dialog.addEventListener('cancel',e=>{if(busy){e.preventDefault();alert('Poczekaj na zakończenie wysyłania.');}});
+  dialog.querySelectorAll('.sowki-gallery-close').forEach(b=>b.addEventListener('click',()=>{if(busy||dialog.dataset.coverBusy==='1'){alert('Poczekaj na zakończenie wysyłania.');return;}dialog.close();}));
+  dialog.addEventListener('cancel',e=>{if(busy||dialog.dataset.coverBusy==='1'){e.preventDefault();alert('Poczekaj na zakończenie wysyłania.');}});
   dialog.addEventListener('close',()=>{box.dispatchEvent(new Event('sowki:gallery-close'));});
   if(owner){
     box.querySelector('#sowkiOneDriveSyncAll').onclick=async()=>{
