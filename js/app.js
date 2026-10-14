@@ -6385,6 +6385,57 @@ async function sowkiOneDriveSendFile(file,albumId,report){
   }
   return {name:String(response.data?.name||session.file_name||file.name),verified:!!id};
 }
+/* Duże nagrania: zapis fragmentami po 5 MiB bez przechodzenia bajtów przez Supabase.
+   Po utracie sieci próbujemy odczytać nextExpectedRanges i ponowić ten fragment.
+   UWAGA: na telefonie aplikacja musi pozostać na pierwszym planie aż do końca. */
+async function sowkiOneDriveSendVideo(file,albumId,report){
+  if(!/\.(mp4|mov|m4v|webm)$/i.test(file.name))throw Error('Dozwolone: MP4, MOV, M4V, WebM.');
+  if(file.size<1||file.size>16*1024*1024*1024)throw Error('Film może mieć najwyżej 16 GiB.');
+  const session=await sowkiOneDriveInvoke('create_upload_session',{
+    album_id:albumId,name:file.name,size:file.size,media_type:'video'
+  });
+  const url=String(session?.upload_url||'');
+  if(!url.startsWith('https://'))throw Error('Brak sesji przesyłania filmu.');
+  const step=Number(session.chunk_size||5*1024*1024);
+  if(step<327680||step%(320*1024)!==0||step>60*1024*1024)throw Error('Błędna wielkość fragmentu filmu.');
+  let from=0,last=null,failures=0;
+  while(from<file.size){
+    const end=Math.min(file.size,from+step);
+    try{
+      last=await sowkiOneDriveUploadChunk(url,file.slice(from,end),from,file.size,
+        sent=>report(Math.min(file.size,sent),file.size));
+      failures=0;
+      if([200,201].includes(last.status)){from=file.size;report(from,file.size);break;}
+      if(last.status!==202)throw Error('Nieprawidłowy status przesyłania filmu.');
+      const next=Number(String(last.data?.nextExpectedRanges?.[0]||`${end}-`).split('-')[0]);
+      if(!Number.isSafeInteger(next)||next<=from||next>file.size)throw Error('Niespójny lub zatrzymany postęp OneDrive.');
+      from=next;report(from,file.size);
+    }catch(err){
+      failures++;
+      if(failures>6)throw new Error('Film nie został przesłany po ponownych próbach: '+String(err.message||err));
+      await new Promise(resolve=>setTimeout(resolve,Math.min(30000,1500*2**failures)));
+      try{
+        // Stan sesji bez tokenu Microsoft; adres jest preautoryzowany.
+        const state=await fetch(url,{method:'GET',credentials:'omit',cache:'no-store'});
+        if(state.status===404)throw Error('Sesja wygasła. Rozpocznij przesyłanie ponownie.');
+        if(state.ok){
+          const data=await state.json();
+          const next=Number(String(data?.nextExpectedRanges?.[0]||`${from}-`).split('-')[0]);
+          if(Number.isSafeInteger(next)&&next>=0&&next<=file.size)from=next;
+        }
+      }catch(stateError){
+        if(String(stateError.message||'').includes('wygasła'))throw stateError;
+        // Niekiedy OneDrive blokuje CORS GET. Ponawiamy niepotwierdzony fragment.
+      }
+    }
+  }
+  if(!last||![200,201].includes(last.status)||!last.data?.id)
+    throw Error('OneDrive nie zwrócił końcowego potwierdzenia filmu.');
+  const proof=await sowkiOneDriveInvoke('confirm_upload',{album_id:albumId,item_id:String(last.data.id)});
+  if(!proof?.ok||proof.media_type!=='video'||Number(proof.size)!==file.size)
+    throw Error('Weryfikacja przesłanego filmu nie powiodła się.');
+  return {name:String(proof.file_name||file.name),verified:true};
+}
 async function sowkiOneDriveMount(){
   const editor=q('#editor');
   if(!editor||editor.dataset.table!=='gallery_albums'||editor.querySelector('.sowki-onedrive-beta'))return;
@@ -6401,10 +6452,10 @@ async function sowkiOneDriveMount(){
     <p>Cztery proste etapy. Otwórz tylko ten, którego teraz potrzebujesz.</p></div>
   <p id="sowkiOneDriveInfo" class="sowki-onedrive-info" role="status"></p>
   <div class="sowki-gallery-step-grid">
-    <button type="button" class="sowki-gallery-step-card" data-gallery-step="1"><b>1</b><span><strong>📤 Dodaj zdjęcia</strong><small>Utwórz folder lub dodaj zdjęcia do istniejącego</small></span><span>›</span></button>
+    <button type="button" class="sowki-gallery-step-card" data-gallery-step="1"><b>1</b><span><strong>📤 Dodaj zdjęcia i filmy</strong><small>Oryginały z telefonu trafiają do prywatnego folderu</small></span><span>›</span></button>
     ${owner?`<button type="button" class="sowki-gallery-step-card" data-gallery-step="2"><b>2</b><span><strong>🖼️ Utwórz / edytuj album</strong><small>Tytuł, opis, data, własna okładka i widoczność</small></span><span>›</span></button>
-    <button type="button" class="sowki-gallery-step-card" data-gallery-step="3"><b>3</b><span><strong>🟪 Zdjęcia do weryfikacji</strong><small>Miniatury → ręczna mozaika → zapis kopii</small></span><span>›</span></button>
-    <button type="button" class="sowki-gallery-step-card" data-gallery-step="4"><b>4</b><span><strong>✅ Zatwierdź zdjęcia</strong><small>Ostatnia kontrola i udostępnienie rodzicom</small></span><span>›</span></button>`:''}
+    <button type="button" class="sowki-gallery-step-card" data-gallery-step="3"><b>3</b><span><strong>🟪 Przygotuj materiały</strong><small>Zdjęcia: mozaika • filmy: pobierz do montażu</small></span><span>›</span></button>
+    <button type="button" class="sowki-gallery-step-card" data-gallery-step="4"><b>4</b><span><strong>✅ Zatwierdź zdjęcia i filmy</strong><small>Kontrola gotowego filmu MP4 i publikacja</small></span><span>›</span></button>`:''}
   </div>
   ${owner?`<details class="sowki-gallery-technical"><summary>⚙️ Połączenie i diagnostyka</summary>
     <button type="button" id="sowkiOneDriveConnect">Połącz OneDrive ponownie</button>
@@ -6431,7 +6482,7 @@ async function sowkiOneDriveMount(){
   // Natywne okno dialogowe: nie rozciąga dotychczasowego panelu administratora.
   const dialog=document.createElement('dialog');dialog.className='sowki-gallery-dialog';
   dialog.innerHTML=`<div class="sowki-gallery-dialog-layout">
-    <header class="sowki-gallery-dialog-head"><div><small class="sowki-gallery-stage-label">ETAP 1 / 4</small><h2 id="sowkiGalleryDialogTitle">Dodaj zdjęcia</h2></div>
+    <header class="sowki-gallery-dialog-head"><div><small class="sowki-gallery-stage-label">ETAP 1 / 4</small><h2 id="sowkiGalleryDialogTitle">Dodaj zdjęcia i filmy</h2></div>
       <button type="button" class="sowki-gallery-close" aria-label="Zamknij okno">✕</button></header>
     <div class="sowki-gallery-dialog-content">
       <div class="sowki-gallery-folder-picker">
@@ -6441,14 +6492,14 @@ async function sowkiOneDriveMount(){
       ${owner?'<label class="sowki-od-archived-switch"><input type="checkbox" id="sowkiOneDriveShowArchived"> Pokaż zarchiwizowane foldery</label>':''}
       </div>
       <div id="sowkiGalleryStage1" class="sowki-gallery-stage">
-        <div class="sowki-gallery-stage-callout"><b>Nowy folder?</b> Nadaj mu nazwę, a następnie prześlij zdjęcia. Jeśli folder istnieje, po prostu wybierz go powyżej.</div>
+        <div class="sowki-gallery-stage-callout"><b>Nowy folder?</b> Nadaj mu nazwę, a następnie prześlij zdjęcia lub nagrania. Jeśli folder istnieje, po prostu wybierz go powyżej.</div>
         <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Np. Dzień Przedszkolaka" aria-label="Nazwa nowego folderu">
           <button type="button" id="sowkiOneDriveCreate">➕ Utwórz folder</button></div>
         <div id="sowkiOneDriveUploadControls">
-        <label for="sowkiOneDriveFiles">📸 Wybierz zdjęcia z telefonu lub komputera</label>
-        <input type="file" id="sowkiOneDriveFiles" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif">
-        <p class="sowki-onedrive-note" id="sowkiOneDriveSelected">Maksymalnie 60 zdjęć naraz, do 45 MB każde.</p>
-        <button type="button" id="sowkiOneDriveUpload" class="primary" disabled>☁️ Prześlij zdjęcia</button>
+        <label for="sowkiOneDriveFiles">📸🎬 Wybierz zdjęcia lub oryginalne filmy z telefonu</label>
+        <input type="file" id="sowkiOneDriveFiles" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.m4v,.webm,image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm">
+        <p class="sowki-onedrive-note" id="sowkiOneDriveSelected">Do 60 zdjęć (45 MB/szt.) i 10 filmów (16 GiB/szt.). Filmy dodaj najlepiej przez Wi‑Fi; nie zamykaj aplikacji.</p>
+        <button type="button" id="sowkiOneDriveUpload" class="primary" disabled>☁️ Prześlij pliki</button>
         <div id="sowkiOneDriveProgressArea" class="sowki-onedrive-progress" hidden><p id="sowkiOneDriveProgressText" aria-live="polite"></p>
           <progress id="sowkiOneDriveProgress" max="100" value="0"></progress></div>
         <div id="sowkiOneDriveResult" class="sowki-onedrive-result" role="status" aria-live="polite"></div></div>
@@ -6457,7 +6508,7 @@ async function sowkiOneDriveMount(){
       <div id="sowkiGalleryStage3" class="sowki-gallery-stage" hidden></div>
       <div id="sowkiGalleryStage4" class="sowki-gallery-stage" hidden></div>
     </div>
-    <footer class="sowki-gallery-dialog-foot"><span>☁️ Zdjęcia i okładki są przechowywane tylko na OneDrive.</span>
+    <footer class="sowki-gallery-dialog-foot"><span>☁️ Zdjęcia, nagrania i okładki pozostają tylko na OneDrive.</span>
       <button type="button" class="sowki-gallery-close">Zamknij</button></footer></div>`;
   document.body.append(dialog);box.sowkiGalleryDialog=dialog;
   const select=dialog.querySelector('#sowkiOneDriveAlbum');
@@ -6473,14 +6524,20 @@ async function sowkiOneDriveMount(){
   const progress=dialog.querySelector('#sowkiOneDriveProgress');
   const progressText=dialog.querySelector('#sowkiOneDriveProgressText');
   let busy=false;let currentStep=1;let albumLoaded=false;
-  const stageTitles={1:'📤 Dodaj zdjęcia',2:'🖼️ Utwórz / edytuj album',3:'🟪 Zdjęcia do weryfikacji',4:'✅ Zatwierdź zdjęcia'};
+  const stageTitles={1:'📤 Dodaj zdjęcia i filmy',2:'🖼️ Utwórz / edytuj album',3:'🟪 Przygotuj materiały',4:'✅ Zatwierdź zdjęcia i filmy'};
   function validateSelection(){
     const files=[...fileInput.files];
-    const invalid=files.find(f=>!/(jpe?g|png|webp|heic|heif)$/i.test(f.name.split('.').pop()||'')||!f.size||f.size>45*1024*1024);
+    const isVideo=f=>/\.(mp4|mov|m4v|webm)$/i.test(f.name);
+    const videos=files.filter(isVideo).length,images=files.length-videos;
+    const invalid=files.find(f=>!f.size||f.size>(isVideo(f)?16*1024**3:45*1024**2)||
+      !(isVideo(f)||/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)));
     const total=files.reduce((n,f)=>n+f.size,0);
-    selected.textContent=invalid?'⚠️ Nieprawidłowy plik lub przekracza 45 MB: '+invalid.name:files.length?`${files.length} zdjęć • ${sowkiOneDrivePrettySize(total)} łącznie`:'Maksymalnie 60 zdjęć naraz, do 45 MB każde.';
-    if(files.length>60)selected.textContent='⚠️ Limit: 60 zdjęć na jedno przesyłanie.';
-    upload.disabled=busy||!select.value||select.selectedOptions?.[0]?.dataset.archived==='true'||!files.length||files.length>60||!!invalid;
+    selected.textContent=invalid?'⚠️ Nieprawidłowy format albo rozmiar: '+invalid.name:
+      files.length?`${images} zdjęć, ${videos} filmów • ${sowkiOneDrivePrettySize(total)} łącznie`:
+      'Do 60 zdjęć (45 MB/szt.) i 10 filmów (16 GiB/szt.).';
+    if(images>60||videos>10)selected.textContent='⚠️ Jednorazowo wybierz do 60 zdjęć i 10 filmów.';
+    upload.disabled=busy||!select.value||select.selectedOptions?.[0]?.dataset.archived==='true'||
+      !files.length||images>60||videos>10||!!invalid;
   }
   fileInput.onchange=validateSelection;
   async function refreshAlbums(preferred=''){
@@ -6518,15 +6575,16 @@ async function sowkiOneDriveMount(){
     for(let i=0;i<files.length;i++){
       const file=files[i];
       const update=sent=>{const pct=Math.min(100,Math.floor((committed+sent)/Math.max(1,total)*100));progress.value=pct;progressText.textContent=`${i+1}/${files.length} • ${file.name} • ${pct}%`;};
-      try{update(0);const response=await sowkiOneDriveSendFile(file,albumId,update);
+      try{update(0);const response=/\.(mp4|mov|m4v|webm)$/i.test(file.name)?
+        await sowkiOneDriveSendVideo(file,albumId,update):await sowkiOneDriveSendFile(file,albumId,update);
         if(!response.verified)failures.push(`${file.name}: brak potwierdzenia zapisu`);else success++;}
       catch(e){failures.push(`${file.name}: ${e.message}`);}committed+=file.size;
       progress.value=Math.floor(committed/Math.max(1,total)*100);
     }
     progressText.textContent='Wysyłanie zakończone.';result.replaceChildren();
-    const p=document.createElement('p');p.textContent=`${failures.length?'⚠️':'✅'} Przesłano ${success}/${files.length} zdjęć.`;result.append(p);
+    const p=document.createElement('p');p.textContent=`${failures.length?'⚠️':'✅'} Przesłano ${success}/${files.length} plików.`;result.append(p);
     if(failures.length){const ul=document.createElement('ul');failures.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.append(li);});result.append(ul);}
-    if(!failures.length){fileInput.value='';const tip=document.createElement('p');tip.textContent=owner?'Następny krok: utwórz kartę albumu (etap 2).':'Zdjęcia oczekują na weryfikację właściciela.';result.append(tip);}
+    if(!failures.length){fileInput.value='';const tip=document.createElement('p');tip.textContent=owner?'Następny krok: utwórz kartę albumu (etap 2). Oryginalne filmy właściciel montuje poza aplikacją.':'Zdjęcia i filmy oczekują na weryfikację właściciela.';result.append(tip);}
     busy=false;[select,fileInput,reload,create,folderName].forEach(e=>e.disabled=false);validateSelection();
   };
   function openStep(stage){
@@ -6536,7 +6594,7 @@ async function sowkiOneDriveMount(){
     dialog.querySelector('.sowki-gallery-stage-label').textContent=`ETAP ${n} / 4`;
     for(let i=1;i<=4;i++)dialog.querySelector('#sowkiGalleryStage'+i).hidden=i!==n;
     if(!dialog.open)dialog.showModal();dialog.querySelector('.sowki-gallery-dialog-content').scrollTop=0;
-    if(!albumLoaded){void refreshAlbums();}
+    if(!albumLoaded){void refreshAlbums().then(()=>box.dispatchEvent(new CustomEvent('sowki:open-step',{detail:{step:n}})));}
     else box.dispatchEvent(new CustomEvent('sowki:open-step',{detail:{step:n}}));
   }
   box.sowkiGalleryOpenStep=openStep;

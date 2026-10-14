@@ -49,6 +49,14 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   const stage4=dialog.querySelector('#sowkiGalleryStage4');
   stage3.innerHTML='<div class="sowki-gallery-intro"><h3>🟪 Zaznacz twarze do ukrycia</h3><p>Wybierz folder, kliknij miniaturę i zaznacz twarze mozaiką. Po zapisaniu zdjęcie zniknie stąd i trafi do etapu 4.</p></div><div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh-3">↻ Odśwież zdjęcia</button><span class="sowki-mod-summary-3" role="status"></span></div><div class="sowki-mod-list sowki-gallery-image-grid"></div>';
   stage4.innerHTML='<div class="sowki-gallery-intro"><h3>✅ Ostatnia kontrola przed publikacją</h3><p>Obejrzyj przygotowaną wersję i potwierdź, że wszystkie potrzebne twarze są ukryte. Możesz wrócić do mozaiki.</p></div><div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh-4">↻ Odśwież zdjęcia</button><span class="sowki-mod-summary-4" role="status"></span></div><div class="sowki-mod-ready sowki-gallery-image-grid"></div><details class="sowki-gallery-published"><summary>🟢 Zdjęcia już zatwierdzone (zarządzanie)</summary><div class="sowki-gallery-published-list sowki-gallery-image-grid"></div></details>';
+  const sourceVideos=elt('section','sowki-gallery-video-section');
+  sourceVideos.innerHTML='<h3>🎬 Filmy do profesjonalnego montażu</h3><p>Oryginały są prywatne. Pobierz je na komputer, przygotuj gotowe MP4 (H.264 + AAC) i umieść w 02_ZATWIERDZONE pod nazwą tego samego folderu. Nie publikujemy automatycznie.</p><div class="sowki-gallery-video-pending" role="status"></div>';
+  stage3.append(sourceVideos);
+  const finalVideos=elt('section','sowki-gallery-video-section');
+  finalVideos.innerHTML='<h3>🎞️ Gotowe filmy do sprawdzenia</h3><p>Gotowe filmy MP4 wrzuć do folderu <b>Sówki / 02_ZATWIERDZONE / [nazwa albumu]</b> bezpośrednio przez OneDrive. Następnie odśwież listę i zatwierdź każdy film osobno.</p><button type="button" class="sowki-gallery-video-refresh">↻ Wczytaj gotowe filmy</button><div class="sowki-gallery-video-final" role="status"></div>';
+  stage4.append(finalVideos);
+  const videoPending=sourceVideos.querySelector('.sowki-gallery-video-pending');
+  const videoFinal=finalVideos.querySelector('.sowki-gallery-video-final');
   const photos=stage3.querySelector('.sowki-mod-list');
   const ready=stage4.querySelector('.sowki-mod-ready');
   const published=stage4.querySelector('.sowki-gallery-published-list');
@@ -121,6 +129,7 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     photos.replaceChildren();ready.replaceChildren();published.replaceChildren();publishedDetails.hidden=true;
     const where=step===3?stage3.querySelector('.sowki-mod-summary-3'):stage4.querySelector('.sowki-mod-summary-4');
     if(!id){where.textContent='Wybierz folder powyżej.';return;}
+    void loadVideoStage(step,id,request);
     where.textContent='⏳ Pobieram listę plików…';
     try{
       if(step===3){
@@ -205,6 +214,112 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
       }catch(e){status.textContent='⚠️ '+errText(e);remove.disabled=false;}
     };
   }
+
+  const videoDialog=document.createElement('dialog');videoDialog.className='sowki-gallery-dialog sowki-gallery-video-dialog';document.body.append(videoDialog);
+  function closeVideo(){
+    const v=videoDialog.querySelector('video');if(v){v.pause();v.removeAttribute('src');v.load();}
+    if(videoDialog.open)videoDialog.close();videoDialog.replaceChildren();
+  }
+  videoDialog.addEventListener('cancel',e=>{e.preventDefault();closeVideo();});
+  function makeVideoLine(file,callback,caption){
+    const row=elt('div','sowki-gallery-video-line');
+    const info=elt('span','sowki-gallery-video-info');
+    info.append(elt('strong','',String(file.name)),elt('small','',`${(Number(file.size)/1048576).toFixed(0)} MB ${caption||''}`));
+    const button=elt('button','',caption?.includes('montażu')?'⬇ Otwórz / pobierz':'▶ Obejrzyj i zdecyduj');
+    button.type='button';button.onclick=callback;row.append(info,button);return row;
+  }
+  async function loadVideoStage(step,id,request){
+    const area=step===3?videoPending:videoFinal;
+    area.replaceChildren(elt('p','','⏳ Sprawdzam nagrania…'));
+    try{
+      const result=await invoke(step===3?'video_originals':'video_finals',{album_id:id});
+      if(!stageIsCurrent(step,id,request))return;
+      area.replaceChildren();
+      if(step===4&&!result.folder_exists)
+        area.append(elt('p','sowki-gallery-video-hint','📁 Brak folderu gotowych filmów. Utwórz na OneDrive folder: '+result.folder_hint));
+      if(step===4&&!result.folder_exists){
+        const create=elt('button','', '📁 Utwórz folder gotowych filmów');create.type='button';
+        create.onclick=async()=>{create.disabled=true;try{await invoke('video_final_folder_ensure',{album_id:id});void loadStage(4);}catch(e){area.append(elt('p','','⚠️ '+errText(e)));create.disabled=false;}};
+        area.append(create);
+      }
+      if(!result.videos?.length)area.append(elt('p','sowki-gallery-video-hint',step===3?'Nie ma tu jeszcze filmów.':'Nie znaleziono gotowych filmów MP4.'));
+      const list=elt('div','sowki-gallery-video-lines');area.append(list);
+      for(const file of result.videos||[]){
+        list.append(makeVideoLine(file,()=>step===3?openOriginalVideo(file,id):openReadyVideo(file,id),
+          step===3?'• do montażu':(file.published?'• 🟢 opublikowany':'• 🔒 czeka na zatwierdzenie')));
+      }
+      if(result.more)area.append(elt('p','','⚠️ Wyświetlono tylko pierwsze 450 filmów.'));
+    }catch(e){if(stageIsCurrent(step,id,request))area.textContent='⚠️ '+errText(e);}
+  }
+  async function openOriginalVideo(file,id){
+    const d=videoDialog;d.replaceChildren();
+    const wrap=elt('div','sowki-gallery-video-modal');
+    const close=elt('button','sowki-gallery-video-exit','✕ Zamknij');close.onclick=closeVideo;
+    wrap.append(close,elt('h2','','🎬 Oryginał – do montażu'),elt('p','',file.name));
+    const status=elt('p','','Pobieram prywatny adres…');wrap.append(status);d.append(wrap);d.showModal();
+    try{
+      const res=await invoke('video_original_preview',{album_id:id,item_id:file.id});
+      if(!d.open)return;
+      const url=goodUrl(res.url);if(!url)throw Error('Brak odnośnika do nagrania.');
+      status.textContent='Otwórz plik i zapisz go na komputerze. Oryginał nie zostanie pokazany rodzicom.';
+      const link=elt('a','sowki-gallery-video-link','⬇ Otwórz oryginalny film / pobierz');
+      link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.referrerPolicy='no-referrer';
+      wrap.append(link);
+      const trash=elt('button','sowki-gallery-video-trash','🗑️ Usuń oryginał z OneDrive');trash.type='button';
+      trash.onclick=async()=>{
+        if(!confirm('Przenieść ORYGINALNY film do kosza? Tej operacji nie da się odwrócić w Sówkach.'))return;
+        if(prompt('Wpisz dokładną nazwę filmu:\n'+file.name)!==file.name)return;
+        trash.disabled=true;
+        try{await invoke('video_original_trash',{album_id:id,item_id:file.id,confirm_name:file.name});
+          closeVideo();void loadStage(3);
+        }catch(e){status.textContent='⚠️ '+errText(e);trash.disabled=false;}
+      };wrap.append(trash);
+    }catch(e){status.textContent='⚠️ '+errText(e);}
+  }
+  async function openReadyVideo(file,id){
+    closeVideo();const d=videoDialog;
+    const wrap=elt('div','sowki-gallery-video-modal');
+    const close=elt('button','sowki-gallery-video-exit','✕ Zamknij');close.type='button';close.onclick=closeVideo;
+    wrap.append(close,elt('h2','','🎞️ Ostateczna kontrola filmu'),elt('p','',file.name));
+    const video=elt('video','sowki-gallery-video-player');video.controls=true;video.playsInline=true;video.preload='metadata';
+    const message=elt('p','','⏳ Otwieram gotowy film…');message.setAttribute('role','status');
+    const label=elt('label','sowki-gallery-video-confirm');const check=elt('input');check.type='checkbox';
+    label.append(check,elt('span','','✅ Obejrzałem GOTOWY film i sprawdziłem wszystkie twarze, dźwięk, dane osobowe i zgody.'));
+    const approve=elt('button','primary',file.published?'🔒 Wycofaj film z galerii':'✅ Zatwierdź i opublikuj film');approve.disabled=true;
+    const trash=elt('button','sowki-gallery-video-trash','🗑️ Usuń gotowy film z OneDrive');
+    const actions=elt('div','sowki-gallery-video-actions');actions.append(approve,trash);
+    wrap.append(video,message,label,actions);d.append(wrap);d.showModal();
+    let ready=false;
+    check.onchange=()=>{approve.disabled=!ready||!check.checked;};
+    try{
+      const r=await invoke('video_final_preview',{album_id:id,item_id:file.id});
+      if(!d.open)return;
+      const url=goodUrl(r.url);if(!url)throw Error('Nieprawidłowy adres nagrania.');
+      video.src=url;ready=true;message.textContent='Gotowy film jest prywatny do chwili zatwierdzenia. Obejrzyj go przed decyzją.';
+      approve.disabled=!check.checked;
+    }catch(e){message.textContent='⚠️ '+errText(e);}
+    approve.onclick=async()=>{
+      if(!ready||!check.checked)return;
+      if(!confirm(file.published?'Wycofać film z galerii rodziców?':'Udostępnić GOTOWY film rodzicom? Potwierdzasz jego ręczne sprawdzenie.'))return;
+      approve.disabled=true;message.textContent='⏳ Zapisuję decyzję…';
+      try{await invoke('video_publish',{album_id:id,item_id:file.id,published:!file.published,visually_reviewed:true});
+        closeVideo();void loadStage(4);
+      }catch(e){message.textContent='⚠️ '+errText(e);approve.disabled=false;}
+    };
+    trash.onclick=async()=>{
+      if(!confirm('Przenieść GOTOWY film do kosza OneDrive? Oryginał w 01_DO_WERYFIKACJI pozostanie.'))return;
+      if(prompt('Wpisz dokładną nazwę filmu, aby potwierdzić:\n'+file.name)!==file.name)return;
+      trash.disabled=true;message.textContent='⏳ Przenoszę gotowy film do kosza…';
+      try{await invoke('video_trash',{album_id:id,item_id:file.id,confirm_name:file.name});
+        closeVideo();void loadStage(4);
+      }catch(e){message.textContent='⚠️ '+errText(e);trash.disabled=false;}
+    };
+  }
+  finalVideos.querySelector('.sowki-gallery-video-refresh').onclick=()=>loadStage(4);
+  box.addEventListener('sowki:gallery-close',closeVideo);
+  box.addEventListener('sowki:gallery-destroy',()=>{closeVideo();videoDialog.remove();});
+  if(adminDialog)adminDialog.addEventListener('close',()=>{closeVideo();videoDialog.remove();},{once:true});
+
   stage3.querySelector('.sowki-mod-refresh-3').onclick=()=>loadStage(3);
   stage4.querySelector('.sowki-mod-refresh-4').onclick=()=>loadStage(4);
   albumSelect.addEventListener('change',()=>{
@@ -608,9 +723,9 @@ window.sowkiOneDrivePublicMount=async function(){
       article.append(elt('h3','',album.title||'Album zdjęć'));
       if(album.description)article.append(elt('p','sowki-od-description',album.description));
       if(Number(album.count)>0){
-        const button=elt('button','primary sowki-od-show-all','📸 Zobacz wszystkie zdjęcia tego albumu');
+        const button=elt('button','primary sowki-od-show-all','📸 Zobacz zdjęcia i filmy tego albumu');
         button.type='button';article.append(button);button.onclick=()=>openAlbum(album,action);
-      }else{article.append(elt('p','sowki-od-empty-event','📸 Zdjęcia z tego wydarzenia pojawią się tutaj po zatwierdzeniu.'));}
+      }else{article.append(elt('p','sowki-od-empty-event','📸 Zdjęcia i filmy z wydarzenia pojawią się po zatwierdzeniu.'));}
       mount.append(article);
     }
   }catch(e){
@@ -635,7 +750,7 @@ async function openAlbum(album,action){
   const help=elt('p','sowki-od-count','Ładowanie zdjęć…');
   const grid=elt('div','sowki-od-phone-grid');
   const more=elt('button','sowki-od-more','Pokaż więcej zdjęć');more.type='button';more.hidden=true;
-  const note=elt('p','sowki-od-help','Dotknij zdjęcia, aby powiększyć. Przesuwaj palcem w lewo lub w prawo.');
+  const note=elt('p','sowki-od-help','Dotknij miniatury, aby otworzyć zdjęcie lub film. Przesuwaj palcem w lewo lub w prawo.');
   content.append(help,note,grid,more);modal.append(header,content);
   const oldFocus=document.activeElement;
   document.body.append(modal);document.body.classList.add('sowki-od-lock');
@@ -660,24 +775,32 @@ async function openAlbum(album,action){
   close.focus();
   async function loadMore(){
     if(loading||!hasMore||closed)return;
-    loading=true;more.disabled=true;more.hidden=true;help.textContent='Wczytuję fotografie…';
+    loading=true;more.disabled=true;more.hidden=true;help.textContent='Wczytuję galerię…';
     try{
-      const page=await action('public_photos',{album_id:album.id,offset});
+      const page=await action('public_media',{album_id:album.id,offset});
       if(closed)return;
       total=Number(page.count||0);
       for(const item of page.photos||[]){
         const i=photos.push(item)-1;
         const tile=elt('button','sowki-od-tile');tile.type='button';
-        tile.setAttribute('aria-label','Powiększ zdjęcie '+(i+1));
+        tile.setAttribute('aria-label',(item.type==='video'?'Otwórz film ':'Powiększ zdjęcie ')+(i+1));
         const img=elt('img');img.loading='lazy';img.decoding='async';
         img.referrerPolicy='no-referrer';img.alt=item.name||'Zdjęcie z albumu';
-        img.src=goodUrl(item.thumbnail_url||item.url);
-        img.onerror=()=>{if(img.src!==goodUrl(item.url))img.src=goodUrl(item.url);};
-        tile.append(img);tile.onclick=()=>openViewer(i);
+        if(item.type!=='video'||goodUrl(item.thumbnail_url))img.src=goodUrl(item.thumbnail_url||item.url);
+        img.onerror=()=>{if(item.type==='video'){img.replaceWith(elt('span','sowki-od-video-placeholder','🎬'));}
+          else if(img.src!==goodUrl(item.url))img.src=goodUrl(item.url);};
+        if(item.type==='video'){
+          tile.classList.add('sowki-od-video-tile');
+          if(goodUrl(item.thumbnail_url)){
+            img.src=goodUrl(item.thumbnail_url);img.alt='Miniatura filmu';tile.append(img);
+          }else{tile.append(elt('span','sowki-od-video-placeholder','🎬'));}
+          tile.append(elt('span','sowki-od-video-badge','▶ FILM'));
+        }else tile.append(img);
+        tile.onclick=()=>openViewer(i);
         grid.append(tile);
       }
       offset+=24;hasMore=!!page.has_more;
-      help.textContent=total?`${photos.length} z ${total} zdjęć`:'Brak zdjęć w albumie.';
+      help.textContent=total?`${photos.length} z ${total} materiałów`:'Brak zdjęć i filmów w albumie.';
       more.hidden=!hasMore;
     }catch(e){
       help.textContent='Nie można pobrać zdjęć. Spróbuj ponownie.';
@@ -697,10 +820,12 @@ async function openAlbum(album,action){
     const download=elt('button','sowki-od-download','⬇ Pobierz');download.type='button';
     const end=elt('button','sowki-od-viewer-close','✕');end.type='button';end.setAttribute('aria-label','Zamknij zdjęcie');
     const image=elt('img','sowki-od-full-photo');image.referrerPolicy='no-referrer';
+    const video=elt('video','sowki-od-full-video');video.controls=true;video.playsInline=true;video.preload='metadata';video.hidden=true;
+    const videoInfo=elt('p','sowki-od-video-info','');videoInfo.hidden=true;
     const prev=elt('button','sowki-od-prev','‹');prev.type='button';prev.setAttribute('aria-label','Poprzednie zdjęcie');
     const next=elt('button','sowki-od-next','›');next.type='button';next.setAttribute('aria-label','Następne zdjęcie');
-    top.append(counter,download,end);box.append(top,prev,image,next);modal.append(box);
-    const closeViewer=()=>{box.remove();viewer=null;closeViewerFn=null;document.removeEventListener('keydown',onViewerKey);};
+    top.append(counter,download,end);box.append(top,prev,image,video,videoInfo,next);modal.append(box);
+    const closeViewer=()=>{video.pause();video.removeAttribute('src');video.load();box.remove();viewer=null;closeViewerFn=null;document.removeEventListener('keydown',onViewerKey);};
     closeViewerFn=closeViewer;
     end.onclick=closeViewer;
     box.onclick=e=>{if(e.target===box)closeViewer();};
@@ -708,8 +833,21 @@ async function openAlbum(album,action){
       const i=current+delta;
       if(i<0||i>=photos.length)return;
       current=i;
-      const data=photos[i];image.alt=data.name||'Zdjęcie z albumu';
-      image.src=goodUrl(data.url);counter.textContent=`${i+1} / ${total||photos.length}`;
+      const data=photos[i];const isVideo=data.type==='video';
+      video.pause();video.removeAttribute('src');video.load();
+      video.hidden=!isVideo;videoInfo.hidden=!isVideo;image.hidden=isVideo;
+      image.alt=data.name||'Zdjęcie z albumu';
+      if(isVideo){
+        image.removeAttribute('src');videoInfo.textContent='⏳ Przygotowuję odtwarzanie…';
+        try{
+          // Odświeżamy wygasające adresy dopiero przed odtwarzaniem filmu.
+          const fresh=await action('public_video_url',{album_id:album.id,item_id:data.id});
+          if(!box.isConnected||photos[current]!==data)return;
+          video.src=goodUrl(fresh.url);videoInfo.textContent='▶ Dotknij odtwarzacza, aby rozpocząć.';
+        }catch(e){videoInfo.textContent='⚠️ Film chwilowo niedostępny. Zamknij podgląd i spróbuj ponownie.';}
+      }else image.src=goodUrl(data.url);
+      counter.textContent=`${i+1} / ${total||photos.length}`;
+      download.textContent=isVideo?'⬇ Otwórz / pobierz film':'⬇ Pobierz';
       prev.disabled=i===0;next.disabled=i===photos.length-1&&!hasMore;
       if(i>=photos.length-3&&hasMore)void loadMore();
     }
@@ -726,12 +864,20 @@ async function openAlbum(album,action){
       if(!touchStart||e.changedTouches.length!==1)return;
       const dx=e.changedTouches[0].clientX-touchStart.x;
       const dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;
-      if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.4){if(dx<0)next.click();else prev.click();}
+      if(photos[current]?.type!=='video'&&Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.4){if(dx<0)next.click();else prev.click();}
     },{passive:true});
     download.onclick=async()=>{
       download.disabled=true;download.textContent='Pobieram…';
       try{
-        const item=photos[current],blob=await imgBlob(item.url);
+        const item=photos[current];
+        if(item.type==='video'){
+          // Bez ponownego await: otwarcie pozostaje bezpośrednią reakcją na kliknięcie,
+          // co zmniejsza ryzyko zablokowania okna na iPhone. Nie ładujemy filmu do RAM.
+          const href=goodUrl(video.currentSrc||video.src||item.url);
+          if(!href)throw Error('Brak adresu filmu. Zamknij podgląd i otwórz ponownie.');
+          window.open(href,'_blank','noopener,noreferrer');return;
+        }
+        const blob=await imgBlob(item.url);
         const local=URL.createObjectURL(blob),a=document.createElement('a');
         a.href=local;a.download=item.name||'zdjecie.jpg';
         document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(local),60000);
@@ -741,7 +887,7 @@ async function openAlbum(album,action){
         const u=goodUrl(photos[current]?.url);
         if(u&&confirm('Nie udało się automatycznie pobrać pliku. Otworzyć zdjęcie w nowej karcie, aby je zapisać?'))
           window.open(u,'_blank','noopener,noreferrer');
-      }finally{download.disabled=false;download.textContent='⬇ Pobierz';}
+      }finally{download.disabled=false;download.textContent=photos[current]?.type==='video'?'⬇ Otwórz / pobierz film':'⬇ Pobierz';}
     };
     void show(0);
     end.focus();

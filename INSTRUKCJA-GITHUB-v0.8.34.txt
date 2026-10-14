@@ -1,0 +1,18 @@
+SÓWKI v0.8.34 – GITHUB – ZDJĘCIA I DŁUGIE FILMY
+
+Uwaga: najpierw SQL i prywatna funkcja Supabase, dopiero potem te pliki.
+Repozytorium: AdrianoSovaMix/sowki.
+Wgraj ZAWARTOŚĆ ZIP do korzenia repo, zachowując foldery.
+Zmienne pliki: index.html, sw.js, css/style.css, js/app.js, js/onedrive-gallery.js.
+CNAME, config.js, ikony, inne moduły pozostają bez zmian.
+
+NOWE:
+1. Administratorzy: przesyłanie MP4/MOV/M4V/WebM do 16 GiB w 5 MiB blokach.
+2. Właściciel: etap 3 lista oryginalnych filmów do pobrania i montażu.
+3. Właściciel: etap 4 lista gotowych MP4 w 02_ZATWIERDZONE, odtwarzacz i akceptacja.
+4. Rodzice: wspólna siatka zdjęć i filmów, odtwarzanie HTML5 na stronie,
+   opcja otwarcia pliku do pobrania; brak napisów o OneDrive.
+5. Film nie jest nigdy automatycznie publikowany.
+
+Testuj początkowo na neutralnym materiale 20–50 MB.
+Nie usuwaj poprzednich plików ani albumów bez kopii zapasowej.
