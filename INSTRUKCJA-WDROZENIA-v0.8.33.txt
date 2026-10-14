@@ -1,0 +1,62 @@
+SÓWKI v0.8.33 — GALERIA W CZTERECH ETAPACH
+===========================================
+
+WERSJA TESTOWA. ZRÓB KOPIĘ obecnego repozytorium i funkcji Supabase.
+
+1) SUPABASE (z archiwum PRYWATNE):
+   Edge Functions > sowki-onedrive > Code > zastąp cały index.ts > Deploy.
+   Verify JWT with legacy secret = OFF — bez zmiany względem obecnej wersji.
+   Nie uruchamiaj nowych skryptów SQL — ta aktualizacja NIE zmienia tabel.
+   Nowa akcja 'moderation_thumbnails' zwraca WYŁĄCZNIE krótkotrwałe adresy
+   miniaturek (nie wysyła zdjęć przez Supabase).
+   Sprawdź na stronie onedrive-test.html: status i odnowienie połączenia.
+
+2) GITHUB (z archiwum GITHUB-AKTUALIZACJA):
+   Rozpakuj ZIP i przekaż 5 plików, zachowując ścieżki:
+     index.html
+     sw.js
+     css/style.css
+     js/app.js
+     js/onedrive-gallery.js
+   Poczekaj, aż GitHub Actions pokaże udaną publikację.
+   Odśwież PWA, w razie potrzeby zamknij i otwórz aplikację.
+
+3) ADMINISTRATOR > GALERIA:
+   ETAP 1: Utwórz folder lub wybierz istniejący i prześlij zdjęcia.
+   ETAP 2 (właściciel): Ustaw tytuł, opis, datę, opcjonalną osobną okładkę.
+     Można zapisać kartę wydarzenia jako ukrytą albo opublikować kartę
+     BEZ publikowania niezatwierdzonych zdjęć.
+   ETAP 3 (właściciel): Wybierz folder. Ładowane są TYLKO zdjęcia bez gotowej
+     kopii. Kliknij miniaturę, ręcznie zaznacz twarze mozaiką, sprawdź,
+     zaznacz checkbox, zapisz. Plik przechodzi do etapu 4.
+   ETAP 4 (właściciel): Otwórz miniaturę, obejrzyj przygotowaną kopię,
+     zaznacz checkbox, zatwierdź. Możesz też poprawić mozaikę,
+     cofnąć publikację lub usunąć kopię. Opublikowane są w osobnej
+     rozwijanej sekcji.
+
+WYDAJNOŚĆ:
+ - Moduły są otwierane w natywnych pełnoekranowych oknach dialogowych.
+ - Lista miniaturek ładuje się dopiero po wybraniu etapu 3/4 i folderu.
+ - Miniatury pobieramy po maks. 12 sztuk (przycisk „Pokaż kolejne”).
+ - Miniatury zdjęć OneDrive mogą być czasem niedostępne — przycisk z ikoną
+   pozwoli nadal otworzyć zdjęcie w pełnym rozmiarze.
+
+BEZPIECZEŃSTWO:
+ - Zdjęcia i okładki wyłącznie na OneDrive, bez kopiowania do R2.
+ - Supabase przechowuje metadane; dostęp właściciela weryfikowany w funkcji.
+ - Linki do miniaturek są tymczasowe i są wydawane tylko uprawnionemu właścicielowi.
+ - Tylko zatwierdzone zdjęcia z publicznego albumu są widoczne rodzicom.
+ - Brak AI, tylko ręczna silna mozaika; nie publikuj zdjęć dzieci bez sprawdzenia.
+ - Nie aktualizujemy bieżącej galerii rodziców, nie usuwamy danych i folderów.
+
+TESTY LOKALNE:
+ - Składnia JS i TypeScript bez błędów parsera;
+ - Makieta UI: etapy 1-4, wybór albumu, miniatury, mobilny edytor
+   mozaiki, otwarcie zatwierdzania i stan checkboxa;
+ - NIE testowano nowego API miniaturek na koncie Microsoft produkcyjnym.
+ - Przed realnymi zdjęciami dzieci testuj na neutralnych plikach.
+
+W RAZIE PROBLEMU:
+ 1) Przywróć poprzedni index.ts i paczkę GitHub v0.8.32.
+ 2) Sprawdź Edge Functions > sowki-onedrive > Logs oraz Invocations.
+ 3) Nie wykonuj kasowania zdjęć w trakcie diagnozowania.

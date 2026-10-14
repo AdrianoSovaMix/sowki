@@ -6670,3 +6670,121 @@ body.sowki-od-lock{overflow:hidden!important}
 #panel .sowki-od-manage-row .sowki-od-archived-switch{margin:0;flex:1 1 185px}
 #panel .sowki-od-manage-row>button{flex:1 1 185px;min-height:44px;padding:9px 12px;background:#fff;border:1px solid #ead0df;border-radius:10px;color:#a91759;font-weight:750;cursor:pointer}
 #panel .sowki-od-manage-row>button:disabled{opacity:.5}
+
+/* SÓWKI v0.8.33 — cztery etapy, osobne okna zamiast nieskończonego panelu. */
+#panel .sowki-gallery-home{max-width:850px;margin:5px auto;padding:17px;border-radius:18px}
+#panel .sowki-gallery-home .sowki-onedrive-heading h3{margin:0 0 4px}
+#panel .sowki-gallery-step-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:17px 0}
+#panel .sowki-gallery-step-card{min-width:0;text-align:left;display:flex;align-items:center;gap:12px;padding:17px 13px;cursor:pointer;min-height:100px;background:#fff;border:1px solid #edd3e0;border-radius:16px;color:#322531;box-shadow:0 4px 14px #9d346114;transition:background .15s,transform .15s}
+#panel .sowki-gallery-step-card:hover{background:#fff6fa;transform:translateY(-1px)}
+#panel .sowki-gallery-step-card:focus-visible{outline:3px solid #d81b60;outline-offset:2px}
+#panel .sowki-gallery-step-card>b{display:flex;align-items:center;justify-content:center;border-radius:50%;background:#d81b60;color:#fff;width:36px;height:36px;min-width:36px;font-weight:800;font-size:20px}
+#panel .sowki-gallery-step-card>span:nth-child(2){display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+#panel .sowki-gallery-step-card strong{color:#9e174e;font-size:15px;line-height:1.25}
+#panel .sowki-gallery-step-card small{font-size:12px;line-height:1.4;color:#6a5d68}
+#panel .sowki-gallery-step-card>span:last-child{font-size:29px;color:#bf4f86}
+#panel .sowki-gallery-technical{padding:11px 14px;border:1px solid #eadbe4;border-radius:11px;background:#fff;display:block}
+#panel .sowki-gallery-technical>summary{cursor:pointer;color:#7b4565;font-weight:650;font-size:13px}
+#panel .sowki-gallery-technical button{margin:10px 7px 3px 0;min-height:40px;background:#fff;border:1px solid #ecd1df;border-radius:9px;color:#9a1150;padding:10px}
+
+/* <dialog>.showModal(): ponad istniejącym dialogiem administratora; skroluje tylko wnętrze. */
+.sowki-gallery-dialog{position:fixed;inset:0;margin:auto;width:min(960px,calc(100% - 18px));max-width:960px;height:min(92dvh,960px);max-height:96dvh;border:1px solid #f0d0e0;border-radius:18px;padding:0;background:#fffafb;color:#332333;box-shadow:0 20px 90px #3e183559;overscroll-behavior:contain}
+.sowki-gallery-dialog::backdrop{background:rgba(23,12,25,.74)}
+.sowki-gallery-dialog[open]{display:block}
+.sowki-gallery-dialog-layout,.sowki-gallery-review-body{display:flex;flex-direction:column;height:100%;min-height:0}
+.sowki-gallery-dialog-head{flex:none;background:white;border-bottom:1px solid #f0d4e2;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sowki-gallery-dialog-head h2{margin:2px 0 0;font-size:clamp(17px,3vw,22px);line-height:1.25;color:#a20c52}
+.sowki-gallery-stage-label{font-size:11px;color:#876778;font-weight:800;letter-spacing:.09em}
+.sowki-gallery-dialog-head .sowki-gallery-close,.sowki-gallery-dialog-head .sowki-photo-dialog-close,.sowki-gallery-review-exit{flex:none;font-size:19px;width:44px;height:44px;cursor:pointer;background:#fff3f8;color:#a91657;border:1px solid #efc4d8;border-radius:13px}
+.sowki-gallery-dialog-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px max(15px,env(safe-area-inset-left));scrollbar-gutter:stable}
+.sowki-gallery-dialog-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;background:white;border-top:1px solid #f0d4e2;padding:10px 15px;color:#725765;font-size:12px}
+.sowki-gallery-dialog-foot button,.sowki-gallery-dialog-content button:not(.sowki-gallery-thumb){cursor:pointer;min-height:40px;border-radius:10px;border:1px solid #e7c5d5;background:white;color:#a31653;padding:9px 12px;font-weight:700;max-width:100%}
+.sowki-gallery-dialog-content button.primary{background:#d81b60!important;color:white!important;border-color:#d81b60!important}
+.sowki-gallery-dialog-content button:disabled{opacity:.52;cursor:not-allowed}
+.sowki-gallery-dialog label{display:block;font-weight:700;font-size:13px;color:#583c4a;margin:9px 0 6px}
+.sowki-gallery-dialog input:not([type=checkbox]),.sowki-gallery-dialog select,.sowki-gallery-dialog textarea{font:inherit;font-size:14px;min-width:0;max-width:100%;width:100%;border:1px solid #eac9d9;border-radius:10px;padding:11px;background:white;color:#2d2a2f;box-sizing:border-box}
+.sowki-gallery-dialog input[type=checkbox]{appearance:auto;width:22px;height:22px;min-width:22px;min-height:22px;accent-color:#c3135d;vertical-align:middle}
+.sowki-gallery-folder-picker{margin:0 0 16px;padding:12px;background:#fff;border:1px solid #efd4df;border-radius:14px}
+.sowki-gallery-folder-picker .sowki-onedrive-folder-row{display:flex;gap:8px;align-items:center}
+.sowki-gallery-folder-picker .sowki-onedrive-folder-row select{flex:1}
+.sowki-gallery-folder-picker .sowki-od-archived-switch{margin-top:9px;display:flex;gap:10px;align-items:center;font-size:12px}
+.sowki-gallery-folder-picker .sowki-od-archived-switch input{flex:none}
+.sowki-gallery-stage[hidden],.sowki-gallery-dialog [hidden]{display:none!important}
+.sowki-gallery-stage-callout{background:#fff5fa;border-radius:12px;padding:12px;color:#74405d;font-size:13px;line-height:1.5;margin:0 0 11px}
+.sowki-gallery-stage .sowki-onedrive-create-row{display:flex;gap:7px;align-items:stretch;flex-wrap:wrap;margin:9px 0 20px}
+.sowki-gallery-stage .sowki-onedrive-create-row input{flex:1 1 220px;width:auto}
+.sowki-gallery-stage #sowkiOneDriveFiles{padding:13px;background:#fff}
+.sowki-gallery-stage #sowkiOneDriveUpload{display:block;width:100%;min-height:52px;margin:12px 0}
+.sowki-gallery-dialog .sowki-onedrive-note{font-size:12px;color:#735767}
+.sowki-gallery-dialog .sowki-onedrive-progress progress{width:100%}
+.sowki-gallery-intro{margin:0 0 13px;padding:11px 13px;background:#fff;border:1px solid #f0d5e3;border-radius:13px}
+.sowki-gallery-intro h3{margin:0 0 6px;font-size:16px;color:#a61355}
+.sowki-gallery-intro p{margin:0;font-size:13px;color:#655362;line-height:1.5}
+.sowki-gallery-dialog .sowki-mod-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 12px}
+.sowki-gallery-dialog .sowki-mod-controls span{font-size:13px;color:#775065;font-weight:700}
+.sowki-gallery-image-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.sowki-gallery-dialog .sowki-gallery-thumb{padding:0;display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0;border:1px solid #e7c8d8;background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;align-self:stretch}
+.sowki-gallery-dialog .sowki-gallery-thumb:hover{border-color:#d81b60}
+.sowki-gallery-dialog .sowki-gallery-thumb:focus-visible{outline:3px solid #d81b60;outline-offset:2px}
+.sowki-gallery-thumb-image{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;background:#f7eaf0;font-size:39px;width:100%;overflow:hidden}
+.sowki-gallery-thumb-image img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover}
+.sowki-gallery-thumb strong{display:block;font-size:11px;line-height:1.3;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;margin:0 9px;max-height:3em}
+.sowki-gallery-thumb small{display:block;font-size:11px;color:#936b80;padding:0 9px 9px}
+.sowki-gallery-dialog .sowki-gallery-more{grid-column:1/-1;margin:7px auto;min-width:180px}
+.sowki-gallery-empty{grid-column:1/-1;background:#f6f4f8;color:#665564;border-radius:11px;padding:15px;font-size:13px}
+.sowki-gallery-published{margin:22px 0;border:1px solid #d5e8de;background:#fbfffc;border-radius:12px;padding:12px}
+.sowki-gallery-published>summary{cursor:pointer;font-size:13px;color:#277653;font-weight:750}
+.sowki-gallery-published-list{padding-top:12px}
+.sowki-gallery-next-step{display:block!important;width:100%;background:#e7fff4!important;border-color:#73cba3!important;color:#126b42!important;margin:12px 0!important}
+.sowki-gallery-dialog .sowki-mod-album-card{display:grid;gap:10px;border:1px solid #ecc9db;border-radius:14px;background:#fff;padding:17px}
+.sowki-gallery-dialog .sowki-mod-album-card h4{margin:0;color:#9f1950}
+.sowki-gallery-dialog .sowki-mod-album-card p{font-size:13px;line-height:1.5}
+.sowki-gallery-dialog .sowki-album-label{display:grid;gap:6px}
+.sowki-gallery-dialog .sowki-album-buttons,.sowki-gallery-dialog .sowki-cover-actions,.sowki-gallery-dialog .sowki-od-danger-buttons{display:flex;gap:9px;flex-wrap:wrap}
+.sowki-gallery-dialog .sowki-album-buttons button{flex:1 1 180px;min-height:45px}
+.sowki-gallery-dialog .sowki-cover-upload-area{padding:12px;background:#fff9fc;border:1px solid #f3d3e4;border-radius:13px}
+.sowki-gallery-dialog .sowki-cover-upload-area h5{margin:0 0 8px;color:#ac275f}
+.sowki-gallery-dialog .sowki-album-cover-preview{width:100%;max-width:450px;max-height:280px;object-fit:contain;border-radius:12px;display:block;margin:9px 0}
+.sowki-gallery-dialog .sowki-cover-empty{font-size:12px;background:#fff4fa;border-radius:10px;padding:14px;margin:9px 0}
+.sowki-gallery-dialog .sowki-cover-review{display:flex;align-items:flex-start;gap:10px;font-size:13px;font-weight:550}
+.sowki-gallery-dialog .sowki-od-danger-zone{background:#fff9fa;padding:12px;border:1px solid #efd9e3;border-radius:13px}
+.sowki-gallery-dialog .sowki-od-danger-zone h5{margin:0 0 8px;color:#882549}
+.sowki-gallery-dialog .sowki-od-danger-zone p{font-size:12px;margin:8px 0}
+.sowki-gallery-dialog .sowki-danger-action{border-color:#e9a7b4!important;background:#fff2f5!important;color:#a52339!important}
+.sowki-gallery-dialog .sowki-album-visibility{background:#fff5fa;border-radius:9px;padding:9px}
+.sowki-gallery-dialog .sowki-mod-editor{border:0;padding:0;margin:0;background:#fffafb}
+.sowki-gallery-dialog .sowki-mod-editor canvas{width:100%;height:auto;display:block;border-radius:12px;touch-action:none;cursor:crosshair}
+.sowki-gallery-dialog .sowki-mod-editor canvas.sowki-mod-draw{touch-action:none;user-select:none;-webkit-user-select:none}
+.sowki-gallery-dialog .sowki-mod-editor .sowki-mod-save{display:block;min-height:54px;width:100%;margin:10px 0}
+.sowki-gallery-dialog .sowki-mod-edit-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.sowki-gallery-dialog .sowki-mod-review{display:flex;align-items:center;gap:10px;background:#f6fff9;border:1px solid #a7ddbc;padding:13px;border-radius:12px}
+.sowki-gallery-dialog .sowki-mod-review input{flex:none;margin:0}
+.sowki-gallery-dialog .sowki-mod-mask-chip{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e9cada;border-radius:14px;margin:5px;font-size:12px}
+.sowki-gallery-dialog .sowki-mod-save-info,.sowki-gallery-dialog .sowki-mod-status{font-size:13px}
+.sowki-gallery-dialog .sowki-mod-step{background:#fff;border:1px solid #efdaea;padding:12px;border-radius:12px;margin:12px 0}
+.sowki-gallery-dialog .sowki-mod-step-title{display:flex;gap:9px;align-items:center}
+.sowki-gallery-dialog .sowki-mod-step-n{display:flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:#d81b60;color:#fff;font-weight:800}
+.sowki-gallery-review-dialog{max-width:860px}
+.sowki-gallery-review-image{display:block;max-width:100%;max-height:51dvh;width:auto;height:auto;margin:auto;object-fit:contain;border-radius:10px}
+.sowki-gallery-review-note{font-size:13px;color:#685566;text-align:center}
+.sowki-gallery-review-check{display:flex!important;gap:11px;align-items:center!important;background:#eafff2;border:1px solid #b3dac2;padding:15px;border-radius:14px;font-size:13px!important}
+.sowki-gallery-review-buttons{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}
+.sowki-gallery-review-buttons button{flex:1 1 195px}
+.sowki-gallery-review-status{font-size:13px;color:#913a61}
+@media(max-width:680px){
+  #panel .sowki-gallery-step-grid{grid-template-columns:1fr;gap:8px}
+  #panel .sowki-gallery-step-card{min-height:80px}
+  .sowki-gallery-dialog{width:calc(100% - 8px);max-height:calc(100dvh - 8px);height:calc(100dvh - 8px);border-radius:12px}
+  .sowki-gallery-dialog-content{padding:11px}
+  .sowki-gallery-dialog-head{padding:9px 12px}
+  .sowki-gallery-image-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .sowki-gallery-thumb strong,.sowki-gallery-thumb small{font-size:10px}
+  .sowki-gallery-dialog-foot span{font-size:10px}
+}
+
+.sowki-gallery-thumb-card{min-width:0;background:#fff;border:1px solid #e7c8d8;border-radius:12px;overflow:hidden}
+.sowki-gallery-thumb-card .sowki-gallery-thumb{width:100%;border:0;border-radius:0}
+.sowki-gallery-dialog-content .sowki-gallery-thumb-trash{width:100%;border:0!important;border-top:1px solid #f0dce6!important;background:#fff7fa!important;color:#a33446!important;border-radius:0!important;font-size:11px;min-height:34px!important}
+
+.sowki-gallery-dialog .sowki-od-danger-zone>summary{cursor:pointer;color:#963a65;font-size:13px;font-weight:750}
+.sowki-gallery-dialog .sowki-od-danger-zone[open]>summary{margin-bottom:12px}
