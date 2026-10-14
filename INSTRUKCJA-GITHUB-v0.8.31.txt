@@ -1,0 +1,29 @@
+SÓWKI v0.8.31 — UPROSZCZONY PANEL GALERII
+
+Wgraj pliki z paczki AKTUALIZACJA do repozytorium GitHub przy zachowaniu
+katalogów. Nie wgrywaj archiwum ZIP w całości jako jednego pliku.
+
+Zmienione:
+index.html
+sw.js
+css/style.css
+js/app.js
+js/onedrive-gallery.js
+
+Co się zmieniło:
+- Jeden widoczny moduł Galeria — albumy i zdjęcia, bez duplikatów panelu.
+- Przełącznik: „Edytuj / publikuj album” oraz „Dodaj zdjęcia”.
+- Wybierz album i od razu edytuj tytuł, opis, datę, okładkę, widoczność.
+- Album możesz poprawiać także po publikacji.
+- Zdjęcia do moderacji w osobnej rozwijanej sekcji.
+- Stary edytor galerii przeniesiony do domyślnie zamkniętej sekcji „Stare albumy”.
+
+Brak zmian funkcji Supabase, R2 i magazynu OneDrive.
+Wyczyszczenie starych rekordów jest osobne i opcjonalne (PRYWATNE SQL).
+
+Po wdrożeniu sprawdź:
+1) Użytkownik z dostępem do zarządzania OneDrive: jeden moduł;
+2) wybór opublikowanego albumu i zmiana opisu;
+3) dodawanie zdjęć jako admin;
+4) podgląd rodzica;
+5) rozwiniecie archiwalnych wpisów, bez przypadkowego usuwania.

@@ -2482,6 +2482,19 @@ async function render(table,id){
       </div>
     </section>`;
 
+  // Gallery 2.0: stare formularze nie mieszają się z OneDrive.
+  // Zachowujemy wszystkie archiwalne rekordy i możliwość ich ręcznej edycji.
+  if(table==="gallery_albums"){
+    const ed=q("#editor");
+    const legacy=document.createElement("details");
+    legacy.className="sowki-legacy-gallery-details";
+    legacy.open=!!id;
+    const summary=document.createElement("summary");
+    summary.textContent=`🗄️ Stare albumy (archiwalne) — ${rows.length} wpisów. Rozwiń, jeśli chcesz nimi zarządzać.`;
+    while(ed.firstChild)legacy.append(ed.firstChild);
+    legacy.prepend(summary);
+    ed.append(legacy);
+  }
   q("#f").onsubmit=save;
   bindRichEditors();
   bindNotificationScheduleFields();
@@ -6376,16 +6389,22 @@ async function sowkiOneDriveSendFile(file,albumId,report){
 async function sowkiOneDriveMount(){
   const editor=q('#editor');
   if(!editor||editor.dataset.table!=='gallery_albums')return;
+  // Async status potrafi wrócić dwukrotnie po szybkim renderowaniu panelu.
+  // Token kolejności + kontrola istniejącego modułu eliminują duplikaty.
+  const epoch=String((Number(editor.dataset.sowkiOneDriveEpoch)||0)+1);
+  editor.dataset.sowkiOneDriveEpoch=epoch;
+  if(editor.querySelector('.sowki-onedrive-beta'))return;
   let status;
   try{status=await sowkiOneDriveInvoke('status');}catch{return;}
-  if(!editor.isConnected||editor.dataset.table!=='gallery_albums')return;
+  if(!editor.isConnected||editor.dataset.table!=='gallery_albums'||
+     editor.dataset.sowkiOneDriveEpoch!==epoch||
+     editor.querySelector('.sowki-onedrive-beta'))return;
   const box=document.createElement('section');
   box.className='sowki-onedrive-beta';
   const owner=!!status.is_owner;
   box.innerHTML=`
-    <div class="sowki-onedrive-heading"><div><h3>☁️ Prześlij zdjęcia do OneDrive</h3>
-      <p>Oryginały trafią do prywatnego folderu. <strong>Nie będą widoczne dla rodziców</strong>, dopóki właściciel ich nie przygotuje i nie udostępni.</p></div>
-      <span class="sowki-onedrive-pill">BETA</span></div>
+    <div class="sowki-onedrive-heading"><div><h3>📸 Galeria — albumy i zdjęcia</h3>
+      <p>Wybierz album i przejdź do odpowiedniego działania. Zdjęcia są wyłącznie na OneDrive.</p></div></div>
     <p id="sowkiOneDriveInfo" class="sowki-onedrive-info" aria-live="polite"></p>
     ${owner?`<details class="sowki-onedrive-account"><summary>🔐 Połączenie konta właściciela</summary>
       <div class="sowki-onedrive-actions">
@@ -6393,11 +6412,17 @@ async function sowkiOneDriveMount(){
         <button type="button" id="sowkiOneDriveTest">🔄 Testuj połączenie</button>
       </div></details>`:''}
     <div id="sowkiOneDriveUploadArea" ${status.connected?'':'hidden'}>
-      <label for="sowkiOneDriveAlbum">📁 Wybierz folder zdjęć</label>
+      <label for="sowkiOneDriveAlbum">📁 Wybierz album</label>
       <div class="sowki-onedrive-folder-row"><select id="sowkiOneDriveAlbum" aria-label="Album do przesłania zdjęć"><option value="">Ładowanie albumów…</option></select>
         <button type="button" id="sowkiOneDriveReload" title="Odśwież foldery">↻</button></div>
-      <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Nazwa nowego albumu, np. Dzień Chłopaka" aria-label="Nazwa nowego albumu">
-        <button type="button" id="sowkiOneDriveCreate">➕ Utwórz</button></div>
+      <details class="sowki-od-create"><summary>➕ Utwórz nowy album</summary>
+        <div class="sowki-onedrive-create-row"><input type="text" id="sowkiOneDriveNewAlbum" maxlength="90" placeholder="Nazwa nowego albumu, np. Dzień Chłopaka" aria-label="Nazwa nowego albumu">
+          <button type="button" id="sowkiOneDriveCreate">➕ Utwórz</button></div></details>
+      ${owner?`<div class="sowki-od-nav" role="group" aria-label="Wybierz dział galerii">
+        <button type="button" id="sowkiOdManageTab">🛠️ Edytuj / publikuj album</button>
+        <button type="button" id="sowkiOdUploadTab">📤 Dodaj zdjęcia</button>
+      </div>`:''}
+      <div id="sowkiOneDriveUploadControls">
       <label for="sowkiOneDriveFiles">📸 Wybierz gotowe zdjęcia z telefonu lub komputera</label>
       <input type="file" id="sowkiOneDriveFiles" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif">
       <p class="sowki-onedrive-note" id="sowkiOneDriveSelected">Możesz wybrać wiele zdjęć. Limit: 60 na raz, 45 MB na zdjęcie.</p>
@@ -6405,8 +6430,9 @@ async function sowkiOneDriveMount(){
       <div id="sowkiOneDriveProgressArea" class="sowki-onedrive-progress" hidden><p id="sowkiOneDriveProgressText" aria-live="polite"></p>
         <progress id="sowkiOneDriveProgress" max="100" value="0"></progress></div>
       <div id="sowkiOneDriveResult" role="status" class="sowki-onedrive-result" aria-live="polite"></div>
+      </div>
     </div>
-    <p class="sowki-onedrive-note">Folder OneDrive: <b>Sówki / 01_DO_WERYFIKACJI</b>. Z panelu nie można usuwać plików ani publikować ich rodzicom. Podczas wysyłania nie zamykaj aplikacji.</p>`;
+    <p class="sowki-onedrive-note">📁 Pliki źródłowe i gotowe zdjęcia są przechowywane wyłącznie na OneDrive. Album można edytować również po publikacji.</p>`;
   editor.prepend(box);
   const info=box.querySelector('#sowkiOneDriveInfo');
   const setInfo=t=>{info.textContent=t;};
@@ -6509,6 +6535,26 @@ async function sowkiOneDriveMount(){
   await refreshAlbums();
   if(owner && typeof window.sowkiOneDriveModerationMount === "function"){
     void window.sowkiOneDriveModerationMount(box,select);
+  }
+  const uploadControls=box.querySelector('#sowkiOneDriveUploadControls');
+  if(owner){
+    const manageTab=box.querySelector('#sowkiOdManageTab');
+    const uploadTab=box.querySelector('#sowkiOdUploadTab');
+    const switchView=(view)=>{
+      if(!box.isConnected)return;
+      const manage=view==='manage';
+      manageTab.classList.toggle('sowki-od-active',manage);
+      uploadTab.classList.toggle('sowki-od-active',!manage);
+      manageTab.setAttribute('aria-pressed',String(manage));
+      uploadTab.setAttribute('aria-pressed',String(!manage));
+      uploadControls.hidden=manage;
+      const moderate=box.querySelector('.sowki-gallery-mod');
+      if(moderate)moderate.hidden=!manage;
+      if(manage&&moderate)moderate.dispatchEvent(new Event('sowki:show-manager'));
+    };
+    manageTab.onclick=()=>switchView('manage');
+    uploadTab.onclick=()=>switchView('upload');
+    switchView('manage');
   }
 }
 

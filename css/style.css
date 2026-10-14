@@ -6632,3 +6632,19 @@ body.sowki-od-lock{overflow:hidden!important}
 #galleryAlbums .sowki-od-event-title{font-size:clamp(17px,3.7vw,27px);line-height:1.18;overflow-wrap:anywhere;max-width:100%}
 #galleryAlbums .sowki-od-empty-event{font-size:13px;color:#675a64;border-top:1px solid #f1d4e3;margin:13px 0 2px;padding-top:12px}
 @media(max-width:540px){#panel .sowki-cover-upload-area{padding:11px}#galleryAlbums .sowki-od-album .sowki-od-event-cover{min-height:155px}}
+
+/* v0.8.31 – jeden panel albumów zamiast dublujących się formularzy. */
+#panel .sowki-legacy-gallery-details{margin:12px 0 22px;padding:10px 12px;border:1px solid #e4dce6;border-radius:13px;background:#fffafc}
+#panel .sowki-legacy-gallery-details>summary{cursor:pointer;font-size:13px;font-weight:700;color:#805570;padding:8px 4px}
+#panel .sowki-legacy-gallery-details .admin-content-manager{margin-top:14px}
+#panel .sowki-od-create{margin:10px 0;border:1px solid #e3d7e1;padding:10px 12px;border-radius:12px;background:#fff}
+#panel .sowki-od-create>summary{cursor:pointer;font-size:13px;font-weight:700;color:#ae1553}
+#panel .sowki-od-create .sowki-onedrive-create-row{margin-top:10px}
+#panel .sowki-od-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 10px}
+#panel .sowki-od-nav button{min-width:0;white-space:normal;min-height:46px}
+#panel .sowki-od-nav button.sowki-od-active{background:#d81b60;color:#fff;border-color:#d81b60}
+#panel .sowki-mod-photo-details{border:1px solid #d9e3f4;border-radius:12px;background:#fff;margin-top:14px;padding:12px}
+#panel .sowki-mod-photo-details>summary{cursor:pointer;font-weight:750;color:#aa1354;padding:7px 2px}
+#panel .sowki-mod-photo-details[open]>summary{margin-bottom:12px}
+#panel .sowki-onedrive-beta [hidden],#panel .sowki-gallery-mod[hidden]{display:none!important}
+@media(max-width:540px){#panel .sowki-od-nav{grid-template-columns:1fr}}

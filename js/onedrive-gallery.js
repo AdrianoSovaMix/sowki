@@ -45,12 +45,15 @@ async function prepareAlbumCover(file){
 window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   if(!box?.isConnected)return;
   const section=elt('section','sowki-gallery-mod');
-  section.innerHTML=`<div class="sowki-mod-title"><h3>🛡️ Galeria 2.0 – moderacja właściciela <span class="sowki-onedrive-pill">BETA</span></h3>
-    <p>Tylko Ty widzisz oryginały. Przygotowane kopie JPG pozostają na OneDrive. <b>Bez Twojego zatwierdzenia nic nie będzie widoczne rodzicom.</b></p></div>
-    <div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh">🔍 Pokaż zdjęcia z wybranego albumu</button>
-    <span class="sowki-mod-summary" aria-live="polite"></span></div>
-    <div class="sowki-mod-list"></div><div class="sowki-mod-editor" hidden></div>
-    <div class="sowki-mod-ready"></div><div class="sowki-mod-album-settings"></div>`;
+  section.innerHTML=`<div class="sowki-mod-title"><h3>🛠️ Edycja i publikacja albumu</h3>
+    <p>Możesz poprawiać tytuł, opis, datę i okładkę również po opublikowaniu. Zmiany widoczne będą po zapisaniu.</p></div>
+    <div class="sowki-mod-album-settings"></div>
+    <details class="sowki-mod-photo-details"><summary>📷 Przygotuj, sprawdź i zatwierdź zdjęcia</summary>
+      <div class="sowki-mod-controls"><button type="button" class="sowki-mod-refresh">🔄 Odśwież zdjęcia w albumie</button>
+      <span class="sowki-mod-summary" aria-live="polite"></span></div>
+      <div class="sowki-mod-list"></div><div class="sowki-mod-editor" hidden></div>
+      <div class="sowki-mod-ready"></div>
+    </details>`;
   box.append(section);
   const summary=section.querySelector('.sowki-mod-summary');
   const photos=section.querySelector('.sowki-mod-list');
@@ -58,12 +61,29 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
   const ready=section.querySelector('.sowki-mod-ready');
   const settings=section.querySelector('.sowki-mod-album-settings');
   const refresh=section.querySelector('.sowki-mod-refresh');
-  let chosenAlbum='';let busy=false;
+  let chosenAlbum='';let busy=false;let queued=false;
+  // Po zmianie albumu od razu pokaż metadane — bez szukania przycisku pod zdjęciami.
+  let metadataRequest=0;
+  async function loadDetails(){
+    const request=++metadataRequest,id=albumSelect.value;
+    settings.replaceChildren();
+    if(!id){settings.append(elt('p','','Wybierz album powyżej.'));return;}
+    settings.append(elt('p','','Wczytuję ustawienia albumu…'));
+    try{
+      const data=await invoke('moderation_album_get',{album_id:id});
+      if(request===metadataRequest&&albumSelect.value===id&&section.isConnected){
+        renderAlbumSettings(data,id);
+      }
+    }catch(e){if(request===metadataRequest&&section.isConnected){settings.textContent='⚠️ '+errText(e);}}
+  }
   const setMsg=(txt)=>{summary.textContent=txt;};
   function clear(){photos.replaceChildren();ready.replaceChildren();settings.replaceChildren();editor.replaceChildren();editor.hidden=true;}
   async function load(){
-    if(busy)return;
-    const id=albumSelect.value;clear();chosenAlbum=id;
+    if(busy){queued=true;return;}
+    const id=albumSelect.value;
+    // Nie usuwamy formularza edycji podczas odświeżania fotografii.
+    photos.replaceChildren();ready.replaceChildren();editor.replaceChildren();editor.hidden=true;
+    chosenAlbum=id;
     if(!id){setMsg('Najpierw wybierz album.');return;}
     busy=true;refresh.disabled=true;setMsg('Pobieram listę zdjęć z OneDrive…');
     try{
@@ -118,19 +138,28 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
           actions.append(preview,publish);row.append(main,actions);ready.append(row);
         }
       }
-      const details=await invoke('moderation_album_get',{album_id:id});
-      if(chosenAlbum===id)renderAlbumSettings(details,id);
+      await loadDetails();
     }catch(e){setMsg('⚠️ '+errText(e));}
-    finally{busy=false;refresh.disabled=false;}
+    finally{
+      busy=false;refresh.disabled=false;
+      if(queued){queued=false;void load();}
+    }
   }
   refresh.onclick=load;
-  albumSelect.addEventListener('change',()=>{chosenAlbum='';clear();setMsg('Wybrano inny album. Kliknij „Pokaż zdjęcia”.');});
+  albumSelect.addEventListener('change',()=>{
+    chosenAlbum='';photos.replaceChildren();ready.replaceChildren();editor.replaceChildren();editor.hidden=true;
+    setMsg('Wybierz „Odśwież zdjęcia w albumie”, aby zobaczyć fotografie.');
+    void loadDetails();
+    if(section.querySelector('.sowki-mod-photo-details')?.open)void load();
+  });
+  section.addEventListener('sowki:show-manager',()=>void loadDetails());
+  if(albumSelect.value)void loadDetails();
 
   function renderAlbumSettings(info,albumId){
     settings.replaceChildren();
     const data=info.album||{};
     const card=elt('section','sowki-mod-album-card');
-    card.append(elt('h4','','🖼️ Karta wydarzenia w galerii'));
+    card.append(elt('h4','',data.published?'🟢 Edytujesz opublikowany album':'📝 Edytujesz album ukryty'));
     card.append(elt('p','sowki-mod-album-intro','Tytuł, data i opis będą widoczne tak jak w pozostałych albumach. Okładka jest opcjonalna: bez niej aplikacja wyświetli estetyczną planszę wydarzenia.'));
     const field=(label,control)=>{const lbl=elt('label','sowki-album-label',label);lbl.append(control);card.append(lbl);};
     const title=elt('input');title.type='text';title.maxLength=140;title.value=data.title||'';
