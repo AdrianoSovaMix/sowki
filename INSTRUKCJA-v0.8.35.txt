@@ -1,0 +1,1 @@
+GitHub: tylko pliki aplikacji. Wdrożenie prywatnej funkcji i SQL przed włączeniem formularza.
