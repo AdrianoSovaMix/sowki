@@ -1,4 +1,4 @@
-const C="sowki-v08364-gallery-parent-fix";const A=["./","index.html","css/style.css?v=08364galleryfix","js/config.js?v=0826","js/image-optimizer.js?v=08362heicjpeg","js/app.js?v=08364galleryfix","js/onedrive-gallery.js?v=08364galleryfix","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
+const C="sowki-v08365-gallery-parents60";const A=["./","index.html","css/style.css?v=08364galleryfix","js/config.js?v=0826","js/image-optimizer.js?v=08362heicjpeg","js/app.js?v=08364galleryfix","js/onedrive-gallery.js?v=08365parents60","manifest.webmanifest","icon-192.png","icon-512.png","favicon.png","owl-ui.svg","icons/nav/announcements.svg","icons/nav/menu.svg","icons/nav/calendar.svg","icons/nav/home.svg?v=0515","icons/nav/surveys.svg","icons/nav/gallery.svg","icons/nav/payments.svg"];
 self.addEventListener("install",e=>{
   e.waitUntil((async()=>{
     const c=await caches.open(C);

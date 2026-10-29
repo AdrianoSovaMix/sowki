@@ -724,7 +724,7 @@ function renderParentUploadCard(mount,albums,action){
     const files=elt('input','sowki-parent-upload-files');files.type='file';files.multiple=true;
     files.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,.jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.m4v,.webm';
     filesLabel.append(files);form.append(filesLabel);
-    form.append(elt('p','sowki-parent-upload-note','Jednorazowo do 10 zdjęć i 2 filmów. Zdjęcie źródłowe: do 45 MB (do OneDrive trafia JPG o maks. 20 MB). Film: do 4 GB. Przy długich nagraniach pozostaw aplikację otwartą.'));
+    form.append(elt('p','sowki-parent-upload-note','Jednorazowo do 50 zdjęć i 10 filmów (maks. 60 plików). Zdjęcie źródłowe do 45 MB (na OneDrive JPG do 20 MB). Każdy film do 10 GB. Przy długich nagraniach pozostaw aplikację otwartą; przesyłanie może potrwać długo.'));
     const rights=elt('label','sowki-parent-upload-consent');
     const check=elt('input');check.type='checkbox';
     rights.append(check,elt('span','',
@@ -737,8 +737,28 @@ function renderParentUploadCard(mount,albums,action){
     const status=elt('p','sowki-parent-upload-status','');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     form.append(submit,progress,status);dialog.append(form);document.body.append(dialog);
     let busy=false;
-    const update=()=>{submit.disabled=busy||!select.value||!check.checked||!files.files?.length;};
-    select.onchange=check.onchange=files.onchange=update;
+    const update=()=>{
+      const picked=[...(files.files||[])];
+      const videos=picked.filter(f=>/\.(mp4|mov|m4v|webm)$/i.test(f.name)).length;
+      const photos=picked.filter(f=>/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)).length;
+      submit.disabled=busy||!select.value||!check.checked||!picked.length||picked.length>60||videos>10||photos>50||videos+photos!==picked.length||
+        picked.some(f=>f.size<1||f.size>(/\.(mp4|mov|m4v|webm)$/i.test(f.name)?10*1024**3:45*1024**2));
+    };
+    const showFileCount=()=>{
+      const chosen=[...(files.files||[])];
+      const videoCount=chosen.filter(f=>/\.(mp4|mov|m4v|webm)$/i.test(f.name)).length;
+      const photoCount=chosen.filter(f=>/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)).length;
+      const invalidCount=chosen.length-photoCount-videoCount;
+      const tooMany=chosen.length>60||photoCount>50||videoCount>10;
+      if(chosen.length){
+        status.textContent=`Wybrano: ${photoCount}/50 zdjęć, ${videoCount}/10 filmów (łącznie ${chosen.length}/60).`+
+          (tooMany?' ⚠️ Przekroczono limit jednorazowego wyboru.':'')+
+          (invalidCount?' ⚠️ Nieobsługiwany format pliku.':'');
+      }else status.textContent='';
+      update();
+    };
+    select.onchange=check.onchange=update;
+    files.onchange=showFileCount;
     const dismiss=()=>{if(busy)return;dialog.close();dialog.remove();};
     close.onclick=dismiss;dialog.addEventListener('cancel',ev=>{ev.preventDefault();dismiss();});
     dialog.showModal();
@@ -750,11 +770,11 @@ function renderParentUploadCard(mount,albums,action){
       };
       const videos=selected.filter(f=>classify(f)==='video');
       const photos=selected.filter(f=>classify(f)==='photo');
-      if(!selected.length||selected.length>12||videos.length>2||photos.length>10||videos.length+photos.length!==selected.length){
-        status.textContent='⚠️ Możesz wybrać maksymalnie 10 zdjęć i 2 filmy jednocześnie.';return;
+      if(!selected.length||selected.length>60||videos.length>10||photos.length>50||videos.length+photos.length!==selected.length){
+        status.textContent='⚠️ Możesz wybrać maksymalnie 50 zdjęć i 10 filmów jednocześnie (łącznie do 60 plików).';return;
       }
-      if(selected.some(f=>f.size<1||f.size>(classify(f)==='video'?4*1024*1024*1024:45*1024*1024))){
-        status.textContent='⚠️ Maksymalny rozmiar pliku źródłowego: zdjęcie 45 MB, film 4 GB.';return;
+      if(selected.some(f=>f.size<1||f.size>(classify(f)==='video'?10*1024*1024*1024:45*1024*1024))){
+        status.textContent='⚠️ Maksymalny rozmiar pliku źródłowego: zdjęcie 45 MB, każdy film 10 GB.';return;
       }
       if(!check.checked)return;
       busy=true;update();close.disabled=true;select.disabled=true;files.disabled=true;check.disabled=true;
@@ -781,7 +801,7 @@ function renderParentUploadCard(mount,albums,action){
             const url=goodUrl(session.upload_url);
             if(!url)throw Error('Nie udało się rozpocząć przesyłania.');
             currentStage='przesyłanie pliku na OneDrive';
-            let last=null;const step=type==='video'?2621440:5242880; // wielokrotność 320 KiB wg Microsoft
+            let last=null;const step=type==='video'?10485760:5242880; // filmy: 10 MiB (32×320 KiB), zdjęcia: 5 MiB
             for(let from=0;from<payload.size;from+=step){
               const end=Math.min(payload.size,from+step);
               let done=false;

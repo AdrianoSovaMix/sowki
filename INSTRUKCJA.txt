@@ -1,49 +1,36 @@
-SÓWKI v0.8.36.4 — POPRAWKA WYSYŁANIA RODZICÓW I ODŚWIEŻANIA GALERII
+SÓWKI v0.8.36.5 — 50 ZDJĘĆ + 10 FILMÓW RODZICÓW
 
-PRZYCZYNA WYSYŁANIA:
-- Administrator tworzył sesję OneDrive z minimalnym JSON.
-- Rodzic używał dodatkowego item.fileSize, odrzucanego przez niektóre konta OneDrive Personal (400 invalidRequest).
-- Ujednolicono żądanie rodzica z działającym wariantem administratora; pozostają walidacja limitu po stronie Supabase i kontrola faktycznego rozmiaru po przesłaniu.
-- Nieudana operacja Graph nie zajmuje już rezerwacji limitu rodzica.
+NOWE LIMITY JEDNORAZOWE:
+- do 50 zdjęć z telefonu (maks. 45 MiB źródło, przygotowany JPG maks. 20 MiB);
+- do 10 filmów (maks. 10 GiB każdy);
+- łącznie do 60 plików w jednym wyborze.
+- pozostają status postępu i potwierdzenie weryfikacji; nigdy automatyczna publikacja.
+- wybranie 60 plików nie gwarantuje automatycznego dokończenia po zamknięciu aplikacji.
 
-PRZYCZYNA PRZEŁADOWYWANIA:
-- ECO Live co kilka minut lub przy przywróceniu aktywnej karty sprawdzało sesję galerii i OD NOWA renderowało wszystkie albumy.
-- Teraz ECO Live sprawdza ważność sesji bez niszczenia widoku, a albumy można odświeżyć ręcznie przyciskiem "Odśwież albumy".
-- Automatyczna aktualizacja PWA nie przeładuje aplikacji, gdy aktywna jest galeria.
-- Pobieranie miniaturek okładek przetwarzane jest równolegle po 3 albumy, bez niekontrolowanej równoległości.
+INSTALACJA: SUPABASE NAJPIERW, GITHUB PÓŹNIEJ.
+1. Wykonaj kopię istniejącej funkcji i repozytorium.
+2. Przed GitHub wykonaj instrukcję w paczce PRYWATNE (SQL + funkcja).
+   Zmienia limit kolumny z 4 GiB do 10 GiB i funkcję rezerwacji, bez kasowania danych.
+3. Supabase Edge Functions -> sowki-onedrive -> Code: cały index.ts z tej paczki -> Deploy.
+   Nie zmieniaj Verify JWT (dotychczas OFF), OAuth ani sekretów.
+   SOWKI_PARENT_UPLOADS_ENABLED musi mieć wartość true.
+4. GitHub: z paczki AKTUALIZACJA wgraj: index.html, sw.js, js/onedrive-gallery.js.
+   Zachowaj strukturę katalogów; nie wgrywaj SQL ani prywatnej funkcji na GitHub.
+5. Test: najpierw 1 zdjęcie i 1 krótki film, potem 2–3 filmy i większy zestaw.
+   Potwierdź pliki w folderze 01_DO_WERYFIKACJI na OneDrive.
 
-INSTALACJA — ZACHOWAJ KOLEJNOŚĆ
-1. Zapisz kopię aktualnego kodu Edge Function sowki-onedrive i kopię repozytorium GitHub.
-2. SUPABASE SQL Editor: uruchom 09_ZWOLNIENIE_REZERWACJI_RODZICOW.sql.
-   Dodaje wyłącznie uprawnienie DELETE dla service_role, aby funkcja mogła
-   zwolnić nieudaną rezerwację. Nie usuwa żadnych danych.
-3. SUPABASE: Edge Functions -> sowki-onedrive -> Code: wklej cały plik
-   supabase/functions/sowki-onedrive/index.ts z paczki PRYWATNE i wybierz Deploy.
-   Verify JWT with legacy secret nadal OFF tylko dla tej funkcji (OAuth callback).
-   Nie zmieniaj sekretów ani połączenia Microsoft.
-4. GITHUB: rozpakuj paczkę GITHUB AKTUALIZACJA. Prześlij pliki:
-   index.html
-   sw.js
-   js/app.js
-   js/onedrive-gallery.js
-   css/style.css
-   zachowując ścieżki. Nie wgrywaj pliku INSTRUKCJA do repozytorium.
-5. Po zakończeniu GitHub Actions zamknij kartę/aplikację i otwórz ponownie.
-6. Test: w widoku rodzica z aktualnym hasłem galerii wybierz opublikowany album
-   i JEDEN neutralny JPG. Potwierdzenie powinno pokazać 1/1.
-   Sprawdź faktyczną obecność pliku w Sówki/01_DO_WERYFIKACJI/[album].
-   Potem sprawdź HEIC i dopiero filmy.
-7. Test szybkości: pozostaw otwartą galerię ponad 5 minut; lista albumów
-   NIE powinna sama znikać ani się przerysowywać.
+DLACZEGO NOWY SQL JEST KONIECZNY:
+Poprzedni limit bazy wynosił 4 GiB na plik, maks. 2 filmy i 30 plików
+na urządzenie/dobę, oraz 8 GiB łącznego dziennego limitu galerii.
+Bez SQL formularz dopuściłby 10 filmów, ale baza odrzuciłaby rezerwacje.
+Teraz dzienne bezpieczniki: 60 plików, 10 filmów i 110 GiB na urządzenie;
+cała galeria 1000 plików, 100 filmów, 1 TiB na dobę.
 
-WAŻNE
-- Nie testuj na zdjęciach dzieci przed potwierdzeniem poprawności przesyłania.
-- Oryginały i kopie pozostają na OneDrive. NIE korzystamy z R2.
-- Foldery, publikacja, hasła, mozaika i filmy administratora nie były modyfikowane.
-- Microsoft Graph upload session jest preautoryzowanym adresem: nie ujawniaj go.
-- Gdy OneDrive nie respektuje item.fileSize, technicznie nie gwarantujemy twardego
-  limitu wielkości samym uploadUrl; aplikacja i potwierdzenie w Supabase pilnują
-  limitu i rozmiaru. Funkcja służy zamkniętej społeczności z hasłem galerii.
-- Testy lokalne: parser TS, node --check JS, inspekcja struktur zip.
-- Brak możliwości testu live z kontem Microsoft użytkownika; wyniki testowe
-  na produkcyjnym OneDrive wymagają potwierdzenia po instalacji.
+BEZPIECZEŃSTWO I OGRANICZENIA:
+- Rodzic nadal musi odblokować Galerię hasłem; pliki w prywatnej kolejce.
+- Duże pliki transferowane bezpośrednio na OneDrive w fragmentach 10 MiB.
+- Wysyłanie jest sekwencyjne i może trwać godziny; nie zamykaj aplikacji.
+- Nie ma wznowienia całej kolejki po zamknięciu karty, nie obiecujemy background upload.
+- 10 filmów x 10 GiB to 100 GiB na jednym urządzeniu, wymaga wolnego miejsca na OneDrive.
+- Należy przetestować realny upload, nie wykonywano go na Twoim koncie.
+- 10 GiB = 10 737 418 240 bajtów. Potoczny komunikat w aplikacji: 10 GB.
