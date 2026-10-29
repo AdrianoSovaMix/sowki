@@ -1,11 +1,49 @@
-Sówki v0.8.36.3 — diagnostyka przekazywania zdjęć i filmów od rodziców.
+SÓWKI v0.8.36.4 — POPRAWKA WYSYŁANIA RODZICÓW I ODŚWIEŻANIA GALERII
 
-1. Na początku sprawdź, czy w Supabase Secrets: SOWKI_PARENT_UPLOADS_ENABLED = true.
-2. Utwórz kopię aktualnej funkcji sowki-onedrive.
-3. Wdróż supabase/functions/sowki-onedrive/index.ts (verify JWT pozostaje OFF tylko dla tej funkcji).
-4. Wgraj pliki index.html, sw.js, js/onedrive-gallery.js z paczki GITHUB.
-5. Zrób próbę JPG na koncie rodzica i odczytaj KONKRETNY komunikat z formularza.
-6. Gdy serwer zgłosi GRAPH_UPLOAD_SESSION lub DAILY_LIMIT_OR_RPC, zobacz Supabase Edge Functions > sowki-onedrive > Logs.
-Nie publikuj tych paczek z prywatnym kodem w GitHub. Nie ma nowego SQL.
-Paczka nie zmienia dotychczasowego przepływu wysyłania na OneDrive, tylko diagnostykę błędów.
-Nie ujawniaj identyfikatorów sesji uploadUrl ani tokenów.
+PRZYCZYNA WYSYŁANIA:
+- Administrator tworzył sesję OneDrive z minimalnym JSON.
+- Rodzic używał dodatkowego item.fileSize, odrzucanego przez niektóre konta OneDrive Personal (400 invalidRequest).
+- Ujednolicono żądanie rodzica z działającym wariantem administratora; pozostają walidacja limitu po stronie Supabase i kontrola faktycznego rozmiaru po przesłaniu.
+- Nieudana operacja Graph nie zajmuje już rezerwacji limitu rodzica.
+
+PRZYCZYNA PRZEŁADOWYWANIA:
+- ECO Live co kilka minut lub przy przywróceniu aktywnej karty sprawdzało sesję galerii i OD NOWA renderowało wszystkie albumy.
+- Teraz ECO Live sprawdza ważność sesji bez niszczenia widoku, a albumy można odświeżyć ręcznie przyciskiem "Odśwież albumy".
+- Automatyczna aktualizacja PWA nie przeładuje aplikacji, gdy aktywna jest galeria.
+- Pobieranie miniaturek okładek przetwarzane jest równolegle po 3 albumy, bez niekontrolowanej równoległości.
+
+INSTALACJA — ZACHOWAJ KOLEJNOŚĆ
+1. Zapisz kopię aktualnego kodu Edge Function sowki-onedrive i kopię repozytorium GitHub.
+2. SUPABASE SQL Editor: uruchom 09_ZWOLNIENIE_REZERWACJI_RODZICOW.sql.
+   Dodaje wyłącznie uprawnienie DELETE dla service_role, aby funkcja mogła
+   zwolnić nieudaną rezerwację. Nie usuwa żadnych danych.
+3. SUPABASE: Edge Functions -> sowki-onedrive -> Code: wklej cały plik
+   supabase/functions/sowki-onedrive/index.ts z paczki PRYWATNE i wybierz Deploy.
+   Verify JWT with legacy secret nadal OFF tylko dla tej funkcji (OAuth callback).
+   Nie zmieniaj sekretów ani połączenia Microsoft.
+4. GITHUB: rozpakuj paczkę GITHUB AKTUALIZACJA. Prześlij pliki:
+   index.html
+   sw.js
+   js/app.js
+   js/onedrive-gallery.js
+   css/style.css
+   zachowując ścieżki. Nie wgrywaj pliku INSTRUKCJA do repozytorium.
+5. Po zakończeniu GitHub Actions zamknij kartę/aplikację i otwórz ponownie.
+6. Test: w widoku rodzica z aktualnym hasłem galerii wybierz opublikowany album
+   i JEDEN neutralny JPG. Potwierdzenie powinno pokazać 1/1.
+   Sprawdź faktyczną obecność pliku w Sówki/01_DO_WERYFIKACJI/[album].
+   Potem sprawdź HEIC i dopiero filmy.
+7. Test szybkości: pozostaw otwartą galerię ponad 5 minut; lista albumów
+   NIE powinna sama znikać ani się przerysowywać.
+
+WAŻNE
+- Nie testuj na zdjęciach dzieci przed potwierdzeniem poprawności przesyłania.
+- Oryginały i kopie pozostają na OneDrive. NIE korzystamy z R2.
+- Foldery, publikacja, hasła, mozaika i filmy administratora nie były modyfikowane.
+- Microsoft Graph upload session jest preautoryzowanym adresem: nie ujawniaj go.
+- Gdy OneDrive nie respektuje item.fileSize, technicznie nie gwarantujemy twardego
+  limitu wielkości samym uploadUrl; aplikacja i potwierdzenie w Supabase pilnują
+  limitu i rozmiaru. Funkcja służy zamkniętej społeczności z hasłem galerii.
+- Testy lokalne: parser TS, node --check JS, inspekcja struktur zip.
+- Brak możliwości testu live z kontem Microsoft użytkownika; wyniki testowe
+  na produkcyjnym OneDrive wymagają potwierdzenia po instalacji.

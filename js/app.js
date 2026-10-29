@@ -5318,6 +5318,16 @@ function renderProtectedGallery(rows){
   // Stary system kart gallery_albums jest wyłączony w UI.
   // Nowa galeria jest jedynym źródłem wydarzeń i zdjęć.
   updatePublicHtml("#galleryAlbums",'<p class="sowki-od-loading">📸 Wczytuję galerię…</p>');
+  // Galerię odświeżamy WYŁĄCZNIE po decyzji rodzica, nie co 5 minut.
+  // Nie niszczymy okien przesyłania ani widoku albumu podczas przeglądania.
+  const refresh=document.createElement('button');
+  refresh.type='button';refresh.className='sowki-od-refresh-albums';
+  refresh.textContent='↻ Odśwież albumy';
+  refresh.addEventListener('click',()=>{
+    if(document.querySelector('.sowki-parent-upload-dialog[open],.sowki-od-album-modal'))return;
+    renderProtectedGallery([]);
+  });
+  albums.append(refresh);
   if(typeof window.sowkiOneDrivePublicMount === "function")void window.sowkiOneDrivePublicMount();
 }
 
@@ -5939,7 +5949,9 @@ async function sowkiEcoRefreshGallery(){
     const result=await privateAccessRequest("gallery",{token:session.token});
     if(result?.ok){
       savePrivateAccessSession("gallery",result);
-      renderProtectedGallery(result.payload?.albums||[]);
+      // ECO: przedłużamy/validujemy sesję, ale NIE renderujemy ponownie
+      // albumów po focusie lub 5-minutowym fallbacku.
+      // Rodzic może ręcznie użyć przycisku „Odśwież albumy”.
       sowkiEcoLastFetch.set("gallery",Date.now());
     }else if(result?.code==="expired_token"){
       clearPrivateAccessSession("gallery");
@@ -6031,6 +6043,9 @@ function sowkiEcoStopRealtime(){
   }
 }
 function sowkiEcoSafeReload(){
+  // NIGDY nie restartuj aplikacji podczas przeglądania galerii ani uploadu.
+  // Na iPhone focus/visibilitychange potrafi się wywołać po wyborze plików.
+  if(q("#gallery")?.classList.contains("active"))return false;
   if(document.querySelector("dialog[open]"))return false;
   const field=document.activeElement;
   if(field&&field.matches('input:not([type="button"]),textarea,[contenteditable="true"],select,iframe'))return false;
