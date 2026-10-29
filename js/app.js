@@ -6571,12 +6571,24 @@ async function sowkiOneDriveMount(){
     const files=[...fileInput.files],albumId=select.value;if(!albumId||!files.length)return;
     busy=true;[select,fileInput,upload,reload,create,folderName].forEach(e=>e.disabled=true);
     progressArea.hidden=false;result.textContent='';progress.value=0;
-    let success=0;const failures=[];const total=files.reduce((n,f)=>n+f.size,0);let committed=0;
+    let success=0;const failures=[];let savedBytes=0,optimizedPhotos=0;
+    const total=files.reduce((n,f)=>n+f.size,0);let committed=0;
     for(let i=0;i<files.length;i++){
       const file=files[i];
       const update=sent=>{const pct=Math.min(100,Math.floor((committed+sent)/Math.max(1,total)*100));progress.value=pct;progressText.textContent=`${i+1}/${files.length} • ${file.name} • ${pct}%`;};
-      try{update(0);const response=/\.(mp4|mov|m4v|webm)$/i.test(file.name)?
-        await sowkiOneDriveSendVideo(file,albumId,update):await sowkiOneDriveSendFile(file,albumId,update);
+      try{
+        update(0);
+        const video=/\.(mp4|mov|m4v|webm)$/i.test(file.name);
+        let prepared=file;
+        if(!video){
+          progressText.textContent=`${i+1}/${files.length} • Optymalizuję ${file.name} (pełna rozdzielczość)…`;
+          const result=await window.sowkiPreparePhotoForUpload(file,{maxBytes:45*1024*1024});
+          prepared=result.file;
+          if(result.changed){optimizedPhotos++;savedBytes+=Math.max(0,file.size-prepared.size);}
+        }
+        const response=video?
+          await sowkiOneDriveSendVideo(prepared,albumId,update):
+          await sowkiOneDriveSendFile(prepared,albumId,(sent)=>update(Math.round(sent/prepared.size*file.size)));
         if(!response.verified)failures.push(`${file.name}: brak potwierdzenia zapisu`);else success++;}
       catch(e){failures.push(`${file.name}: ${e.message}`);}committed+=file.size;
       progress.value=Math.floor(committed/Math.max(1,total)*100);
@@ -6584,6 +6596,9 @@ async function sowkiOneDriveMount(){
     progressText.textContent='Wysyłanie zakończone.';result.replaceChildren();
     const p=document.createElement('p');p.textContent=`${failures.length?'⚠️':'✅'} Przesłano ${success}/${files.length} plików.`;result.append(p);
     if(failures.length){const ul=document.createElement('ul');failures.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.append(li);});result.append(ul);}
+    if(optimizedPhotos){const stat=document.createElement('p');
+      stat.textContent=`📷 Przygotowano ${optimizedPhotos} zdjęć jako JPG bez zmiany wymiarów.${savedBytes>0?' Oszczędzono '+sowkiOneDrivePrettySize(savedBytes)+'.':''}`;
+      result.append(stat);}
     if(!failures.length){fileInput.value='';const tip=document.createElement('p');tip.textContent=owner?'Następny krok: utwórz kartę albumu (etap 2). Oryginalne filmy właściciel montuje poza aplikacją.':'Zdjęcia i filmy oczekują na weryfikację właściciela.';result.append(tip);}
     busy=false;[select,fileInput,reload,create,folderName].forEach(e=>e.disabled=false);validateSelection();
   };

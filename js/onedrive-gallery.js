@@ -504,7 +504,9 @@ window.sowkiOneDriveModerationMount=async function(box,albumSelect){
     try{
       const result=await invoke('moderation_source',{album_id:albumId,item_id:file.id});
       const blob=await imgBlob(result.url);
-      tempUrl=URL.createObjectURL(blob);
+      status.textContent='Otwieram zdjęcie i przygotowuję podgląd…';
+      const compatible=await window.sowkiDecodePhotoForEditor(blob,file.name);
+      tempUrl=URL.createObjectURL(compatible);
       const image=new Image();image.src=tempUrl;await image.decode();
       if(!image.naturalWidth||!image.naturalHeight)throw new Error('Ten format zdjęcia nie jest obsługiwany w tej przeglądarce. Możesz skonwertować go do JPG.');
       const canvas=elt('canvas','sowki-mod-canvas');
@@ -722,7 +724,7 @@ function renderParentUploadCard(mount,albums,action){
     const files=elt('input','sowki-parent-upload-files');files.type='file';files.multiple=true;
     files.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,.jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.m4v,.webm';
     filesLabel.append(files);form.append(filesLabel);
-    form.append(elt('p','sowki-parent-upload-note','Jednorazowo do 10 zdjęć i 2 filmów. Zdjęcie: do 20 MB. Film: do 4 GB. Przy długich nagraniach pozostaw aplikację otwartą.'));
+    form.append(elt('p','sowki-parent-upload-note','Jednorazowo do 10 zdjęć i 2 filmów. Zdjęcie źródłowe: do 45 MB (do OneDrive trafia JPG o maks. 20 MB). Film: do 4 GB. Przy długich nagraniach pozostaw aplikację otwartą.'));
     const rights=elt('label','sowki-parent-upload-consent');
     const check=elt('input');check.type='checkbox';
     rights.append(check,elt('span','',
@@ -751,32 +753,40 @@ function renderParentUploadCard(mount,albums,action){
       if(!selected.length||selected.length>12||videos.length>2||photos.length>10||videos.length+photos.length!==selected.length){
         status.textContent='⚠️ Możesz wybrać maksymalnie 10 zdjęć i 2 filmy jednocześnie.';return;
       }
-      if(selected.some(f=>f.size<1||f.size>(classify(f)==='video'?4*1024*1024*1024:20*1024*1024))){
-        status.textContent='⚠️ Maksymalny rozmiar: zdjęcie 20 MB, film 4 GB.';return;
+      if(selected.some(f=>f.size<1||f.size>(classify(f)==='video'?4*1024*1024*1024:45*1024*1024))){
+        status.textContent='⚠️ Maksymalny rozmiar pliku źródłowego: zdjęcie 45 MB, film 4 GB.';return;
       }
       if(!check.checked)return;
       busy=true;update();close.disabled=true;select.disabled=true;files.disabled=true;check.disabled=true;
       progress.hidden=false;progress.value=0;
       const totalBytes=selected.reduce((sum,f)=>sum+f.size,0);
-      let completedBytes=0,success=0,failed=0;
+      let completedBytes=0,success=0,failed=0,photoSavedBytes=0,photoOptimized=0;
       const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       try{
         for(let i=0;i<selected.length;i++){
           const file=selected[i],type=classify(file);
           status.textContent=`⏳ Przesyłanie ${i+1}/${selected.length}: ${file.name} (${type==='video'?'film':'zdjęcie'})`;
           try{
-            const session=await action('parent_upload_begin',{album_id:select.value,name:file.name,size:file.size,media_type:type});
+            let payload=file;
+            if(type==='photo'){
+              status.textContent=`⏳ Optymalizuję ${file.name} do JPG w pełnej rozdzielczości…`;
+              const result=await window.sowkiPreparePhotoForUpload(file,{maxBytes:20*1024*1024});
+              payload=result.file;
+              if(result.changed){photoOptimized++;photoSavedBytes+=Math.max(0,file.size-payload.size);}
+            }
+            const session=await action('parent_upload_begin',{album_id:select.value,name:payload.name,size:payload.size,media_type:type});
             const url=goodUrl(session.upload_url);
             if(!url)throw Error('Nie udało się rozpocząć przesyłania.');
             let last=null;const step=type==='video'?2621440:5242880; // wielokrotność 320 KiB wg Microsoft
-            for(let from=0;from<file.size;from+=step){
-              const end=Math.min(file.size,from+step);
+            for(let from=0;from<payload.size;from+=step){
+              const end=Math.min(payload.size,from+step);
               let done=false;
               for(let attempt=0;attempt<3&&!done;attempt++){
                 try{
-                  last=await sowkiOneDriveUploadChunk(url,file.slice(from,end),from,file.size,
-                    sent=>{progress.value=Math.min(99,Math.floor((completedBytes+sent)/totalBytes*100));},300000);
-                  if(end<file.size&&last.status!==202)throw Error('Niepełny transfer.');
+                  last=await sowkiOneDriveUploadChunk(url,payload.slice(from,end),from,payload.size,
+                    sent=>{const equivalent=Math.round(sent/payload.size*file.size);
+                      progress.value=Math.min(99,Math.floor((completedBytes+equivalent)/totalBytes*100));},300000);
+                  if(end<payload.size&&last.status!==202)throw Error('Niepełny transfer.');
                   done=true;
                 }catch(error){
                   // Ponawiamy wyłącznie błędy sieci i tymczasowe 5xx/429.
@@ -799,7 +809,9 @@ function renderParentUploadCard(mount,albums,action){
           }
         }
         if(failed)status.textContent=`Przekazano ${success} plików. Wysyłanie zostało przerwane. Sprawdź połączenie i spróbuj ponownie z brakującymi materiałami.`;
-        else{status.textContent=`✅ Przekazano ${success} plików do sprawdzenia. Dziękujemy!`;progress.value=100;files.value='';}
+        else{status.textContent=`✅ Przekazano ${success} plików do sprawdzenia. Dziękujemy!`+
+          (photoOptimized?` Zdjęcia przygotowane jako JPG w pełnej rozdzielczości.${photoSavedBytes>0?' Oszczędzono '+(photoSavedBytes/1048576).toFixed(1).replace('.',',')+' MB.':''}`:'');
+          progress.value=100;files.value='';}
       }finally{busy=false;close.disabled=false;select.disabled=false;files.disabled=false;check.disabled=false;update();}
     };
   };
