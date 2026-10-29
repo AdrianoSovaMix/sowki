@@ -1,0 +1,11 @@
+Sówki v0.8.36.3 — diagnostyka przekazywania zdjęć i filmów od rodziców.
+
+1. Na początku sprawdź, czy w Supabase Secrets: SOWKI_PARENT_UPLOADS_ENABLED = true.
+2. Utwórz kopię aktualnej funkcji sowki-onedrive.
+3. Wdróż supabase/functions/sowki-onedrive/index.ts (verify JWT pozostaje OFF tylko dla tej funkcji).
+4. Wgraj pliki index.html, sw.js, js/onedrive-gallery.js z paczki GITHUB.
+5. Zrób próbę JPG na koncie rodzica i odczytaj KONKRETNY komunikat z formularza.
+6. Gdy serwer zgłosi GRAPH_UPLOAD_SESSION lub DAILY_LIMIT_OR_RPC, zobacz Supabase Edge Functions > sowki-onedrive > Logs.
+Nie publikuj tych paczek z prywatnym kodem w GitHub. Nie ma nowego SQL.
+Paczka nie zmienia dotychczasowego przepływu wysyłania na OneDrive, tylko diagnostykę błędów.
+Nie ujawniaj identyfikatorów sesji uploadUrl ani tokenów.

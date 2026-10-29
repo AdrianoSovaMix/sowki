@@ -761,10 +761,12 @@ function renderParentUploadCard(mount,albums,action){
       progress.hidden=false;progress.value=0;
       const totalBytes=selected.reduce((sum,f)=>sum+f.size,0);
       let completedBytes=0,success=0,failed=0,photoSavedBytes=0,photoOptimized=0;
+      let failureDescription="",failureStage="";
       const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       try{
         for(let i=0;i<selected.length;i++){
           const file=selected[i],type=classify(file);
+          let currentStage="przygotowanie pliku";
           status.textContent=`⏳ Przesyłanie ${i+1}/${selected.length}: ${file.name} (${type==='video'?'film':'zdjęcie'})`;
           try{
             let payload=file;
@@ -774,9 +776,11 @@ function renderParentUploadCard(mount,albums,action){
               payload=result.file;
               if(result.changed){photoOptimized++;photoSavedBytes+=Math.max(0,file.size-payload.size);}
             }
+            currentStage='rozpoczęcie wysyłania (Supabase/OneDrive)';
             const session=await action('parent_upload_begin',{album_id:select.value,name:payload.name,size:payload.size,media_type:type});
             const url=goodUrl(session.upload_url);
             if(!url)throw Error('Nie udało się rozpocząć przesyłania.');
+            currentStage='przesyłanie pliku na OneDrive';
             let last=null;const step=type==='video'?2621440:5242880; // wielokrotność 320 KiB wg Microsoft
             for(let from=0;from<payload.size;from+=step){
               const end=Math.min(payload.size,from+step);
@@ -798,17 +802,24 @@ function renderParentUploadCard(mount,albums,action){
               }
             }
             if(!last||![200,201].includes(last.status)||!last.data?.id)throw Error('OneDrive nie potwierdził zapisu pliku.');
+            currentStage='potwierdzenie zapisu (Supabase)';
             const confirmed=await action('parent_upload_confirm',{upload_id:session.upload_id,item_id:String(last.data.id)});
             if(!confirmed?.ok)throw Error('Nie udało się potwierdzić zapisu materiału.');
             success++;completedBytes+=file.size;
             progress.value=Math.floor(completedBytes/totalBytes*100);
           }catch(error){
-            failed++;console.warn('Sówki: przesyłanie materiału rodzica',errText(error));
-            status.textContent=`⚠️ Błąd podczas przesyłania ${file.name}: ${errText(error)}`;
+            failed++;
+            // Nie nadpisuj konkretnego błędu ogólną informacją po zakończeniu pętli.
+            // Tokeny i adresy uploadUrl nigdy nie trafiają do komunikatów lub logów.
+            const safeError=errText(error).replace(/https?:\/\/[^\s]+/gi,'[adres ukryty]');
+            failureStage=currentStage;
+            failureDescription=`${file.name}: ${safeError}`;
+            console.warn('Sówki: błąd przekazywania materiału',currentStage,safeError);
+            status.textContent=`⚠️ ${failureStage}: ${failureDescription}`;
             break; // unikamy mnożenia błędnych rezerwacji i ponownych prób pozostałych plików
           }
         }
-        if(failed)status.textContent=`Przekazano ${success} plików. Wysyłanie zostało przerwane. Sprawdź połączenie i spróbuj ponownie z brakującymi materiałami.`;
+        if(failed)status.textContent=`⚠️ Przekazano ${success}/${selected.length} plików. Problem (${failureStage}): ${failureDescription}. Nie ponawiaj wysłanych już plików.`;
         else{status.textContent=`✅ Przekazano ${success} plików do sprawdzenia. Dziękujemy!`+
           (photoOptimized?` Zdjęcia przygotowane jako JPG w pełnej rozdzielczości.${photoSavedBytes>0?' Oszczędzono '+(photoSavedBytes/1048576).toFixed(1).replace('.',',')+' MB.':''}`:'');
           progress.value=100;files.value='';}
