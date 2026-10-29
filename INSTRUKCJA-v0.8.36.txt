@@ -1,0 +1,1 @@
+GITHUB: 5 plików (index.html, css/style.css, js/app.js, js/onedrive-gallery.js, sw.js). Przed publikacją wykonaj migrację SQL i Edge Function z pakietu prywatnego.

@@ -6337,11 +6337,11 @@ function sowkiOneDrivePrettySize(bytes){
   const m=Number(bytes)/1048576;
   return m>=1?m.toFixed(1).replace('.',',')+' MB':(Number(bytes)/1024).toFixed(0)+' KB';
 }
-function sowkiOneDriveUploadChunk(uploadUrl,blob,start,total,onProgress){
+function sowkiOneDriveUploadChunk(uploadUrl,blob,start,total,onProgress,timeoutMs=120000){
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
     xhr.open('PUT',uploadUrl,true);
-    xhr.timeout=120000;
+    xhr.timeout=timeoutMs;
     xhr.setRequestHeader('Content-Range',`bytes ${start}-${start+blob.size-1}/${total}`);
     xhr.setRequestHeader('Content-Type','application/octet-stream');
     xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress?.(start+e.loaded);};

@@ -689,94 +689,117 @@ function autoEventCover(album){
   return cover;
 }
 
-/* Rodzic widzi tylko przekazanie zdjęć. Wszystkie zdjęcia trafiają
-   do kolejki weryfikacji 01_DO_WERYFIKACJI danego wydarzenia.
-   Weryfikacja i publikacja są wyłącznie w panelu właściciela. */
+/* Wysyłka od rodziców: zdjęcia oraz ORYGINALNE filmy do kolejki.
+ * Przekazanie NIE oznacza publikacji. Wideo podlega ręcznej obróbce właściciela.
+ * Linki sesji są przekazywane tylko na czas transferu, bez ich zapisu w cache.
+ */
 function renderParentUploadCard(mount,albums,action){
-  let card=mount.querySelector('.sowki-parent-upload-card');
-  if(card)card.remove();
-  card=elt('section','sowki-parent-upload-card');
-  card.append(elt('h3','','📸 Przekaż zdjęcia do galerii Sówek'));
+  const old=mount.querySelector('.sowki-parent-upload-card');if(old)old.remove();
+  const card=elt('section','sowki-parent-upload-card');
+  card.append(elt('h3','','📸🎬 Przekaż zdjęcia lub filmy do galerii Sówek'));
   card.append(elt('p','',
-    'Masz zdjęcia z przedszkolnego wydarzenia? Możesz przekazać je do wspólnej galerii. ' +
-    'Przesłane fotografie nie są publikowane automatycznie. Każde zdjęcie zostanie zweryfikowane, ' +
-    'a w razie potrzeby odpowiednio zanonimizowane, z uwzględnieniem deklaracji rodziców dotyczących wizerunku dzieci. ' +
-    'Do galerii trafią wyłącznie materiały dopuszczone po tej weryfikacji.'
+    'Masz zdjęcia lub nagrania z przedszkolnego wydarzenia? Przekaż je do wspólnej galerii. '+
+    'Materiały nie są publikowane automatycznie. Przed udostępnieniem zostaną sprawdzone '+
+    'z uwzględnieniem deklaracji rodziców dotyczących wizerunku dzieci. '+
+    'Zdjęcia mogą wymagać mozaiki, a filmy — osobnego montażu.'
   ));
-  const button=elt('button','primary sowki-parent-upload-open','📤 Dodaj swoje zdjęcia');button.type='button';
-  card.append(button);
-  mount.append(card);
+  const button=elt('button','primary sowki-parent-upload-open','📤 Dodaj zdjęcia lub filmy');button.type='button';
+  card.append(button);mount.append(card);
   button.onclick=()=>{
     const dialog=elt('dialog','sowki-parent-upload-dialog');
     const form=elt('div','sowki-parent-upload-inner');
     const header=elt('div','sowki-parent-upload-header');
-    header.append(elt('h2','','📸 Przekaż zdjęcia'));
+    header.append(elt('h2','','📸🎬 Przekaż zdjęcia i filmy'));
     const close=elt('button','sowki-parent-upload-close','✕');close.type='button';close.setAttribute('aria-label','Zamknij');
     header.append(close);form.append(header);
-    const intro=elt('p','','Wybierz wydarzenie, a następnie zdjęcia. Materiały trafią do weryfikacji, nie od razu do galerii.');form.append(intro);
-    const folderLabel=elt('label','sowki-parent-upload-label','Wydarzenie');
+    form.append(elt('p','','Wybierz wydarzenie i materiały z telefonu. Wszystkie trafią do weryfikacji, nie bezpośrednio do galerii.'));
+    const folderLabel=elt('label','sowki-parent-upload-label','Wybierz wydarzenie');
     const select=elt('select','sowki-parent-upload-select');
-    for(const a of albums){const opt=elt('option','',String(a.title||'Wydarzenie'));opt.value=String(a.id);select.append(opt);}
+    for(const a of albums){const option=elt('option','',String(a.title||'Wydarzenie'));option.value=String(a.id);select.append(option);}
     select.disabled=!albums.length;folderLabel.append(select);form.append(folderLabel);
-    if(!albums.length)form.append(elt('p','sowki-parent-upload-note','Aktualnie brak wydarzeń, do których można przekazać zdjęcia.'));
-    const filesLabel=elt('label','sowki-parent-upload-label','Wybierz zdjęcia (maks. 10 jednocześnie)');
+    if(!albums.length)form.append(elt('p','sowki-parent-upload-note','Aktualnie nie ma wydarzeń przyjmujących nowe zdjęcia lub filmy.'));
+    const filesLabel=elt('label','sowki-parent-upload-label','Wybierz zdjęcia i filmy');
     const files=elt('input','sowki-parent-upload-files');files.type='file';files.multiple=true;
-    files.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif';
+    files.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm,.jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.m4v,.webm';
     filesLabel.append(files);form.append(filesLabel);
-    form.append(elt('p','sowki-parent-upload-note','Obsługiwane: JPG, PNG, WebP i HEIC. Maksymalnie 20 MB na zdjęcie. Filmy nie są przyjmowane przez ten formularz.'));
+    form.append(elt('p','sowki-parent-upload-note','Jednorazowo do 10 zdjęć i 2 filmów. Zdjęcie: do 20 MB. Film: do 4 GB. Przy długich nagraniach pozostaw aplikację otwartą.'));
     const rights=elt('label','sowki-parent-upload-consent');
     const check=elt('input');check.type='checkbox';
-    rights.append(check,elt('span','','Potwierdzam, że mam prawo przekazać wybrane zdjęcia do weryfikacji przez administratora galerii. Rozumiem, że samo wysłanie nie oznacza ich publikacji.'));
+    rights.append(check,elt('span','',
+      'Potwierdzam, że mogę przekazać wybrane materiały do weryfikacji przez administratora Sówek. '+
+      'Rozumiem, że nie oznacza to automatycznej publikacji ani zgody innych osób na publikację ich wizerunku.'
+    ));
     form.append(rights);
     const submit=elt('button','primary sowki-parent-upload-submit','📤 Przekaż do weryfikacji');submit.type='button';submit.disabled=true;
     const progress=elt('progress','sowki-parent-upload-progress');progress.max=100;progress.value=0;progress.hidden=true;
-    const status=elt('p','sowki-parent-upload-status','');status.setAttribute('role','status');
+    const status=elt('p','sowki-parent-upload-status','');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     form.append(submit,progress,status);dialog.append(form);document.body.append(dialog);
     let busy=false;
     const update=()=>{submit.disabled=busy||!select.value||!check.checked||!files.files?.length;};
     select.onchange=check.onchange=files.onchange=update;
     const dismiss=()=>{if(busy)return;dialog.close();dialog.remove();};
-    close.onclick=dismiss;
-    dialog.addEventListener('cancel',ev=>{ev.preventDefault();dismiss();});
+    close.onclick=dismiss;dialog.addEventListener('cancel',ev=>{ev.preventDefault();dismiss();});
     dialog.showModal();
     submit.onclick=async()=>{
       const selected=[...(files.files||[])];
-      if(!selected.length||selected.length>10){status.textContent='⚠️ Wybierz od 1 do 10 zdjęć.';return;}
-      if(selected.some(f=>!(/\.(?:jpe?g|png|webp|heic|heif)$/i.test(f.name))||f.size<1||f.size>20*1024*1024)){
-        status.textContent='⚠️ Każde zdjęcie musi być JPG, PNG, WebP lub HEIC i mieć maksymalnie 20 MB.';return;
+      const classify=f=>{
+        const ext=(f.name.match(/\.([a-z0-9]+)$/i)?.[1]||'').toLowerCase();
+        return /^(mp4|mov|m4v|webm)$/.test(ext)?'video':/^(jpg|jpeg|png|webp|heic|heif)$/.test(ext)?'photo':null;
+      };
+      const videos=selected.filter(f=>classify(f)==='video');
+      const photos=selected.filter(f=>classify(f)==='photo');
+      if(!selected.length||selected.length>12||videos.length>2||photos.length>10||videos.length+photos.length!==selected.length){
+        status.textContent='⚠️ Możesz wybrać maksymalnie 10 zdjęć i 2 filmy jednocześnie.';return;
+      }
+      if(selected.some(f=>f.size<1||f.size>(classify(f)==='video'?4*1024*1024*1024:20*1024*1024))){
+        status.textContent='⚠️ Maksymalny rozmiar: zdjęcie 20 MB, film 4 GB.';return;
       }
       if(!check.checked)return;
       busy=true;update();close.disabled=true;select.disabled=true;files.disabled=true;check.disabled=true;
       progress.hidden=false;progress.value=0;
-      let success=0;let fail=0;
+      const totalBytes=selected.reduce((sum,f)=>sum+f.size,0);
+      let completedBytes=0,success=0,failed=0;
+      const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       try{
         for(let i=0;i<selected.length;i++){
-          const file=selected[i];
-          status.textContent=`Przesyłanie ${i+1}/${selected.length}: ${file.name}`;
+          const file=selected[i],type=classify(file);
+          status.textContent=`⏳ Przesyłanie ${i+1}/${selected.length}: ${file.name} (${type==='video'?'film':'zdjęcie'})`;
           try{
-            const session=await action('parent_upload_begin',{album_id:select.value,name:file.name,size:file.size});
+            const session=await action('parent_upload_begin',{album_id:select.value,name:file.name,size:file.size,media_type:type});
             const url=goodUrl(session.upload_url);
             if(!url)throw Error('Nie udało się rozpocząć przesyłania.');
-            let last=null;const step=5*1024*1024;
+            let last=null;const step=type==='video'?2621440:5242880; // wielokrotność 320 KiB wg Microsoft
             for(let from=0;from<file.size;from+=step){
               const end=Math.min(file.size,from+step);
-              last=await sowkiOneDriveUploadChunk(url,file.slice(from,end),from,file.size,
-                sent=>{progress.value=Math.min(99,Math.round((i+sent/file.size)/selected.length*100));});
-              if(end<file.size&&last.status!==202)throw Error('Niepełny transfer.');
+              let done=false;
+              for(let attempt=0;attempt<3&&!done;attempt++){
+                try{
+                  last=await sowkiOneDriveUploadChunk(url,file.slice(from,end),from,file.size,
+                    sent=>{progress.value=Math.min(99,Math.floor((completedBytes+sent)/totalBytes*100));},300000);
+                  if(end<file.size&&last.status!==202)throw Error('Niepełny transfer.');
+                  done=true;
+                }catch(error){
+                  // Ponawiamy wyłącznie błędy sieci i tymczasowe 5xx/429.
+                  // Gdy sesja wygasła lub serwer odrzucił zakres, kończymy z komunikatem.
+                  if(attempt>=2||!/(połączenie|sieciowe|czas|timeout|\(429\)|\(5\d\d\))/i.test(String(error?.message||'')))throw error;
+                  status.textContent=`🔄 Ponawiam fragment filmu lub zdjęcia (${attempt+1}/2)…`;
+                  await pause(1200*(2**attempt));
+                }
+              }
             }
-            if(!last||![200,201].includes(last.status)||!last.data?.id)throw Error('Brak potwierdzenia zapisu.');
-            const confirmation=await action('parent_upload_confirm',{upload_id:session.upload_id,item_id:String(last.data.id)});
-            if(!confirmation?.ok)throw Error('Nie udało się potwierdzić zdjęcia.');
-            success++;
-          }catch(e){fail++;console.warn('Sówki: przekazywanie zdjęcia',errText(e));
-            status.textContent=`⚠️ Problem ze zdjęciem ${i+1}: ${errText(e)}`;
-            // Nie rozpoczynamy kolejnych przy błędzie uprawnienia/limitu.
-            break;
+            if(!last||![200,201].includes(last.status)||!last.data?.id)throw Error('OneDrive nie potwierdził zapisu pliku.');
+            const confirmed=await action('parent_upload_confirm',{upload_id:session.upload_id,item_id:String(last.data.id)});
+            if(!confirmed?.ok)throw Error('Nie udało się potwierdzić zapisu materiału.');
+            success++;completedBytes+=file.size;
+            progress.value=Math.floor(completedBytes/totalBytes*100);
+          }catch(error){
+            failed++;console.warn('Sówki: przesyłanie materiału rodzica',errText(error));
+            status.textContent=`⚠️ Błąd podczas przesyłania ${file.name}: ${errText(error)}`;
+            break; // unikamy mnożenia błędnych rezerwacji i ponownych prób pozostałych plików
           }
-          progress.value=Math.round((i+1)/selected.length*100);
         }
-        if(fail)status.textContent=`Przekazano ${success} zdjęć. Jedno przesłanie wymaga uwagi. Spróbuj ponownie z pozostałymi plikami.`;
-        else{status.textContent=`✅ Przekazano ${success} zdjęć do sprawdzenia. Dziękujemy!`;progress.value=100;files.value='';}
+        if(failed)status.textContent=`Przekazano ${success} plików. Wysyłanie zostało przerwane. Sprawdź połączenie i spróbuj ponownie z brakującymi materiałami.`;
+        else{status.textContent=`✅ Przekazano ${success} plików do sprawdzenia. Dziękujemy!`;progress.value=100;files.value='';}
       }finally{busy=false;close.disabled=false;select.disabled=false;files.disabled=false;check.disabled=false;update();}
     };
   };
